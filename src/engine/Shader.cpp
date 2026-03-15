@@ -4,8 +4,24 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <vector>
 
 #include <glm/gtc/type_ptr.hpp>
+
+namespace
+{
+  std::string NormalizeUniformName(const std::string& name)
+  {
+    const std::string arraySuffix = "[0]";
+    if (name.size() >= arraySuffix.size() &&
+        name.compare(name.size() - arraySuffix.size(), arraySuffix.size(), arraySuffix) == 0)
+    {
+      return name.substr(0, name.size() - arraySuffix.size());
+    }
+
+    return name;
+  }
+}
 
 /**
  * @brief Construct a new Shader:: Shader object
@@ -49,6 +65,7 @@ Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath)
     ID = 0;
   } else
   {
+    CacheActiveUniforms();
     std::cout << "Shader linked successfully\n";
   }
 
@@ -86,7 +103,24 @@ void Shader::Use() const
  */
 void Shader::SetBool(const std::string& name, bool value) const
 {
-  glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
+  const std::optional<UniformInfo> info = GetUniformInfo(name);
+  if (info.has_value() && !IsUniformTypeCompatible(info->type, GL_BOOL))
+  {
+    LogUniformTypeMismatch(name, info->type, GL_BOOL);
+    return;
+  }
+
+  const GLint location = info.has_value()
+    ? info->location
+    : GetUniformLocationCached(name);
+
+  if (location == -1)
+  {
+    std::cout << "Uniform '" << name << "' not found in shader " << ID << std::endl;
+    return;
+  }
+
+  glUniform1i(location, static_cast<int>(value));
 }
 
 /**
@@ -97,7 +131,24 @@ void Shader::SetBool(const std::string& name, bool value) const
  */
 void Shader::SetInt(const std::string& name, int value) const
 {
-  glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+  const std::optional<UniformInfo> info = GetUniformInfo(name);
+  if (info.has_value() && !IsUniformTypeCompatible(info->type, GL_INT))
+  {
+    LogUniformTypeMismatch(name, info->type, GL_INT);
+    return;
+  }
+
+  const GLint location = info.has_value()
+    ? info->location
+    : GetUniformLocationCached(name);
+
+  if (location == -1)
+  {
+    std::cout << "Uniform '" << name << "' not found in shader " << ID << std::endl;
+    return;
+  }
+
+  glUniform1i(location, value);
 }
 
 /**
@@ -108,7 +159,24 @@ void Shader::SetInt(const std::string& name, int value) const
  */
 void Shader::SetFloat(const std::string& name, float value) const
 {
-  glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+  const std::optional<UniformInfo> info = GetUniformInfo(name);
+  if (info.has_value() && !IsUniformTypeCompatible(info->type, GL_FLOAT))
+  {
+    LogUniformTypeMismatch(name, info->type, GL_FLOAT);
+    return;
+  }
+
+  const GLint location = info.has_value()
+    ? info->location
+    : GetUniformLocationCached(name);
+
+  if (location == -1)
+  {
+    std::cout << "Uniform '" << name << "' not found in shader " << ID << std::endl;
+    return;
+  }
+
+  glUniform1f(location, value);
 }
 
 /**
@@ -119,8 +187,25 @@ void Shader::SetFloat(const std::string& name, float value) const
  */
 void Shader::SetVec3(const std::string& name, const glm::vec3& value) const
 {
+  const std::optional<UniformInfo> info = GetUniformInfo(name);
+  if (info.has_value() && !IsUniformTypeCompatible(info->type, GL_FLOAT_VEC3))
+  {
+    LogUniformTypeMismatch(name, info->type, GL_FLOAT_VEC3);
+    return;
+  }
+
+  const GLint location = info.has_value()
+    ? info->location
+    : GetUniformLocationCached(name);
+
+  if (location == -1)
+  {
+    std::cout << "Uniform '" << name << "' not found in shader " << ID << std::endl;
+    return;
+  }
+
   glUniform3fv(
-    glGetUniformLocation(ID, name.c_str()),
+    location,
     1,
     glm::value_ptr(value)
   );
@@ -134,12 +219,49 @@ void Shader::SetVec3(const std::string& name, const glm::vec3& value) const
  */
 void Shader::SetMat4(const std::string& name, const glm::mat4& value) const
 {
-  GLint location = glGetUniformLocation(ID, name.c_str());
+  const std::optional<UniformInfo> info = GetUniformInfo(name);
+  if (info.has_value() && !IsUniformTypeCompatible(info->type, GL_FLOAT_MAT4))
+  {
+    LogUniformTypeMismatch(name, info->type, GL_FLOAT_MAT4);
+    return;
+  }
+
+  const GLint location = info.has_value()
+    ? info->location
+    : GetUniformLocationCached(name);
+
   if (location == -1) {
     std::cout << "Uniform '" << name << "' not found in shader " << ID << std::endl;
   } else {
     glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
   }
+}
+
+void Shader::SetTexture(const std::string& name, int unit) const
+{
+  SetInt(name, unit);
+}
+
+std::optional<UniformInfo> Shader::GetUniformInfo(const std::string& name) const
+{
+  const std::string normalizedName = NormalizeUniformName(name);
+  const auto it = uniformsByName.find(normalizedName);
+  if (it == uniformsByName.end())
+  {
+    return std::nullopt;
+  }
+
+  return it->second;
+}
+
+bool Shader::HasUniform(const std::string& name) const
+{
+  return GetUniformInfo(name).has_value();
+}
+
+const std::unordered_map<std::string, UniformInfo>& Shader::GetUniformInfos() const
+{
+  return uniformsByName;
 }
 
 /* --------------------------------------------------------- */
@@ -184,4 +306,143 @@ unsigned int Shader::Compile(unsigned int type, const std::string& source)
   }
 
   return shader;
+}
+
+void Shader::CacheActiveUniforms()
+{
+  uniformsByName.clear();
+  uniformLocationCache.clear();
+
+  GLint activeUniformCount = 0;
+  GLint maxUniformNameLength = 0;
+  glGetProgramiv(ID, GL_ACTIVE_UNIFORMS, &activeUniformCount);
+  glGetProgramiv(ID, GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxUniformNameLength);
+
+  if (activeUniformCount <= 0 || maxUniformNameLength <= 0)
+  {
+    return;
+  }
+
+  std::vector<char> nameBuffer(static_cast<size_t>(maxUniformNameLength));
+
+  for (GLint i = 0; i < activeUniformCount; ++i)
+  {
+    GLsizei writtenLength = 0;
+    GLint size = 0;
+    GLenum type = GL_NONE;
+
+    glGetActiveUniform(
+      ID,
+      static_cast<GLuint>(i),
+      maxUniformNameLength,
+      &writtenLength,
+      &size,
+      &type,
+      nameBuffer.data()
+    );
+
+    if (writtenLength <= 0)
+    {
+      continue;
+    }
+
+    const std::string rawName(nameBuffer.data(), static_cast<size_t>(writtenLength));
+    const std::string normalizedName = NormalizeUniformName(rawName);
+    const GLint location = glGetUniformLocation(ID, normalizedName.c_str());
+
+    uniformsByName[normalizedName] = UniformInfo{
+      normalizedName,
+      type,
+      size,
+      location
+    };
+
+    uniformLocationCache[normalizedName] = location;
+  }
+}
+
+GLint Shader::GetUniformLocationCached(const std::string& name) const
+{
+  const std::string normalizedName = NormalizeUniformName(name);
+  const auto cached = uniformLocationCache.find(normalizedName);
+  if (cached != uniformLocationCache.end())
+  {
+    return cached->second;
+  }
+
+  const GLint location = glGetUniformLocation(ID, normalizedName.c_str());
+  uniformLocationCache[normalizedName] = location;
+  return location;
+}
+
+bool Shader::IsUniformTypeCompatible(GLenum actualType, GLenum requestedType) const
+{
+  if (actualType == requestedType)
+  {
+    return true;
+  }
+
+  if (requestedType == GL_INT && IsSamplerType(actualType))
+  {
+    return true;
+  }
+
+  return false;
+}
+
+bool Shader::IsSamplerType(GLenum type) const
+{
+  switch (type)
+  {
+    case GL_SAMPLER_1D:
+    case GL_SAMPLER_2D:
+    case GL_SAMPLER_3D:
+    case GL_SAMPLER_CUBE:
+    case GL_SAMPLER_1D_SHADOW:
+    case GL_SAMPLER_2D_SHADOW:
+    case GL_SAMPLER_1D_ARRAY:
+    case GL_SAMPLER_2D_ARRAY:
+    case GL_SAMPLER_1D_ARRAY_SHADOW:
+    case GL_SAMPLER_2D_ARRAY_SHADOW:
+    case GL_SAMPLER_2D_MULTISAMPLE:
+    case GL_SAMPLER_2D_MULTISAMPLE_ARRAY:
+    case GL_SAMPLER_CUBE_SHADOW:
+    case GL_SAMPLER_BUFFER:
+    case GL_SAMPLER_2D_RECT:
+    case GL_SAMPLER_2D_RECT_SHADOW:
+    case GL_INT_SAMPLER_1D:
+    case GL_INT_SAMPLER_2D:
+    case GL_INT_SAMPLER_3D:
+    case GL_INT_SAMPLER_CUBE:
+    case GL_INT_SAMPLER_1D_ARRAY:
+    case GL_INT_SAMPLER_2D_ARRAY:
+    case GL_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
+    case GL_INT_SAMPLER_BUFFER:
+    case GL_INT_SAMPLER_2D_RECT:
+    case GL_UNSIGNED_INT_SAMPLER_1D:
+    case GL_UNSIGNED_INT_SAMPLER_2D:
+    case GL_UNSIGNED_INT_SAMPLER_3D:
+    case GL_UNSIGNED_INT_SAMPLER_CUBE:
+    case GL_UNSIGNED_INT_SAMPLER_1D_ARRAY:
+    case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
+    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
+    case GL_UNSIGNED_INT_SAMPLER_BUFFER:
+    case GL_UNSIGNED_INT_SAMPLER_2D_RECT:
+      return true;
+    default:
+      return false;
+  }
+}
+
+void Shader::LogUniformTypeMismatch(const std::string& name,
+                                    GLenum actualType,
+                                    GLenum requestedType) const
+{
+  std::cout << "Uniform type mismatch for '" << name
+            << "' in shader " << ID
+            << ". Reflected type=" << actualType
+            << ", requested setter type=" << requestedType
+            << std::endl;
 }

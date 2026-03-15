@@ -1,7 +1,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <memory>
 #include "Scene.h"
+#include "FpsCameraMovement.h"
 
 int main()
 {
@@ -26,6 +28,19 @@ int main()
 
     Scene scene;
     scene.Init();
+    scene.SetSkybox(SkyboxFaces{
+        "assets/textures/skybox/right.png",
+        "assets/textures/skybox/left.png",
+        "assets/textures/skybox/top.png",
+        "assets/textures/skybox/bottom.png",
+        "assets/textures/skybox/front.png",
+        "assets/textures/skybox/back.png"
+    });
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    scene.GetCamera().SetMoveComponent(
+        std::make_unique<FpsCameraMovement>(window)
+    );
 
     float lastTime = glfwGetTime();
 

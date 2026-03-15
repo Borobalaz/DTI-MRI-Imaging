@@ -1,28 +1,31 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <glm/glm.hpp>
 
-#include "Geometry.h"
-#include "Material.h"
+#include "Mesh.h"
+#include "IDrawable.h"
+#include "UniformProvider.h"
 
-class GameObject
+class GameObject : public UniformProvider, IDrawable
 {
 public:
   GameObject();
   ~GameObject();
 
-  void SetGeometry(std::shared_ptr<Geometry> geometry);
-  void SetMaterial(std::shared_ptr<Material> material);
+  void AddMesh(std::shared_ptr<Mesh> mesh);
 
   void Update(float deltaTime);
-  void Draw() const;
+  void Draw(const UniformProvider& frameUniforms) const override;
+  void Apply(Shader& shader) const override;
 
   glm::vec3 position;
   glm::vec3 rotation;
   glm::vec3 scale;
 
 private:
-  std::shared_ptr<Geometry> geometry;
-  std::shared_ptr<Material> material;
+  glm::mat4 BuildModelMatrix() const;
+
+  std::vector<std::shared_ptr<Mesh>> meshes;
 };

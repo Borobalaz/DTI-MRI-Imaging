@@ -2,14 +2,35 @@
 
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 normal;
+layout (location = 2) in vec2 aTexCoord;
 
-uniform mat4 model;
-out vec4 posColor;
-out vec3 fragNormal;
+struct CameraUniforms {
+  mat4 viewMatrix;
+  mat4 projectionMatrix;
+  vec3 viewPosition;
+};
+
+struct GameObjectUniforms {
+  mat4 modelMatrix;
+};
+
+uniform CameraUniforms camera;
+uniform GameObjectUniforms gameObject;
+
+out vec2 fragTexCoord;
+out vec3 fragWorldPosition;
+out vec3 fragWorldNormal;
 
 void main()
 {
-  gl_Position = model * vec4(aPos, 1.0);
-  posColor = vec4(aPos, 1.0);
-  fragNormal = normal;
+  vec4 worldPosition = gameObject.modelMatrix * vec4(aPos, 1.0);
+  mat3 normalMatrix = transpose(inverse(mat3(gameObject.modelMatrix)));
+
+  gl_Position = camera.projectionMatrix
+              * camera.viewMatrix
+              * worldPosition;
+
+  fragTexCoord = aTexCoord;
+  fragWorldPosition = vec3(worldPosition);
+  fragWorldNormal = normalize(normalMatrix * normal);
 }
