@@ -1,4 +1,4 @@
-# Connectomics-Imaging
+# OpenGLBase
 
 Base for future OpenGL projects.
 
