@@ -7,9 +7,11 @@
 #include <glm/glm.hpp>
 #include <iostream>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 #include "Scene.h"
+#include "InspectionMovement.h"
 
 namespace
 {
@@ -267,6 +269,7 @@ int main()
 
     Scene scene;
     scene.Init();
+    scene.GetCamera().SetMoveComponent(std::make_unique<InspectionMovement>(window, glm::vec3(0.0f)));
     scene.SetSkybox(SkyboxFaces{
         "assets/textures/skybox/right.png",
         "assets/textures/skybox/left.png",
