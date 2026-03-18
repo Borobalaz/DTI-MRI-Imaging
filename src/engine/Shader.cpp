@@ -323,6 +323,23 @@ void Shader::SetTexture(const std::string& name, int unit) const
   SetInt(name, unit);
 }
 
+void Shader::SetUniformUiFloatRange(const std::string& name, float minValue, float maxValue, float speed)
+{
+  const std::string normalizedName = NormalizeUniformName(name);
+  UniformUiConfig& config = uniformUiConfigs[normalizedName];
+  config.minFloat = minValue;
+  config.maxFloat = maxValue;
+  config.speed = speed;
+}
+
+void Shader::SetUniformUiIntRange(const std::string& name, int minValue, int maxValue)
+{
+  const std::string normalizedName = NormalizeUniformName(name);
+  UniformUiConfig& config = uniformUiConfigs[normalizedName];
+  config.minInt = minValue;
+  config.maxInt = maxValue;
+}
+
 std::optional<UniformInfo> Shader::GetUniformInfo(const std::string& name) const
 {
   const std::string normalizedName = NormalizeUniformName(name);
@@ -343,6 +360,124 @@ bool Shader::HasUniform(const std::string& name) const
 const std::unordered_map<std::string, UniformInfo>& Shader::GetUniformInfos() const
 {
   return uniformsByName;
+}
+
+void Shader::CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix)
+{
+  for (const auto& [name, value] : storedUniforms)
+  {
+    const std::string normalizedName = NormalizeUniformName(name);
+    const auto uiConfigIt = uniformUiConfigs.find(normalizedName);
+    const UniformUiConfig* uiConfig = (uiConfigIt != uniformUiConfigs.end()) ? &uiConfigIt->second : nullptr;
+
+    UiField field;
+    field.group = groupPrefix;
+    field.label = name;
+
+    if (std::holds_alternative<bool>(value))
+    {
+      field.kind = UiFieldKind::Bool;
+      field.getter = [this, name]() -> UiFieldValue
+      {
+        const auto it = storedUniforms.find(name);
+        if (it == storedUniforms.end() || !std::holds_alternative<bool>(it->second))
+        {
+          return false;
+        }
+
+        return std::get<bool>(it->second);
+      };
+      field.setter = [this, name](const UiFieldValue& uiValue)
+      {
+        if (!std::holds_alternative<bool>(uiValue))
+        {
+          return;
+        }
+
+        storedUniforms[name] = std::get<bool>(uiValue);
+      };
+    }
+    else if (std::holds_alternative<int>(value))
+    {
+      field.kind = UiFieldKind::Int;
+      field.minInt = (uiConfig && uiConfig->minInt.has_value()) ? *uiConfig->minInt : 0;
+      field.maxInt = (uiConfig && uiConfig->maxInt.has_value()) ? *uiConfig->maxInt : 1024;
+      field.getter = [this, name]() -> UiFieldValue
+      {
+        const auto it = storedUniforms.find(name);
+        if (it == storedUniforms.end() || !std::holds_alternative<int>(it->second))
+        {
+          return 0;
+        }
+
+        return std::get<int>(it->second);
+      };
+      field.setter = [this, name](const UiFieldValue& uiValue)
+      {
+        if (!std::holds_alternative<int>(uiValue))
+        {
+          return;
+        }
+
+        storedUniforms[name] = std::get<int>(uiValue);
+      };
+    }
+    else if (std::holds_alternative<float>(value))
+    {
+      field.kind = UiFieldKind::Float;
+      field.minFloat = (uiConfig && uiConfig->minFloat.has_value()) ? *uiConfig->minFloat : 0.0f;
+      field.maxFloat = (uiConfig && uiConfig->maxFloat.has_value()) ? *uiConfig->maxFloat : 10.0f;
+      field.speed = (uiConfig && uiConfig->speed.has_value()) ? *uiConfig->speed : 0.01f;
+      field.getter = [this, name]() -> UiFieldValue
+      {
+        const auto it = storedUniforms.find(name);
+        if (it == storedUniforms.end() || !std::holds_alternative<float>(it->second))
+        {
+          return 0.0f;
+        }
+
+        return std::get<float>(it->second);
+      };
+      field.setter = [this, name](const UiFieldValue& uiValue)
+      {
+        if (!std::holds_alternative<float>(uiValue))
+        {
+          return;
+        }
+
+        storedUniforms[name] = std::get<float>(uiValue);
+      };
+    }
+    else if (std::holds_alternative<glm::vec3>(value))
+    {
+      field.kind = UiFieldKind::Color3;
+      field.getter = [this, name]() -> UiFieldValue
+      {
+        const auto it = storedUniforms.find(name);
+        if (it == storedUniforms.end() || !std::holds_alternative<glm::vec3>(it->second))
+        {
+          return glm::vec3(0.0f, 0.0f, 0.0f);
+        }
+
+        return std::get<glm::vec3>(it->second);
+      };
+      field.setter = [this, name](const UiFieldValue& uiValue)
+      {
+        if (!std::holds_alternative<glm::vec3>(uiValue))
+        {
+          return;
+        }
+
+        storedUniforms[name] = std::get<glm::vec3>(uiValue);
+      };
+    }
+    else
+    {
+      continue;
+    }
+
+    out.push_back(std::move(field));
+  }
 }
 
 void Shader::Apply(Shader& shader) const

@@ -28,7 +28,7 @@ namespace
 Scene::Scene()
   : clearColor{0.8f, 0.3f, 0.3f, 1.0f},
     camera(45.0f, 800.0f / 600.0f, 0.1f, 100.0f),
-    matrixTestUniformValue(1.0f)
+    matrixTestUniformValue(0.5f, 0.5f, 0.5f)
 {
 
   // ------------- SHADERS -------------
@@ -243,7 +243,7 @@ void Scene::SetCameraAspect(float aspect)
   camera.SetAspect(aspect);
 }
 
-void Scene::SetMatrixTestUniform(float value)
+void Scene::SetMatrixTestUniform(const glm::vec3& value)
 {
   matrixTestUniformValue = value;
 
@@ -254,9 +254,22 @@ void Scene::SetMatrixTestUniform(float value)
   }
 }
 
-float Scene::GetMatrixTestUniform() const
+glm::vec3 Scene::GetMatrixTestUniform() const
 {
   return matrixTestUniformValue;
+}
+
+void Scene::CollectInspectableFields(std::vector<UiField>& out)
+{
+  for (auto& [shaderName, shader] : shaders)
+  {
+    if (!shader)
+    {
+      continue;
+    }
+
+    shader->CollectInspectableFields(out, "Shader/" + shaderName);
+  }
 }
 
 /**

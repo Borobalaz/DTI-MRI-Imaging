@@ -13,6 +13,7 @@
 #include "DirectionalLight.h"
 #include "Light.h"
 #include "GameObject.h"
+#include "Gui/Inspectable.h"
 #include "Material.h"
 #include "TextureCube.h"
 #include "Volume.h"
@@ -43,8 +44,9 @@ public:
 
   Camera& GetCamera();
   void SetCameraAspect(float aspect);
-  void SetMatrixTestUniform(float value);
-  float GetMatrixTestUniform() const;
+  void SetMatrixTestUniform(const glm::vec3& value);
+  glm::vec3 GetMatrixTestUniform() const;
+  void CollectInspectableFields(std::vector<UiField>& out);
 
 private:
   float clearColor[4];
@@ -59,5 +61,5 @@ private:
   std::vector<std::shared_ptr<GameObject>> gameObjects;
   std::map<std::string, std::shared_ptr<Shader>> shaders;
 
-  float matrixTestUniformValue;
+  glm::vec3 matrixTestUniformValue;
 };

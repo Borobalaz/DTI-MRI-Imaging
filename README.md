@@ -39,7 +39,7 @@ Install required libraries for `x64-windows`:
 
 ```powershell
 cd C:\vcpkg
-.\vcpkg.exe install glm:x64-windows glfw3:x64-windows glad:x64-windows assimp:x64-windows stb:x64-windows
+.\vcpkg.exe install glm:x64-windows glfw3:x64-windows glad:x64-windows assimp:x64-windows stb:x64-windows imgui[docking-experimental,glfw-binding,opengl3-binding]:x64-windows
 ```
 
 ### 3. Toolchain and Dependency Notes
@@ -51,6 +51,7 @@ cd C:\vcpkg
 - `glfw3`
 - `glad`
 - `assimp`
+- `imgui` (with `docking-experimental`, `glfw-binding`, and `opengl3-binding` features)
 - `stb_image.h` (provided by vcpkg package `stb`)
 
 The build script (`build.ps1`) configures CMake with:

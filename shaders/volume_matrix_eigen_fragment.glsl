@@ -30,7 +30,7 @@ struct VolumeUniforms {
 };
 
 struct ShaderUniforms {
-  float testUniform; // Example uniform for demonstration
+  vec3 testUniform; // Example uniform for demonstration
 };
 
 uniform CameraUniforms camera;
@@ -226,7 +226,7 @@ vec4 ShadeCurveHit(vec3 samplePosition, vec3 tangentObject, float eigenvalue)
 
 void main()
 {
-    fragColor = vec4(shader.testUniform, shader.testUniform, shader.testUniform, 1.0); // Example usage of shader uniform
+    fragColor = vec4(shader.testUniform, 1.0); // Example usage of shader uniform
     return;
     
     if (volume.textureCount < 3)

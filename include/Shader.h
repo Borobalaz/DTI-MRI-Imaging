@@ -5,10 +5,12 @@
 #include <optional>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
+#include "Gui/Inspectable.h"
 #include "UniformProvider.h"
 
 struct UniformInfo
@@ -19,7 +21,7 @@ struct UniformInfo
   GLint location;
 };
 
-class Shader : public UniformProvider
+class Shader : public UniformProvider, public IInspectable
 {
 public:
   unsigned int ID;
@@ -48,6 +50,9 @@ public:
   std::optional<UniformInfo> GetUniformInfo(const std::string& name) const;
   bool HasUniform(const std::string& name) const;
   const std::unordered_map<std::string, UniformInfo>& GetUniformInfos() const;
+  void CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix) override;
+  void SetUniformUiFloatRange(const std::string& name, float minValue, float maxValue, float speed = 0.01f);
+  void SetUniformUiIntRange(const std::string& name, int minValue, int maxValue);
 
   void Apply(Shader& shader) const override;
 
@@ -89,5 +94,15 @@ private:
   mutable std::unordered_map<std::string, GLint> uniformLocationCache;
   std::unordered_map<std::string, UniformInfo> uniformsByName;
 
+  struct UniformUiConfig
+  {
+    std::optional<float> minFloat;
+    std::optional<float> maxFloat;
+    std::optional<float> speed;
+    std::optional<int> minInt;
+    std::optional<int> maxInt;
+  };
+
+  std::unordered_map<std::string, UniformUiConfig> uniformUiConfigs;
   std::map<std::string, UniformValue> storedUniforms;
 };
