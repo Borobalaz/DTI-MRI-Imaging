@@ -53,6 +53,7 @@ cd C:\vcpkg
 - `assimp`
 - `imgui` (with `docking-experimental`, `glfw-binding`, and `opengl3-binding` features)
 - `stb_image.h` (provided by vcpkg package `stb`)
+- Optional: `ITK` for broad medical volume format support (NIfTI, NRRD, MetaImage, Analyze, DICOM series)
 
 The build script (`build.ps1`) configures CMake with:
 
@@ -101,6 +102,23 @@ Expected executable path:
 
 ```text
 build/Release/app.exe
+```
+
+## Volume File Support
+
+- Native format: `VXA1` (`.vxa`) for scalar and matrix data.
+- With ITK installed, loader also accepts common medical imaging formats:
+	- NIfTI (`.nii`, `.nii.gz`)
+	- NRRD (`.nrrd`, `.nhdr` + raw payload)
+	- MetaImage (`.mha`, `.mhd` + raw payload)
+	- Analyze (`.hdr` + `.img`)
+	- DICOM series (directory containing slices)
+
+Install ITK via vcpkg to enable this automatically:
+
+```powershell
+cd C:\vcpkg
+.\vcpkg.exe install itk:x64-windows
 ```
 
 ## Troubleshooting

@@ -6,13 +6,12 @@
 #include "Skybox.h"
 #include "Texture2D.h"
 #include "FloatVolume.h"
-#include "Mat3Volume.h"
 #include "VolumeFileLoader.h"
 
 #include <GLFW/glfw3.h>
 
 #include <cmath>
-#include <filesystem>
+#include <iostream>
 
 #include <glm/gtc/constants.hpp>
 
@@ -27,7 +26,7 @@ namespace
  */
 Scene::Scene()
   : clearColor{0.8f, 0.3f, 0.3f, 1.0f},
-    camera(45.0f, 800.0f / 600.0f, 0.1f, 100.0f),
+    camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.1f, 100.0f)),
     matrixTestUniformValue(0.5f, 0.5f, 0.5f)
 {
 
@@ -42,6 +41,10 @@ Scene::Scene()
     "shaders/volume_vertex.glsl",
     "shaders/volume_fragment.glsl"
   );
+  shaders["volumeShader"] = scalarVolumeShader;
+  (*scalarVolumeShader)["threshold"] = 0.15f;
+  (*scalarVolumeShader)["color"] = glm::vec3(1.0f, 1.0f, 1.0f);
+  
 
   const std::shared_ptr<Shader> matrixVolumeShader = std::make_shared<Shader>(
     "shaders/volume_vertex.glsl",
@@ -86,27 +89,16 @@ Scene::Scene()
     glm::vec3(0.35f, 0.35f, 0.35f)
   )));
 
-  // ------------- VOLUMES -------------
-  std::shared_ptr<Volume> matrixDemoVolume;
-  try
+  // ------------- VOLUME -------------
+  const std::optional<VolumeData<float>> demoVolumeData = VolumeFileLoader::LoadTyped<float>("assets/volumes/demo_scalar.vxa");
+  if (demoVolumeData.has_value())
   {
-    matrixDemoVolume = std::make_shared<Mat3Volume>(
-      VolumeData<glm::mat3>("assets/volumes/demo_matrix3x3.vxa"),
-      matrixVolumeShader);
+    std::shared_ptr<Volume> demoVolume = std::make_shared<FloatVolume>(demoVolumeData.value(), scalarVolumeShader);
+    volumes.push_back(demoVolume);
   }
-  catch (const std::invalid_argument&)
+  else
   {
-    matrixDemoVolume = nullptr;
-  }
-
-  if (matrixDemoVolume)
-  {
-    matrixDemoVolume->position = glm::vec3(0.0f, 0.0f, 0.0f);
-    matrixDemoVolume->scale = glm::vec3(1.4f, 1.4f, 1.4f);
-    matrixDemoVolume->rotation = glm::vec3(0.0f, glm::quarter_pi<float>(), 0.0f);
-    volumes.push_back(matrixDemoVolume);
-
-    (*matrixVolumeShader)["testUniform"] = matrixTestUniformValue;
+    std::cout << "Failed to load startup volume: assets/volumes/demo_scalar.vxa" << std::endl;
   }
 }
 
@@ -129,7 +121,10 @@ void Scene::Init()
  */
 void Scene::Update(float deltaTime)
 {
-  camera.Update(deltaTime);
+  if (camera)
+  {
+    camera->Update(deltaTime);
+  }
   for (const auto& gameObject : gameObjects)
   {
     // gameObject->rotation += glm::vec3(deltaTime / 2, deltaTime / 2, deltaTime / 2);
@@ -164,7 +159,10 @@ void Scene::Render()
   shader.SetInt("lightCount", lightCount);
 
   frameUniforms.ClearProviders();
-  frameUniforms.AddProvider(camera);
+  if (camera)
+  {
+    frameUniforms.AddProvider(*camera);
+  }
   for (int i = 0; i < lightCount; ++i)
   {
     lights[static_cast<size_t>(i)]->SetUniformIndex(i);
@@ -180,7 +178,10 @@ void Scene::Render()
   // Draw skybox
   if (skybox != nullptr)
   {
-    skybox->Draw(camera);
+    if (camera)
+    {
+      skybox->Draw(*camera);
+    }
   }
 
   // Draw volumes
@@ -228,19 +229,27 @@ void Scene::ClearSkybox()
   skybox.reset();
 }
 
+void Scene::ClearVolumes()
+{
+  volumes.clear();
+}
+
 /**
  * @brief Get a reference to the scene's camera
  * 
  * @return Camera& 
  */
-Camera& Scene::GetCamera()
+std::shared_ptr<Camera> Scene::GetCamera()
 {
   return camera;
 }
 
 void Scene::SetCameraAspect(float aspect)
 {
-  camera.SetAspect(aspect);
+  if (camera)
+  {
+    camera->SetAspect(aspect);
+  }
 }
 
 void Scene::SetMatrixTestUniform(const glm::vec3& value)
@@ -270,6 +279,49 @@ void Scene::CollectInspectableFields(std::vector<UiField>& out)
 
     shader->CollectInspectableFields(out, "Shader/" + shaderName);
   }
+
+  for (size_t i = 0; i < volumes.size(); ++i)
+  {
+    if (!volumes[i])
+    {
+      continue;
+    }
+
+    volumes[i]->CollectInspectableFields(out, "Volume/" + std::to_string(i));
+  }
+}
+
+void Scene::SetVolume(Volume* volume)
+{
+  if (volume)
+  {
+    volumes.clear();
+    volumes.push_back(std::shared_ptr<Volume>(volume));
+  }
+  else
+  {
+    volumes.clear();
+  }
+}
+
+std::shared_ptr<Shader> Scene::GetActiveVolumeShader() const
+{
+  const auto it = shaders.find("volumeShader");
+  if (it != shaders.end())
+  {
+    return it->second;
+  }
+  return {};
+}
+
+std::shared_ptr<Shader> Scene::GetMatrixVolumeShader() const
+{
+  const auto it = shaders.find("volume_matrix");
+  if (it != shaders.end())
+  {
+    return it->second;
+  }
+  return {};
 }
 
 /**

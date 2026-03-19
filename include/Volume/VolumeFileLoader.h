@@ -38,6 +38,48 @@ public:
   template <typename TVoxel>
   static std::optional<VolumeData<TVoxel>> LoadTyped(const std::string& filePath)
   {
+    if (const auto vxa = LoadTypedVxa<TVoxel>(filePath))
+    {
+      return vxa;
+    }
+
+    return TryLoadMedicalFormat<TVoxel>(filePath);
+  }
+
+  template <typename TVoxel>
+  static bool Save(const std::string& filePath, const VolumeData<TVoxel>& volume)
+  {
+    const std::filesystem::path path(filePath);
+    if (path.has_parent_path())
+    {
+      std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream output(filePath, std::ios::binary);
+    if (!output.is_open())
+    {
+      return false;
+    }
+
+    const VolumeMetadata& metadata = volume.GetMetadata();
+    VolumeFileHeader header{};
+    header.width = static_cast<uint32_t>(metadata.dimensions.x);
+    header.height = static_cast<uint32_t>(metadata.dimensions.y);
+    header.depth = static_cast<uint32_t>(metadata.dimensions.z);
+    header.spacingX = metadata.spacing.x;
+    header.spacingY = metadata.spacing.y;
+    header.spacingZ = metadata.spacing.z;
+
+    output.write(reinterpret_cast<const char*>(&header), sizeof(header));
+    const std::vector<TVoxel>& voxels = volume.GetVoxels();
+    output.write(reinterpret_cast<const char*>(voxels.data()), static_cast<std::streamsize>(voxels.size() * sizeof(TVoxel)));
+    return output.good();
+  }
+
+private:
+  template <typename TVoxel>
+  static std::optional<VolumeData<TVoxel>> LoadTypedVxa(const std::string& filePath)
+  {
     std::ifstream input(filePath, std::ios::binary);
     if (!input.is_open())
     {
@@ -104,32 +146,20 @@ public:
   }
 
   template <typename TVoxel>
-  static bool Save(const std::string& filePath, const VolumeData<TVoxel>& volume)
+  static std::optional<VolumeData<TVoxel>> TryLoadMedicalFormat(const std::string&)
   {
-    const std::filesystem::path path(filePath);
-    if (path.has_parent_path())
-    {
-      std::filesystem::create_directories(path.parent_path());
-    }
-
-    std::ofstream output(filePath, std::ios::binary);
-    if (!output.is_open())
-    {
-      return false;
-    }
-
-    const VolumeMetadata& metadata = volume.GetMetadata();
-    VolumeFileHeader header{};
-    header.width = static_cast<uint32_t>(metadata.dimensions.x);
-    header.height = static_cast<uint32_t>(metadata.dimensions.y);
-    header.depth = static_cast<uint32_t>(metadata.dimensions.z);
-    header.spacingX = metadata.spacing.x;
-    header.spacingY = metadata.spacing.y;
-    header.spacingZ = metadata.spacing.z;
-
-    output.write(reinterpret_cast<const char*>(&header), sizeof(header));
-    const std::vector<TVoxel>& voxels = volume.GetVoxels();
-    output.write(reinterpret_cast<const char*>(voxels.data()), static_cast<std::streamsize>(voxels.size() * sizeof(TVoxel)));
-    return output.good();
+    return std::nullopt;
   }
 };
+
+template <>
+std::optional<VolumeData<uint8_t>> VolumeFileLoader::TryLoadMedicalFormat<uint8_t>(
+  const std::string& filePath);
+
+template <>
+std::optional<VolumeData<uint16_t>> VolumeFileLoader::TryLoadMedicalFormat<uint16_t>(
+  const std::string& filePath);
+
+template <>
+std::optional<VolumeData<float>> VolumeFileLoader::TryLoadMedicalFormat<float>(
+  const std::string& filePath);

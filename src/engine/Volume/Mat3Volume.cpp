@@ -8,12 +8,6 @@ Mat3Volume::Mat3Volume(const VolumeData<glm::mat3>& volumeData,
                        std::shared_ptr<Shader> shader)
   : Volume(volumeData.GetMetadata(), std::move(shader))
 {
-  stepSize = 0.015f;
-  opacityScale = 0.8f;
-  intensityScale = 1.0f;
-  threshold = 0.08f;
-  maxSteps = 256;
-
   const VolumeMetadata& metadata = volumeData.GetMetadata();
   const size_t voxelCount = volumeData.GetVoxelCount();
   std::vector<float> row0(voxelCount * 3);

@@ -37,7 +37,8 @@ InspectionMovement::InspectionMovement(
     lastMouseY(0.0),
     firstDrag(true),
     firstPanDrag(true),
-    initialized(false)
+    initialized(false),
+    inputEnabled(true)
 {
   if (window != nullptr)
   {
@@ -68,6 +69,14 @@ void InspectionMovement::Update(
     initialized = true;
   }
 
+  if (!inputEnabled)
+  {
+    firstDrag = true;
+    firstPanDrag = true;
+    pendingScrollOffset = 0.0f;
+    return;
+  }
+
   ProcessOrbit();
   ProcessMousePan();
   ProcessPan(deltaTime, front, up);
@@ -96,6 +105,11 @@ void InspectionMovement::SetLookAtPoint(const glm::vec3& point)
 glm::vec3 InspectionMovement::GetLookAtPoint() const
 {
   return lookAtPoint;
+}
+
+void InspectionMovement::SetInputEnabled(bool enabled)
+{
+  inputEnabled = enabled;
 }
 
 void InspectionMovement::ScrollCallbackRouter(GLFWwindow* window, double xOffset, double yOffset)

@@ -9,7 +9,8 @@
 Camera::Camera()
   : position(0.0f, 0.0f, 3.0f),
     front(0.0f, 0.0f, -1.0f),
-    up(0.0f, 1.0f, 0.0f)
+    up(0.0f, 1.0f, 0.0f),
+    aspect(4.0f / 3.0f)
 {
 }
 
@@ -69,6 +70,19 @@ void Camera::SetPosition(const glm::vec3& pos)
 glm::vec3 Camera::GetPosition() const
 {
   return position;
+}
+
+void Camera::SetAspect(float newAspect)
+{
+  if (newAspect > 0.0f)
+  {
+    aspect = newAspect;
+  }
+}
+
+float Camera::GetAspect() const
+{
+  return aspect;
 }
 
 /**

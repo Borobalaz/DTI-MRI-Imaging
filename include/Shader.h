@@ -103,6 +103,8 @@ private:
     std::optional<int> maxInt;
   };
 
+  // These are the uniforms that the Shader class provides. 
+  // The IInspectable interface forwards these to the UI (to be displayed and changed)
   std::unordered_map<std::string, UniformUiConfig> uniformUiConfigs;
   std::map<std::string, UniformValue> storedUniforms;
 };

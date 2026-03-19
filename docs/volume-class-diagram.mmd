@@ -1,0 +1,71 @@
+classDiagram
+
+class UniformProvider {
+  <<interface>>
+  +Apply(shader: Shader) const
+}
+
+class IDrawable {
+  <<interface>>
+  +Draw(frameUniforms: UniformProvider) const
+}
+
+class IInspectable {
+  <<interface>>
+  +CollectInspectableFields(out, groupPrefix)
+}
+
+class Volume {
+  <<abstract>>
+  +Apply(shader: Shader) const
+  +Draw(frameUniforms: UniformProvider) const
+  +IsValid() bool
+  +CollectInspectableFields(out, groupPrefix)
+  #GetTextureSet() const VolumeTextureSet&
+}
+
+class FloatVolume
+class UInt8Volume
+class UInt16Volume
+class Mat3Volume
+
+class VolumeTextureSet {
+  +AddTexture(texture: Texture3D)
+  +Bind(shader: Shader, baseUnit: uint, uniformBaseName: string)
+  +IsValid() bool
+  +Size() size_t
+}
+
+class VolumeData~TVoxel~
+class VolumeMetadata
+class VolumeFileLoader {
+  +Load(filePath: string) optional~LoadedVolumeVariant~
+  +LoadTyped~TVoxel~(filePath: string) optional~VolumeData~TVoxel~~
+  +Save~TVoxel~(filePath: string, volume: VolumeData~TVoxel~) bool
+}
+
+class VolumeGeometry
+class Shader
+class Texture3D
+
+UniformProvider <|-- Volume
+IDrawable <|-- Volume
+IInspectable <|-- Volume
+
+Volume <|-- FloatVolume
+Volume <|-- UInt8Volume
+Volume <|-- UInt16Volume
+Volume <|-- Mat3Volume
+
+Volume *-- VolumeGeometry : geometry
+Volume o-- Shader : shader
+
+FloatVolume *-- VolumeTextureSet : textureSet
+UInt8Volume *-- VolumeTextureSet : textureSet
+UInt16Volume *-- VolumeTextureSet : textureSet
+Mat3Volume *-- VolumeTextureSet : textureSet
+VolumeTextureSet o-- Texture3D : many
+
+VolumeData~TVoxel~ *-- VolumeMetadata : metadata
+VolumeFileLoader ..> VolumeData~TVoxel~ : load/save
+VolumeFileLoader ..> VolumeMetadata : writes header

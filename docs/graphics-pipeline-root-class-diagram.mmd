@@ -1,0 +1,81 @@
+classDiagram
+
+class Scene
+
+class UniformProvider {
+  <<interface>>
+  +Apply(shader: Shader) const
+}
+class IDrawable {
+  <<interface>>
+  +Draw(frameUniforms: UniformProvider) const
+}
+class IInspectable {
+  <<interface>>
+  +CollectInspectableFields(out, groupPrefix)
+}
+
+class Camera {
+  <<abstract>>
+}
+class PerspectiveCamera
+class BaseMovement {
+  <<interface>>
+  +Update(deltaTime, position, front, up)
+}
+
+class Light {
+  <<abstract>>
+}
+class GameObject
+class Volume {
+  <<abstract>>
+}
+
+class Mesh
+class Material
+class Shader
+class Geometry {
+  <<abstract>>
+}
+class Texture {
+  <<abstract>>
+}
+
+class CompositeUniformProvider
+
+%% Root contracts
+UniformProvider <|-- Camera
+UniformProvider <|-- Light
+UniformProvider <|-- Shader
+UniformProvider <|-- CompositeUniformProvider
+UniformProvider <|-- GameObject
+UniformProvider <|-- Volume
+
+IDrawable <|-- GameObject
+IDrawable <|-- Volume
+IInspectable <|-- Shader
+IInspectable <|-- Volume
+
+%% Camera branch
+Camera <|-- PerspectiveCamera
+Camera *-- BaseMovement : moveComponent
+
+%% Scene orchestration roots
+Scene *-- PerspectiveCamera : activeCamera
+Scene *-- CompositeUniformProvider : frameUniforms
+Scene o-- Shader : shaderRegistry
+Scene o-- Light : lightSet[*]
+Scene o-- GameObject : objectSet[*]
+Scene o-- Volume : volumeSet[*]
+
+%% Render path roots
+GameObject o-- Mesh : meshes[*]
+Mesh o-- Geometry : geometry
+Mesh o-- Material : material
+Material o-- Shader : shader
+Material o-- Texture : textureSlots
+
+%% Volume root branch
+Volume o-- Shader : shader
+Volume o-- Geometry : volumeGeometry

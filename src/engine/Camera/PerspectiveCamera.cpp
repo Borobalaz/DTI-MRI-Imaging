@@ -8,11 +8,11 @@ PerspectiveCamera::PerspectiveCamera(
   float farPlane
 )
   : fov(fov),
-    aspect(aspect),
     nearPlane(nearPlane),
     farPlane(farPlane)
 {
   position = glm::vec3(0.0f, 0.0f, 3.0f);
+  SetAspect(aspect);
 }
 
 PerspectiveCamera::~PerspectiveCamera()
@@ -32,7 +32,7 @@ glm::mat4 PerspectiveCamera::GetProjectionMatrix() const
 {
   return glm::perspective(
     glm::radians(fov),
-    aspect,
+    GetAspect(),
     nearPlane,
     farPlane
   );
@@ -41,11 +41,6 @@ glm::mat4 PerspectiveCamera::GetProjectionMatrix() const
 void PerspectiveCamera::Update(float deltaTime)
 {
   Move(deltaTime);
-}
-
-void PerspectiveCamera::SetAspect(float newAspect)
-{
-  aspect = (newAspect > 0.0f) ? newAspect : aspect;
 }
 
 void PerspectiveCamera::LookAt(const glm::vec3& target)
