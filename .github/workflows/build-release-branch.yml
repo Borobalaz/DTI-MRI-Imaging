@@ -1,0 +1,85 @@
+name: Build Release Branch
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    name: Build On Main And Publish To Release Branch
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up vcpkg
+        shell: pwsh
+        run: |
+          if (!(Test-Path "C:\vcpkg")) {
+            git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          }
+          & C:\vcpkg\bootstrap-vcpkg.bat
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          & C:\vcpkg\vcpkg.exe install `
+            glm:x64-windows `
+            glfw3:x64-windows `
+            glad:x64-windows `
+            assimp:x64-windows `
+            stb:x64-windows `
+            imgui[docking-experimental,glfw-binding,opengl3-binding]:x64-windows
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake -S . -B build `
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+
+      - name: Publish app.exe to release branch
+        shell: pwsh
+        run: |
+          $artifactPath = "build/Release/app.exe"
+          if (!(Test-Path $artifactPath)) {
+            throw "Built artifact not found at $artifactPath"
+          }
+
+          $tempArtifact = Join-Path $env:RUNNER_TEMP "app.exe"
+          Copy-Item $artifactPath $tempArtifact -Force
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin release
+
+          if ($LASTEXITCODE -eq 0) {
+            git checkout -B release origin/release
+          }
+          else {
+            git checkout --orphan release
+            git rm -rf . | Out-Null
+          }
+
+          Copy-Item $tempArtifact "app.exe" -Force
+
+          git add app.exe
+
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "No release artifact changes to commit."
+            exit 0
+          }
+
+          git commit -m "Release build from main @ ${{ github.sha }}"
+          git push origin release
