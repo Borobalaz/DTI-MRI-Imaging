@@ -29,6 +29,7 @@ public:
 
   void SetLookAtPoint(const glm::vec3& point);
   glm::vec3 GetLookAtPoint() const;
+  void SetInputEnabled(bool enabled);
 
 private:
   static void ScrollCallbackRouter(GLFWwindow* window, double xOffset, double yOffset);
@@ -59,4 +60,5 @@ private:
   bool firstDrag;
   bool firstPanDrag;
   bool initialized;
+  bool inputEnabled;
 };

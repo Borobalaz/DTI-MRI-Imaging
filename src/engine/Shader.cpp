@@ -12,49 +12,89 @@
 
 namespace
 {
-  std::string NormalizeUniformName(const std::string& name)
+std::string ResolveStoredUniformName(const Shader& shader, const std::string& storedName)
+{
+  if (shader.HasUniform(storedName))
   {
-    const std::string arraySuffix = "[0]";
-    if (name.size() >= arraySuffix.size() &&
-        name.compare(name.size() - arraySuffix.size(), arraySuffix.size(), arraySuffix) == 0)
-    {
-      return name.substr(0, name.size() - arraySuffix.size());
-    }
-
-    return name;
+    return storedName;
   }
+
+  const std::string prefixedName = "shader." + storedName;
+  if (shader.HasUniform(prefixedName))
+  {
+    return prefixedName;
+  }
+
+  return {};
+}
 }
 
+/**
+ * @brief Construct a new Shader:: Uniform Slot Proxy:: Uniform Slot Proxy object
+ * 
+ * @param shader 
+ * @param uniformName 
+ */
 Shader::UniformSlotProxy::UniformSlotProxy(Shader& shader, std::string uniformName)
   : shader(shader),
     uniformName(std::move(uniformName))
 {
 }
 
+/**
+ * @brief Assign a boolean value to the uniform
+ * 
+ * @param value 
+ * @return Shader::UniformSlotProxy& 
+ */
 Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(bool value)
 {
   shader.SetStoredUniform(uniformName, value);
   return *this;
 }
 
+/**
+ * @brief Assign an integer value to the uniform
+ * 
+ * @param value 
+ * @return Shader::UniformSlotProxy& 
+ */
 Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(int value)
 {
   shader.SetStoredUniform(uniformName, value);
   return *this;
 }
 
+/**
+ * @brief Assign a float value to the uniform
+ * 
+ * @param value 
+ * @return Shader::UniformSlotProxy& 
+ */
 Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(float value)
 {
   shader.SetStoredUniform(uniformName, value);
   return *this;
 }
 
+/**
+ * @brief Assign a vec3 value to the uniform
+ * 
+ * @param value 
+ * @return Shader::UniformSlotProxy& 
+ */
 Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(const glm::vec3& value)
 {
   shader.SetStoredUniform(uniformName, value);
   return *this;
 }
 
+/**
+ * @brief Assign a mat4 value to the uniform
+ * 
+ * @param value 
+ * @return Shader::UniformSlotProxy& 
+ */
 Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(const glm::mat4& value)
 {
   shader.SetStoredUniform(uniformName, value);
@@ -112,18 +152,17 @@ Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath)
 }
 
 /**
- * @brief Destroy the Shader:: Shader object
+ * @brief Get a proxy for setting a uniform value
  * 
+ * @param name 
+ * @return Shader::UniformSlotProxy 
  */
-Shader::~Shader()
-{
-  glDeleteProgram(ID);
-}
-
 Shader::UniformSlotProxy Shader::operator[](const std::string& name)
 {
   return UniformSlotProxy(*this, name);
 }
+
+
 
 /**
  * @brief Set the shader as active
@@ -139,10 +178,13 @@ void Shader::Use() const
 
   for (const auto& [name, value] : storedUniforms)
   {
-    if (!HasUniform("shader." + name))
+    const std::string uniformName = ResolveStoredUniformName(*this, name);
+    if (uniformName.empty())
     {
-      std::cout << "Skipping uniform '" << "shader." + name
-                << "' because it is not part of shader "
+      std::cout << "Skipping uniform '" << name
+                << "' because neither '" << name
+                << "' nor 'shader." << name
+                << "' is part of shader "
                 << ID << std::endl;
       continue;
     }
@@ -153,23 +195,23 @@ void Shader::Use() const
         using ValueType = std::decay_t<decltype(typedValue)>;
         if constexpr (std::is_same_v<ValueType, bool>)
         {
-          SetBool("shader." + name, typedValue);
+          SetBool(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, int>)
         {
-          SetInt("shader." + name, typedValue);
+          SetInt(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, float>)
         {
-          SetFloat("shader." + name, typedValue);
+          SetFloat(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::vec3>)
         {
-          SetVec3("shader." + name, typedValue);
+          SetVec3(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::mat4>)
         {
-          SetMat4("shader." + name, typedValue);
+          SetMat4(uniformName, typedValue);
         }
       },
       value);
@@ -325,8 +367,7 @@ void Shader::SetTexture(const std::string& name, int unit) const
 
 void Shader::SetUniformUiFloatRange(const std::string& name, float minValue, float maxValue, float speed)
 {
-  const std::string normalizedName = NormalizeUniformName(name);
-  UniformUiConfig& config = uniformUiConfigs[normalizedName];
+  UniformUiConfig& config = uniformUiConfigs[name];
   config.minFloat = minValue;
   config.maxFloat = maxValue;
   config.speed = speed;
@@ -334,16 +375,14 @@ void Shader::SetUniformUiFloatRange(const std::string& name, float minValue, flo
 
 void Shader::SetUniformUiIntRange(const std::string& name, int minValue, int maxValue)
 {
-  const std::string normalizedName = NormalizeUniformName(name);
-  UniformUiConfig& config = uniformUiConfigs[normalizedName];
+  UniformUiConfig& config = uniformUiConfigs[name];
   config.minInt = minValue;
   config.maxInt = maxValue;
 }
 
 std::optional<UniformInfo> Shader::GetUniformInfo(const std::string& name) const
 {
-  const std::string normalizedName = NormalizeUniformName(name);
-  const auto it = uniformsByName.find(normalizedName);
+  const auto it = uniformsByName.find(name);
   if (it == uniformsByName.end())
   {
     return std::nullopt;
@@ -362,18 +401,24 @@ const std::unordered_map<std::string, UniformInfo>& Shader::GetUniformInfos() co
   return uniformsByName;
 }
 
+/**
+ * @brief IInspectable implementation for Shader, collects stored uniform values as UI fields
+ * 
+ * @param out 
+ * @param groupPrefix 
+ */
 void Shader::CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix)
 {
   for (const auto& [name, value] : storedUniforms)
   {
-    const std::string normalizedName = NormalizeUniformName(name);
-    const auto uiConfigIt = uniformUiConfigs.find(normalizedName);
+    const auto uiConfigIt = uniformUiConfigs.find(name);
     const UniformUiConfig* uiConfig = (uiConfigIt != uniformUiConfigs.end()) ? &uiConfigIt->second : nullptr;
 
     UiField field;
     field.group = groupPrefix;
     field.label = name;
 
+    // Boolean type
     if (std::holds_alternative<bool>(value))
     {
       field.kind = UiFieldKind::Bool;
@@ -397,6 +442,7 @@ void Shader::CollectInspectableFields(std::vector<UiField>& out, const std::stri
         storedUniforms[name] = std::get<bool>(uiValue);
       };
     }
+    // Integer type
     else if (std::holds_alternative<int>(value))
     {
       field.kind = UiFieldKind::Int;
@@ -422,6 +468,7 @@ void Shader::CollectInspectableFields(std::vector<UiField>& out, const std::stri
         storedUniforms[name] = std::get<int>(uiValue);
       };
     }
+    // Float type
     else if (std::holds_alternative<float>(value))
     {
       field.kind = UiFieldKind::Float;
@@ -448,6 +495,7 @@ void Shader::CollectInspectableFields(std::vector<UiField>& out, const std::stri
         storedUniforms[name] = std::get<float>(uiValue);
       };
     }
+    // Vec3 type (could be color or a regular vec3)
     else if (std::holds_alternative<glm::vec3>(value))
     {
       field.kind = UiFieldKind::Color3;
@@ -480,14 +528,23 @@ void Shader::CollectInspectableFields(std::vector<UiField>& out, const std::stri
   }
 }
 
+/**
+ * @brief UniformProvider implementation for Shader, 
+          applies stored uniform values to the shader when requested
+ * 
+ * @param shader 
+ */
 void Shader::Apply(Shader& shader) const
 {
   for (const auto& [name, value] : storedUniforms)
   {
-    if (!shader.HasUniform(name))
+    const std::string uniformName = ResolveStoredUniformName(shader, name);
+    if (uniformName.empty())
     {
       std::cout << "Skipping uniform '" << name
-                << "' because it is not part of shader "
+                << "' because neither '" << name
+                << "' nor 'shader." << name
+                << "' is part of shader "
                 << shader.ID << std::endl;
       continue;
     }
@@ -498,29 +555,35 @@ void Shader::Apply(Shader& shader) const
         using ValueType = std::decay_t<decltype(typedValue)>;
         if constexpr (std::is_same_v<ValueType, bool>)
         {
-          shader.SetBool("shader." + name, typedValue);
+          shader.SetBool(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, int>)
         {
-          shader.SetInt("shader." + name, typedValue);
+          shader.SetInt(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, float>)
         {
-          shader.SetFloat("shader." + name, typedValue);
+          shader.SetFloat(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::vec3>)
         {
-          shader.SetVec3("shader." + name, typedValue);
+          shader.SetVec3(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::mat4>)
         {
-          shader.SetMat4("shader." + name, typedValue);
+          shader.SetMat4(uniformName, typedValue);
         }
       },
       value);
   }
 }
 
+/**
+ * @brief Set a stored uniform value
+ * 
+ * @param name The name of the uniform
+ * @param value The value to set
+ */
 void Shader::SetStoredUniform(const std::string& name, const UniformValue& value)
 {
   storedUniforms[name] = value;
@@ -530,6 +593,12 @@ void Shader::SetStoredUniform(const std::string& name, const UniformValue& value
 /* -------------------- private methods -------------------- */
 /* --------------------------------------------------------- */
 
+/**
+ * @brief Read the contents of a file
+ * 
+ * @param path The path to the file
+ * @return std::string The contents of the file
+ */
 std::string Shader::ReadFile(const std::string& path)
 {
   std::ifstream file(path);
@@ -544,6 +613,13 @@ std::string Shader::ReadFile(const std::string& path)
   return buffer.str();
 }
 
+/**
+ * @brief Compile a shader
+ * 
+ * @param type The type of the shader
+ * @param source The source code of the shader
+ * @return unsigned int The ID of the compiled shader
+ */
 unsigned int Shader::Compile(unsigned int type, const std::string& source)
 {
   unsigned int shader = glCreateShader(type);
@@ -570,6 +646,10 @@ unsigned int Shader::Compile(unsigned int type, const std::string& source)
   return shader;
 }
 
+/**
+ * @brief Cache the active uniforms for efficient lookup
+ * 
+ */
 void Shader::CacheActiveUniforms()
 {
   uniformsByName.clear();
@@ -609,34 +689,45 @@ void Shader::CacheActiveUniforms()
     }
 
     const std::string rawName(nameBuffer.data(), static_cast<size_t>(writtenLength));
-    const std::string normalizedName = NormalizeUniformName(rawName);
-    const GLint location = glGetUniformLocation(ID, normalizedName.c_str());
+    const GLint location = glGetUniformLocation(ID, rawName.c_str());
 
-    uniformsByName[normalizedName] = UniformInfo{
-      normalizedName,
+    uniformsByName[rawName] = UniformInfo{
+      rawName,
       type,
       size,
       location
     };
 
-    uniformLocationCache[normalizedName] = location;
+    uniformLocationCache[rawName] = location;
   }
 }
 
+/**
+ * @brief Get the location of a uniform variable, using a cache for efficient lookup
+ * 
+ * @param name The name of the uniform
+ * @return GLint The location of the uniform
+ */
 GLint Shader::GetUniformLocationCached(const std::string& name) const
 {
-  const std::string normalizedName = NormalizeUniformName(name);
-  const auto cached = uniformLocationCache.find(normalizedName);
+  const auto cached = uniformLocationCache.find(name);
   if (cached != uniformLocationCache.end())
   {
     return cached->second;
   }
 
-  const GLint location = glGetUniformLocation(ID, normalizedName.c_str());
-  uniformLocationCache[normalizedName] = location;
+  const GLint location = glGetUniformLocation(ID, name.c_str());
+  uniformLocationCache[name] = location;
   return location;
 }
 
+/**
+ * @brief Check if a uniform type is compatible with the requested type
+ * 
+ * @param actualType The actual type of the uniform
+ * @param requestedType The requested type of the uniform
+ * @return bool True if the types are compatible, false otherwise
+ */
 bool Shader::IsUniformTypeCompatible(GLenum actualType, GLenum requestedType) const
 {
   if (actualType == requestedType)
@@ -652,6 +743,12 @@ bool Shader::IsUniformTypeCompatible(GLenum actualType, GLenum requestedType) co
   return false;
 }
 
+/**
+ * @brief Check if a uniform type is a sampler type
+ * 
+ * @param type The type to check
+ * @return bool True if the type is a sampler type, false otherwise
+ */
 bool Shader::IsSamplerType(GLenum type) const
 {
   switch (type)
@@ -698,6 +795,13 @@ bool Shader::IsSamplerType(GLenum type) const
   }
 }
 
+/**
+ * @brief Log a uniform type mismatch on stdout
+ * 
+ * @param name The name of the uniform
+ * @param actualType The actual type of the uniform
+ * @param requestedType The requested type of the uniform
+ */
 void Shader::LogUniformTypeMismatch(const std::string& name,
                                     GLenum actualType,
                                     GLenum requestedType) const
@@ -707,4 +811,13 @@ void Shader::LogUniformTypeMismatch(const std::string& name,
             << ". Reflected type=" << actualType
             << ", requested setter type=" << requestedType
             << std::endl;
+}
+
+/**
+ * @brief Destroy the Shader:: Shader object
+ * 
+ */
+Shader::~Shader()
+{
+  glDeleteProgram(ID);
 }

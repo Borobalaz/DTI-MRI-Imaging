@@ -42,16 +42,20 @@ public:
 
   void ClearVolumes();
 
-  Camera& GetCamera();
+  std::shared_ptr<Camera> GetCamera();
   void SetCameraAspect(float aspect);
   void SetMatrixTestUniform(const glm::vec3& value);
   glm::vec3 GetMatrixTestUniform() const;
   void CollectInspectableFields(std::vector<UiField>& out);
 
+  void SetVolume(Volume* volume);
+  std::shared_ptr<Shader> GetActiveVolumeShader() const;
+  std::shared_ptr<Shader> GetMatrixVolumeShader() const;
+
 private:
   float clearColor[4];
 
-  PerspectiveCamera camera;
+  std::shared_ptr<Camera> camera;
   CompositeUniformProvider frameUniforms;
 
   std::shared_ptr<Skybox> skybox;

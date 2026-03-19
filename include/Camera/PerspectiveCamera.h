@@ -18,13 +18,11 @@ public:
   glm::mat4 GetProjectionMatrix() const override;
 
   void Update(float deltaTime) override;
-  void SetAspect(float newAspect);
 
   void LookAt(const glm::vec3& target);
 
 private:
   float fov;
-  float aspect;
   float nearPlane;
   float farPlane;
 };

@@ -13,7 +13,7 @@
 
 class VolumeTextureSet;
 
-class Volume : public UniformProvider, public IDrawable
+class Volume : public UniformProvider, public IDrawable, public IInspectable
 {
 public:
   virtual ~Volume() = default;
@@ -21,16 +21,11 @@ public:
   void Apply(Shader& shader) const override;
   void Draw(const UniformProvider& frameUniforms) const override;
   bool IsValid() const;
+  void CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix) override;
 
   glm::vec3 position{0.0f, 0.0f, 0.0f};
   glm::vec3 rotation{0.0f, 0.0f, 0.0f};
   glm::vec3 scale{1.0f, 1.0f, 1.0f};
-
-  float stepSize = 0.01f;
-  float opacityScale = 0.35f;
-  float intensityScale = 1.0f;
-  float threshold = 0.05f;
-  int maxSteps = 256;
 
 protected:
   Volume(const VolumeMetadata& metadata,

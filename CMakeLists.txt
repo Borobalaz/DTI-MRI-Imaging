@@ -14,6 +14,14 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(ITK CONFIG QUIET COMPONENTS
+    ITKCommon
+    ITKIOImageBase
+    ITKIONIFTI
+    ITKIONRRD
+    ITKIOMeta
+    ITKIOGDCM
+)
 find_path(STB_INCLUDE_DIR
     NAMES stb_image.h
     REQUIRED
@@ -38,7 +46,7 @@ target_include_directories(app PRIVATE
     ${STB_INCLUDE_DIR}
 )
 
-target_link_libraries(app
+target_link_libraries(app PRIVATE
     OpenGL::GL
     glfw
     glm::glm
@@ -46,6 +54,11 @@ target_link_libraries(app
     assimp::assimp
     imgui::imgui
 )
+
+if (ITK_FOUND)
+    target_link_libraries(app PRIVATE ${ITK_LIBRARIES})
+    target_compile_definitions(app PRIVATE CONNECTOMICS_ENABLE_ITK_IO=1)
+endif()
 
 if (WIN32)
   add_custom_command(TARGET app POST_BUILD

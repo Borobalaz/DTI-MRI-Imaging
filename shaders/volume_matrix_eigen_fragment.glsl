@@ -226,8 +226,8 @@ vec4 ShadeCurveHit(vec3 samplePosition, vec3 tangentObject, float eigenvalue)
 
 void main()
 {
-    fragColor = vec4(shader.testUniform, 1.0); // Example usage of shader uniform
-    return;
+    //fragColor = vec4(shader.testUniform, 1.0); // Example usage of shader uniform
+    //return;
     
     if (volume.textureCount < 3)
     {

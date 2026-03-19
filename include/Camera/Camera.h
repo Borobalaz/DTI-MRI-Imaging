@@ -22,6 +22,8 @@ public:
 
   void SetPosition(const glm::vec3& pos);
   glm::vec3 GetPosition() const;
+  void SetAspect(float newAspect);
+  float GetAspect() const;
 
   void SetMoveComponent(std::unique_ptr<BaseMovement> component);
 
@@ -31,6 +33,7 @@ protected:
   glm::vec3 position;
   glm::vec3 front;
   glm::vec3 up;
+  float aspect;
 
 private:
   std::unique_ptr<BaseMovement> moveComponent;
