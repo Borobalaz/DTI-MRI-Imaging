@@ -1,7 +1,4 @@
-# OpenGLBase
-
-Base for future OpenGL projects.
-
+# DTI-MRI-Imaging
 Author: Boroczky Balazs
 
 ## Developer Environment Setup
