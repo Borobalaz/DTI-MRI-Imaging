@@ -27,7 +27,11 @@ struct ShaderUniforms {
   float maxDistance;
   float stepScale;
   float fractalScale;
+  float time;
+  float animationSpeed;
   int maxSteps;
+  int renderMode;
+  bool animateBulb;
   vec3 fractalOffset;
   vec3 baseColor;
 };
@@ -72,7 +76,15 @@ float MandelbulbDistanceEstimator(vec3 p)
   float dr = 1.0;
   float r = 0.0;
 
-  float power = max(shader.power, 2.0);
+  float rawPower = clamp(shader.power, 0.0, 30.0);
+  if (shader.animateBulb)
+  {
+    float speed = max(shader.animationSpeed, 0.0);
+    float oscillation = 0.5 + 0.5 * sin(shader.time * speed);
+    rawPower = 30.0 * oscillation + 2.0;
+  }
+
+  float power = max(rawPower, 2.0);
   float bailout = max(shader.bailout, 2.0);
 
   for (int i = 0; i < MAX_DE_ITERATIONS; ++i)
@@ -121,7 +133,7 @@ vec3 EstimateNormal(vec3 p)
   );
 }
 
-vec3 ComputeMandelbulbLighting(vec3 normalWorld, vec3 worldPosition, vec3 viewDirection)
+vec3 ComputeMandelbulbLighting(vec3 normalWorld, vec3 worldPosition, vec3 viewDirection, vec3 albedo)
 {
   vec3 accumulated = vec3(0.0);
 
@@ -146,18 +158,38 @@ vec3 ComputeMandelbulbLighting(vec3 normalWorld, vec3 worldPosition, vec3 viewDi
     vec3 halfVector = normalize(lightDirection + viewDirection);
     float specular = pow(max(dot(normalWorld, halfVector), 0.0), 48.0);
 
-    vec3 ambientTerm = lights[i].ambient * shader.baseColor;
-    vec3 diffuseTerm = lights[i].diffuse * diffuse * shader.baseColor;
+    vec3 ambientTerm = lights[i].ambient * albedo;
+    vec3 diffuseTerm = lights[i].diffuse * diffuse * albedo;
     vec3 specularTerm = lights[i].specular * specular;
     accumulated += (ambientTerm + diffuseTerm + specularTerm) * attenuation;
   }
 
   if (lightCount == 0)
   {
-    accumulated = shader.baseColor * 0.2;
+    accumulated = albedo * 0.2;
   }
 
   return accumulated;
+}
+
+vec3 StepColor(float t)
+{
+  t = clamp(t, 0.0, 1.0);
+
+  vec3 c0 = vec3(0.05, 0.06, 0.22);
+  vec3 c1 = vec3(0.12, 0.45, 0.85);
+  vec3 c2 = vec3(0.22, 0.82, 0.58);
+  vec3 c3 = vec3(0.98, 0.88, 0.18);
+
+  if (t < 0.33)
+  {
+    return mix(c0, c1, t / 0.33);
+  }
+  if (t < 0.66)
+  {
+    return mix(c1, c2, (t - 0.33) / 0.33);
+  }
+  return mix(c2, c3, (t - 0.66) / 0.34);
 }
 
 void main()
@@ -174,7 +206,7 @@ void main()
 
   float rayT = max(tEnter, 0.0);
   float maxT = min(tExit, max(shader.maxDistance, 0.1));
-  float epsilon = clamp(shader.hitEpsilon, 1e-5, 0.02);
+  float epsilon = clamp(shader.hitEpsilon / 1000, 1e-8, 0.02);
   float stepScale = clamp(shader.stepScale, 0.2, 1.0);
   int maxSteps = clamp(shader.maxSteps, 16, MAX_MARCH_STEPS);
 
@@ -195,7 +227,16 @@ void main()
 
       vec3 worldPosition = vec3(volumeObject.modelMatrix * vec4(samplePoint, 1.0));
       vec3 viewDirection = normalize(camera.viewPosition - worldPosition);
-      vec3 color = ComputeMandelbulbLighting(normalWorld, worldPosition, viewDirection);
+
+      int mode = clamp(shader.renderMode, 0, 1);
+      vec3 albedo = shader.baseColor;
+      if (mode == 1)
+      {
+        float stepRatio = float(i) / float(max(maxSteps - 1, 1));
+        albedo = StepColor(stepRatio);
+      }
+
+      vec3 color = ComputeMandelbulbLighting(normalWorld, worldPosition, viewDirection, albedo);
       FragColor = vec4(color, 1.0);
       return;
     }

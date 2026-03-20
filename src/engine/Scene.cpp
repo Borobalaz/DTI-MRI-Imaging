@@ -81,17 +81,23 @@ Scene::Scene()
   (*mandelbulbVolumeShader)["maxDistance"] = 4.0f;
   (*mandelbulbVolumeShader)["stepScale"] = 0.75f;
   (*mandelbulbVolumeShader)["fractalScale"] = 3.2f;
+  (*mandelbulbVolumeShader)["time"] = 0.0f;
+  (*mandelbulbVolumeShader)["animationSpeed"] = 0.150f;
   (*mandelbulbVolumeShader)["maxSteps"] = 256;
+  (*mandelbulbVolumeShader)["renderMode"] = 0;
+  (*mandelbulbVolumeShader)["animateBulb"] = false;
   (*mandelbulbVolumeShader)["fractalOffset"] = glm::vec3(0.0f, 0.0f, 0.0f);
   (*mandelbulbVolumeShader)["baseColor"] = glm::vec3(0.95f, 0.55f, 0.3f);
 
-  mandelbulbVolumeShader->SetUniformUiFloatRange("power", -10.0f, 50.0f, 0.01f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("power", 0.0f, 30.0f, 0.001f);
   mandelbulbVolumeShader->SetUniformUiFloatRange("bailout", 2.0f, 16.0f, 0.1f);
-  mandelbulbVolumeShader->SetUniformUiFloatRange("hitEpsilon", 0.0002f, 0.01f, 0.0001f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("hitEpsilon", 0.03f, 0.5f, 0.001f);
   mandelbulbVolumeShader->SetUniformUiFloatRange("maxDistance", 0.5f, 8.0f, 0.05f);
   mandelbulbVolumeShader->SetUniformUiFloatRange("stepScale", 0.2f, 1.0f, 0.01f);
   mandelbulbVolumeShader->SetUniformUiFloatRange("fractalScale", 0.5f, 8.0f, 0.05f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("animationSpeed", 0.001f, 1.0f, 0.001f);
   mandelbulbVolumeShader->SetUniformUiIntRange("maxSteps", 16, 512);
+  mandelbulbVolumeShader->SetUniformUiIntRange("renderMode", 0, 1);
 
   // ------------- MATERIALS -------------
   std::shared_ptr<Material> triangleMaterial = std::make_shared<Material>(basicShader);
@@ -159,6 +165,12 @@ void Scene::Init()
  */
 void Scene::Update(float deltaTime)
 {
+  const auto mandelbulbShaderIt = shaders.find("volume_mandelbulb");
+  if (mandelbulbShaderIt != shaders.end() && mandelbulbShaderIt->second)
+  {
+    (*(mandelbulbShaderIt->second))["time"] = static_cast<float>(glfwGetTime());
+  }
+
   if (camera)
   {
     camera->Update(deltaTime);

@@ -1,6 +1,7 @@
 #include "Gui/UIRenderer.h"
 
 #include <iostream>
+#include <unordered_map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -263,73 +264,83 @@ void UIRenderer::RenderInspectableControls(Scene& scene)
   std::vector<UiField> fields;
   scene.CollectInspectableFields(fields);
 
-  std::string activeGroup;
+  std::vector<std::string> orderedGroups;
+  std::unordered_map<std::string, std::vector<UiField*>> fieldsByGroup;
+
   for (UiField& field : fields)
   {
-    if (field.group != activeGroup)
+    const std::string groupName = field.group.empty() ? "Ungrouped" : field.group;
+    if (fieldsByGroup.find(groupName) == fieldsByGroup.end())
     {
-      if (!activeGroup.empty())
-      {
-        ImGui::Separator();
-      }
-
-      activeGroup = field.group;
-      ImGui::TextUnformatted(activeGroup.c_str());
+      orderedGroups.push_back(groupName);
+      fieldsByGroup[groupName] = std::vector<UiField*>();
     }
 
-    if (!field.getter || !field.setter)
-    {
-      continue;
-    }
+    fieldsByGroup[groupName].push_back(&field);
+  }
 
-    UiFieldValue value = field.getter();
+  for (const std::string& groupName : orderedGroups)
+  {
+    ImGuiTreeNodeFlags headerFlags = ImGuiTreeNodeFlags_SpanAvailWidth;
+    if (ImGui::CollapsingHeader(groupName.c_str(), headerFlags))
+    {
+      const std::vector<UiField*>& groupFields = fieldsByGroup[groupName];
+      for (UiField* field : groupFields)
+      {
+        if (field == nullptr || !field->getter || !field->setter)
+        {
+          continue;
+        }
 
-    // Create unique ImGui ID by combining group and label to avoid collisions
-    const std::string uniqueId = field.group + "/" + field.label;
-    ImGui::PushID(uniqueId.c_str());
+        UiFieldValue value = field->getter();
 
-    if (field.kind == UiFieldKind::Bool)
-    {
-      bool currentValue = std::holds_alternative<bool>(value) ? std::get<bool>(value) : false;
-      if (ImGui::Checkbox(field.label.c_str(), &currentValue))
-      {
-        field.setter(currentValue);
-      }
-    }
-    else if (field.kind == UiFieldKind::Int)
-    {
-      int currentValue = std::holds_alternative<int>(value) ? std::get<int>(value) : 0;
-      if (ImGui::SliderInt(field.label.c_str(), &currentValue, field.minInt, field.maxInt))
-      {
-        field.setter(currentValue);
-      }
-    }
-    else if (field.kind == UiFieldKind::Float)
-    {
-      float currentValue = std::holds_alternative<float>(value) ? std::get<float>(value) : 0.0f;
-      if (ImGui::SliderFloat(field.label.c_str(), &currentValue, field.minFloat, field.maxFloat))
-      {
-        field.setter(currentValue);
-      }
-    }
-    else if (field.kind == UiFieldKind::Vec3)
-    {
-      glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
-      if (ImGui::DragFloat3(field.label.c_str(), &currentValue.x, field.speed))
-      {
-        field.setter(currentValue);
-      }
-    }
-    else if (field.kind == UiFieldKind::Color3)
-    {
-      glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
-      if (ImGui::ColorEdit3(field.label.c_str(), &currentValue.x))
-      {
-        field.setter(currentValue);
-      }
-    }
+        const std::string uniqueId = groupName + "/" + field->label;
+        ImGui::PushID(uniqueId.c_str());
 
-    ImGui::PopID();
+        if (field->kind == UiFieldKind::Bool)
+        {
+          bool currentValue = std::holds_alternative<bool>(value) ? std::get<bool>(value) : false;
+          if (ImGui::Checkbox(field->label.c_str(), &currentValue))
+          {
+            field->setter(currentValue);
+          }
+        }
+        else if (field->kind == UiFieldKind::Int)
+        {
+          int currentValue = std::holds_alternative<int>(value) ? std::get<int>(value) : 0;
+          if (ImGui::SliderInt(field->label.c_str(), &currentValue, field->minInt, field->maxInt))
+          {
+            field->setter(currentValue);
+          }
+        }
+        else if (field->kind == UiFieldKind::Float)
+        {
+          float currentValue = std::holds_alternative<float>(value) ? std::get<float>(value) : 0.0f;
+          if (ImGui::SliderFloat(field->label.c_str(), &currentValue, field->minFloat, field->maxFloat))
+          {
+            field->setter(currentValue);
+          }
+        }
+        else if (field->kind == UiFieldKind::Vec3)
+        {
+          glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
+          if (ImGui::DragFloat3(field->label.c_str(), &currentValue.x, field->speed))
+          {
+            field->setter(currentValue);
+          }
+        }
+        else if (field->kind == UiFieldKind::Color3)
+        {
+          glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
+          if (ImGui::ColorEdit3(field->label.c_str(), &currentValue.x))
+          {
+            field->setter(currentValue);
+          }
+        }
+
+        ImGui::PopID();
+      }
+    }
   }
 }
 
