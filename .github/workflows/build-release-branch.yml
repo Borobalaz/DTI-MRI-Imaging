@@ -1,14 +1,15 @@
-name: Build Release Branch
+name: Release Build From Main
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build-and-publish:
-    name: Build On Main And Publish To Release Branch
+    name: Build And Publish To Release Branch
+    # Run only when the pushed head commit message contains [release]
+    if: contains(github.event.head_commit.message, '[release]')
     runs-on: windows-latest
     permissions:
       contents: write
@@ -34,7 +35,8 @@ jobs:
             glad:x64-windows `
             assimp:x64-windows `
             stb:x64-windows `
-            imgui[docking-experimental,glfw-binding,opengl3-binding]:x64-windows
+            imgui[docking-experimental,glfw-binding,opengl3-binding]:x64-windows `
+            itk:x64-windows
 
       - name: Configure CMake
         shell: pwsh
@@ -47,22 +49,46 @@ jobs:
         shell: pwsh
         run: cmake --build build --config Release --parallel
 
-      - name: Publish app.exe to release branch
+      - name: Stage release payload (exe + dlls)
         shell: pwsh
         run: |
-          $artifactPath = "build/Release/app.exe"
-          if (!(Test-Path $artifactPath)) {
-            throw "Built artifact not found at $artifactPath"
+          $staging = Join-Path $env:RUNNER_TEMP "release-payload"
+          if (Test-Path $staging) {
+            Remove-Item $staging -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $staging | Out-Null
+
+          $appPath = "build/Release/app.exe"
+          if (!(Test-Path $appPath)) {
+            throw "Built artifact not found at $appPath"
           }
 
-          $tempArtifact = Join-Path $env:RUNNER_TEMP "app.exe"
-          Copy-Item $artifactPath $tempArtifact -Force
+          Copy-Item $appPath (Join-Path $staging "app.exe") -Force
+
+          # Copy project output DLLs produced by the build.
+          if (Test-Path "build/Release") {
+            Get-ChildItem "build/Release" -Filter "*.dll" -File | ForEach-Object {
+              Copy-Item $_.FullName (Join-Path $staging $_.Name) -Force
+            }
+          }
+
+          # Copy runtime DLLs from vcpkg so app.exe can run standalone on release branch.
+          $vcpkgBin = "C:/vcpkg/installed/x64-windows/bin"
+          if (Test-Path $vcpkgBin) {
+            Get-ChildItem $vcpkgBin -Filter "*.dll" -File | ForEach-Object {
+              Copy-Item $_.FullName (Join-Path $staging $_.Name) -Force
+            }
+          }
+
+      - name: Publish payload to release branch
+        shell: pwsh
+        run: |
+          $staging = Join-Path $env:RUNNER_TEMP "release-payload"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git fetch origin release
-
           if ($LASTEXITCODE -eq 0) {
             git checkout -B release origin/release
           }
@@ -71,10 +97,13 @@ jobs:
             git rm -rf . | Out-Null
           }
 
-          Copy-Item $tempArtifact "app.exe" -Force
+          if (Test-Path "release/windows") {
+            Remove-Item "release/windows" -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path "release/windows" -Force | Out-Null
+          Copy-Item (Join-Path $staging "*") "release/windows" -Recurse -Force
 
-          git add app.exe
-
+          git add release/windows
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
             Write-Host "No release artifact changes to commit."
