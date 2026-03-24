@@ -11,7 +11,7 @@
 #include <glm/glm.hpp>
 #include <imgui.h>
 
-#include "Scene.h"
+#include "Scene/Scene.h"
 #include "Gui/Inspectable.h"
 #include "InspectionMovement.h"
 #include "VolumeFileLoader.h"

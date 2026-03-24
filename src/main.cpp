@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include "Scene.h"
+#include "Scene/Scene.h"
 #include "InspectionMovement.h"
 #include "Gui/UIRenderer.h"
 #include "Scene/DtiVolumeScene.h"
