@@ -12,6 +12,7 @@
 #include <imgui.h>
 
 #include "Scene.h"
+#include "Gui/Inspectable.h"
 #include "InspectionMovement.h"
 #include "VolumeFileLoader.h"
 #include "FloatVolume.h"
@@ -26,6 +27,34 @@
 #include <windows.h>
 #include <commdlg.h>
 #endif
+
+namespace
+{
+  bool HasRenderableInspectableContent(const InspectableNode& node)
+  {
+    if (node.isField)
+    {
+      return node.field.getter && node.field.setter;
+    }
+
+    if (!node.nestedInspectable)
+    {
+      return false;
+    }
+
+    std::vector<InspectableNode> nestedNodes;
+    node.nestedInspectable->CollectInspectableNodes(nestedNodes, "");
+    for (const InspectableNode& nestedNode : nestedNodes)
+    {
+      if (HasRenderableInspectableContent(nestedNode))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+}
 
 /**
  * @brief Ensures the framebuffer is large enough to accommodate the specified dimensions.
@@ -261,85 +290,122 @@ void UIRenderer::RenderVolumeLoadStatus(const std::string& volumeLoadStatus)
  */
 void UIRenderer::RenderInspectableControls(Scene& scene)
 {
-  std::vector<UiField> fields;
-  scene.CollectInspectableFields(fields);
+  std::vector<InspectableNode> nodes;
+  scene.CollectInspectableNodes(nodes);
 
-  std::vector<std::string> orderedGroups;
-  std::unordered_map<std::string, std::vector<UiField*>> fieldsByGroup;
-
-  for (UiField& field : fields)
+  for (const InspectableNode& node : nodes)
   {
-    const std::string groupName = field.group.empty() ? "Ungrouped" : field.group;
-    if (fieldsByGroup.find(groupName) == fieldsByGroup.end())
+    if (!HasRenderableInspectableContent(node))
     {
-      orderedGroups.push_back(groupName);
-      fieldsByGroup[groupName] = std::vector<UiField*>();
+      continue;
     }
 
-    fieldsByGroup[groupName].push_back(&field);
+    RenderInspectableNode(node, 0);
   }
+}
 
-  for (const std::string& groupName : orderedGroups)
+/**
+ * @brief Render a single inspectable node, which can be either a field or a nested inspectable.
+ * 
+ * @param node The node to render.
+ * @param depth The depth of the node in the hierarchy, used for indentation.
+ */
+void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
+{
+  if (node.isField)
   {
-    ImGuiTreeNodeFlags headerFlags = ImGuiTreeNodeFlags_SpanAvailWidth;
-    if (ImGui::CollapsingHeader(groupName.c_str(), headerFlags))
+    // Render a field widget
+    const UiField& field = node.field;
+    if (!field.getter || !field.setter)
     {
-      const std::vector<UiField*>& groupFields = fieldsByGroup[groupName];
-      for (UiField* field : groupFields)
+      return;
+    }
+
+    UiFieldValue value = field.getter();
+
+    ImGui::PushID(node.nodeLabel.c_str());
+
+    if (field.kind == UiFieldKind::Bool)
+    {
+      bool currentValue = std::holds_alternative<bool>(value) ? std::get<bool>(value) : false;
+      if (ImGui::Checkbox(field.label.c_str(), &currentValue))
       {
-        if (field == nullptr || !field->getter || !field->setter)
-        {
-          continue;
-        }
-
-        UiFieldValue value = field->getter();
-
-        const std::string uniqueId = groupName + "/" + field->label;
-        ImGui::PushID(uniqueId.c_str());
-
-        if (field->kind == UiFieldKind::Bool)
-        {
-          bool currentValue = std::holds_alternative<bool>(value) ? std::get<bool>(value) : false;
-          if (ImGui::Checkbox(field->label.c_str(), &currentValue))
-          {
-            field->setter(currentValue);
-          }
-        }
-        else if (field->kind == UiFieldKind::Int)
-        {
-          int currentValue = std::holds_alternative<int>(value) ? std::get<int>(value) : 0;
-          if (ImGui::SliderInt(field->label.c_str(), &currentValue, field->minInt, field->maxInt))
-          {
-            field->setter(currentValue);
-          }
-        }
-        else if (field->kind == UiFieldKind::Float)
-        {
-          float currentValue = std::holds_alternative<float>(value) ? std::get<float>(value) : 0.0f;
-          if (ImGui::SliderFloat(field->label.c_str(), &currentValue, field->minFloat, field->maxFloat))
-          {
-            field->setter(currentValue);
-          }
-        }
-        else if (field->kind == UiFieldKind::Vec3)
-        {
-          glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
-          if (ImGui::DragFloat3(field->label.c_str(), &currentValue.x, field->speed))
-          {
-            field->setter(currentValue);
-          }
-        }
-        else if (field->kind == UiFieldKind::Color3)
-        {
-          glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
-          if (ImGui::ColorEdit3(field->label.c_str(), &currentValue.x))
-          {
-            field->setter(currentValue);
-          }
-        }
-
-        ImGui::PopID();
+        field.setter(currentValue);
       }
+    }
+    else if (field.kind == UiFieldKind::Int)
+    {
+      int currentValue = std::holds_alternative<int>(value) ? std::get<int>(value) : 0;
+      if (ImGui::SliderInt(field.label.c_str(), &currentValue, field.minInt, field.maxInt))
+      {
+        field.setter(currentValue);
+      }
+    }
+    else if (field.kind == UiFieldKind::Float)
+    {
+      float currentValue = std::holds_alternative<float>(value) ? std::get<float>(value) : 0.0f;
+      if (ImGui::SliderFloat(field.label.c_str(), &currentValue, field.minFloat, field.maxFloat))
+      {
+        field.setter(currentValue);
+      }
+    }
+    else if (field.kind == UiFieldKind::Vec3)
+    {
+      glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
+      if (ImGui::DragFloat3(field.label.c_str(), &currentValue.x, field.speed))
+      {
+        field.setter(currentValue);
+      }
+    }
+    else if (field.kind == UiFieldKind::Color3)
+    {
+      glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
+      if (ImGui::ColorEdit3(field.label.c_str(), &currentValue.x))
+      {
+        field.setter(currentValue);
+      }
+    }
+
+    ImGui::PopID();
+  }
+  else
+  {
+    // Render a nested inspectable as a tree node
+    if (!node.nestedInspectable)
+    {
+      return;
+    }
+
+    std::vector<InspectableNode> nestedNodes;
+    node.nestedInspectable->CollectInspectableNodes(nestedNodes, "");
+
+    std::vector<const InspectableNode*> visibleNestedNodes;
+    visibleNestedNodes.reserve(nestedNodes.size());
+    for (const InspectableNode& nestedNode : nestedNodes)
+    {
+      if (HasRenderableInspectableContent(nestedNode))
+      {
+        visibleNestedNodes.push_back(&nestedNode);
+      }
+    }
+
+    if (visibleNestedNodes.empty())
+    {
+      return;
+    }
+
+    ImGuiTreeNodeFlags treeFlags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+    if (ImGui::TreeNodeEx(node.nodeLabel.c_str(), treeFlags))
+    {
+      ImGui::Indent();
+
+      for (const InspectableNode* nestedNode : visibleNestedNodes)
+      {
+        RenderInspectableNode(*nestedNode, depth + 1);
+      }
+
+      ImGui::Unindent();
+      ImGui::TreePop();
     }
   }
 }

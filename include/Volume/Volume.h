@@ -22,7 +22,13 @@ public:
   void Draw(const UniformProvider& frameUniforms) const override;
   bool IsValid() const;
   void CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix) override;
+  void CollectInspectableNodes(std::vector<InspectableNode>& out, const std::string& nodePrefix) override;
 
+  const std::shared_ptr<Shader>& getShader() const
+  {
+    return shader;
+  }
+  
   glm::vec3 position{0.0f, 0.0f, 0.0f};
   glm::vec3 rotation{0.0f, 0.0f, 0.0f};
   glm::vec3 scale{1.0f, 1.0f, 1.0f};

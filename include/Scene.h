@@ -49,6 +49,8 @@ public:
   void SetMatrixTestUniform(const glm::vec3& value);
   glm::vec3 GetMatrixTestUniform() const;
   void CollectInspectableFields(std::vector<UiField>& out);
+  void CollectInspectableNodes(std::vector<InspectableNode>& out);
+
 
   void SetVolume(Volume* volume);
   std::shared_ptr<Shader> GetActiveVolumeShader() const;

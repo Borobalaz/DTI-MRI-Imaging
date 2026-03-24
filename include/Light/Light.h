@@ -22,8 +22,22 @@ public:
 
   void SetUniformIndex(int index);
   int GetUniformIndex() const;
-
+  void Apply(Shader& shader) const override;
   void CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix) override;  
+  void CollectInspectableNodes(std::vector<InspectableNode>& out)
+  {
+    // Lights do not have nested nodes in this implementation
+  }
+
+  void SetEnabled(bool isEnabled)
+  {
+    enabled = isEnabled;
+  }
+
+  bool GetEnabled() const
+  {
+    return enabled;
+  }
 
   glm::vec3 ambient;
   glm::vec3 diffuse;
@@ -31,6 +45,7 @@ public:
 
 protected:
   int uniformIndex;
+  bool enabled = true;
 };
 
 inline Light::Light()

@@ -6,7 +6,7 @@
 
 void PointLight::Apply(Shader& shader) const
 {
-  if (uniformIndex < 0)
+  if (uniformIndex < 0 || !enabled)
   {
     return;
   }
