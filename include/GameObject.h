@@ -8,7 +8,7 @@
 #include "IDrawable.h"
 #include "UniformProvider.h"
 
-class GameObject : public UniformProvider, IDrawable, IInspectable
+class GameObject : public UniformProvider, public IDrawable, public IInspectable
 {
 public:
   GameObject();

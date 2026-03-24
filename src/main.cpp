@@ -12,6 +12,7 @@
 #include "Scene.h"
 #include "InspectionMovement.h"
 #include "Gui/UIRenderer.h"
+#include "Scene/DtiVolumeScene.h"
 
 namespace
 {
@@ -89,8 +90,13 @@ int main()
     return -1;
   }
 
-  Scene scene;
+  DtiVolumeScene scene;
   scene.Init();
+  if (!scene.LoadDataset("assets/volumes/ds001553", "", ""))
+  {
+    std::cout << "DTI dataset load failed: " << scene.GetLastLoadError() << "\n";
+  }
+
   InspectionMovement* inspectionMovement = nullptr;
   if (std::shared_ptr<Camera> sceneCamera = scene.GetCamera())
   {

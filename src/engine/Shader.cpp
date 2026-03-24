@@ -181,11 +181,6 @@ void Shader::Use() const
     const std::string uniformName = ResolveStoredUniformName(*this, name);
     if (uniformName.empty())
     {
-      std::cout << "Skipping uniform '" << name
-                << "' because neither '" << name
-                << "' nor 'shader." << name
-                << "' is part of shader "
-                << ID << std::endl;
       continue;
     }
 
@@ -541,11 +536,6 @@ void Shader::Apply(Shader& shader) const
     const std::string uniformName = ResolveStoredUniformName(shader, name);
     if (uniformName.empty())
     {
-      std::cout << "Skipping uniform '" << name
-                << "' because neither '" << name
-                << "' nor 'shader." << name
-                << "' is part of shader "
-                << shader.ID << std::endl;
       continue;
     }
 

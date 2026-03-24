@@ -10,9 +10,34 @@ int Light::GetUniformIndex() const
   return uniformIndex;
 }
 
+void Light::Apply(Shader& shader) const
+{
+  // Base Light class doesn't apply any uniforms
+  // Derived classes (PointLight, DirectionalLight) override this method
+}
+
 void Light::CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix)
 {
   const std::string group = groupPrefix.empty() ? "Light" : groupPrefix;
+
+  UiField enabledField;
+  enabledField.group = group;
+  enabledField.label = "Enabled";
+  enabledField.kind = UiFieldKind::Bool;
+  enabledField.getter = [this]() -> UiFieldValue
+  {
+    return enabled;
+  };
+  enabledField.setter = [this](const UiFieldValue& value)
+  {
+    if (!std::holds_alternative<bool>(value))
+    {
+      return;
+    }
+
+    enabled = std::get<bool>(value);
+  };
+  out.push_back(std::move(enabledField));
 
   UiField ambientField;
   ambientField.group = group;
@@ -74,3 +99,4 @@ void Light::CollectInspectableFields(std::vector<UiField>& out, const std::strin
   };
   out.push_back(std::move(specularField));
 }
+

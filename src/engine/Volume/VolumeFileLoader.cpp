@@ -86,6 +86,7 @@ namespace
    * @param image 
    * @return std::optional<VolumeData<TOutputVoxel>> 
    */
+#ifdef CONNECTOMICS_ENABLE_ITK_IO
   template <typename TOutputVoxel, typename TInputVoxel>
   std::optional<VolumeData<TOutputVoxel>> CopyItkImageToVolume(
     const itk::Image<TInputVoxel, 3>* image)
@@ -125,6 +126,7 @@ namespace
 
     return volume;
   }
+#endif
 
   /**
    * @brief Tries to load a medical image file (like NIfTI) or DICOM series using ITK.
@@ -134,6 +136,7 @@ namespace
    * @param filePath 
    * @return std::optional<VolumeData<TOutputVoxel>> 
    */
+#ifdef CONNECTOMICS_ENABLE_ITK_IO
   template <typename TOutputVoxel, typename TInputVoxel>
   std::optional<VolumeData<TOutputVoxel>> ReadScalarImageAs(const std::string& filePath)
   {
@@ -166,6 +169,7 @@ namespace
       return std::nullopt;
     }
   }
+#endif
 
   /**
    * @brief Tries to load an image file using ITK.
@@ -174,6 +178,7 @@ namespace
    * @param filePath 
    * @return std::optional<VolumeData<TOutputVoxel>> 
    */
+#ifdef CONNECTOMICS_ENABLE_ITK_IO
   template <typename TOutputVoxel>
   std::optional<VolumeData<TOutputVoxel>> TryLoadImageFile(const std::string& filePath)
   {
@@ -268,6 +273,7 @@ namespace
       std::string("Unsupported component type in '") + filePath + "'.");
     return std::nullopt;
   }
+#endif
 
   /**
    * @brief Tries to load a DICOM series from a directory.
@@ -276,6 +282,7 @@ namespace
    * @param directoryPath 
    * @return std::optional<VolumeData<TVoxel>> 
    */
+#ifdef CONNECTOMICS_ENABLE_ITK_IO
   template <typename TVoxel>
   std::optional<VolumeData<TVoxel>> TryLoadDicomSeriesDirectory(const std::string& directoryPath)
   {
@@ -333,8 +340,10 @@ namespace
       return std::nullopt;
     }
   }
+#endif
 
   template <typename TVoxel>
+#ifdef CONNECTOMICS_ENABLE_ITK_IO
   std::optional<VolumeData<TVoxel>> TryLoadMedicalVolumeWithItk(const std::string& filePath)
   {
     if (std::filesystem::is_directory(filePath))
@@ -344,6 +353,13 @@ namespace
 
     return TryLoadImageFile<TVoxel>(filePath);
   }
+#else
+  std::optional<VolumeData<TVoxel>> TryLoadMedicalVolumeWithItk(const std::string& filePath)
+  {
+    SetVolumeLoaderError("Medical image loading is disabled at build time");
+    return std::nullopt;
+  }
+#endif
 }
 
 /**

@@ -57,47 +57,6 @@ Scene::Scene()
   scalarVolumeShader->SetUniformUiFloatRange("threshold", 0.0f, 100.0f);
   (*scalarVolumeShader)["color"] = glm::vec3(0.9f, 0.9f, 0.95f);
 
-  const std::shared_ptr<Shader> matrixVolumeShader = std::make_shared<Shader>(
-    "shaders/volume_vertex.glsl",
-    "shaders/volume_matrix_eigen_fragment.glsl"
-  );
-  shaders["volume_matrix"] = matrixVolumeShader;
-
-  (*matrixVolumeShader)["faThreshold"] = 0.12f;
-  (*matrixVolumeShader)["opacityScale"] = 1.1f;
-  (*matrixVolumeShader)["stepMultiplier"] = 1.0f;
-  (*matrixVolumeShader)["tintColor"] = glm::vec3(1.0f, 1.0f, 1.0f);
-  (*matrixVolumeShader)["specularPower"] = 24.0f;
-
-  const std::shared_ptr<Shader> mandelbulbVolumeShader = std::make_shared<Shader>(
-    "shaders/volume_vertex.glsl",
-    "shaders/mandelbulb_fragment.glsl"
-  );
-  shaders["volume_mandelbulb"] = mandelbulbVolumeShader;
-
-  (*mandelbulbVolumeShader)["power"] = 8.0f;
-  (*mandelbulbVolumeShader)["bailout"] = 8.0f;
-  (*mandelbulbVolumeShader)["hitEpsilon"] = 0.0012f;
-  (*mandelbulbVolumeShader)["maxDistance"] = 4.0f;
-  (*mandelbulbVolumeShader)["stepScale"] = 0.75f;
-  (*mandelbulbVolumeShader)["fractalScale"] = 3.2f;
-  (*mandelbulbVolumeShader)["time"] = 0.0f;
-  (*mandelbulbVolumeShader)["animationSpeed"] = 0.150f;
-  (*mandelbulbVolumeShader)["maxSteps"] = 256;
-  (*mandelbulbVolumeShader)["renderMode"] = 0;
-  (*mandelbulbVolumeShader)["animateBulb"] = false;
-  (*mandelbulbVolumeShader)["fractalOffset"] = glm::vec3(0.0f, 0.0f, 0.0f);
-  (*mandelbulbVolumeShader)["baseColor"] = glm::vec3(0.95f, 0.55f, 0.3f);
-
-  mandelbulbVolumeShader->SetUniformUiFloatRange("power", 0.0f, 30.0f, 0.001f);
-  mandelbulbVolumeShader->SetUniformUiFloatRange("bailout", 2.0f, 16.0f, 0.1f);
-  mandelbulbVolumeShader->SetUniformUiFloatRange("hitEpsilon", 0.03f, 0.5f, 0.001f);
-  mandelbulbVolumeShader->SetUniformUiFloatRange("maxDistance", 0.5f, 8.0f, 0.05f);
-  mandelbulbVolumeShader->SetUniformUiFloatRange("stepScale", 0.2f, 1.0f, 0.01f);
-  mandelbulbVolumeShader->SetUniformUiFloatRange("fractalScale", 0.5f, 8.0f, 0.05f);
-  mandelbulbVolumeShader->SetUniformUiFloatRange("animationSpeed", 0.001f, 1.0f, 0.001f);
-  mandelbulbVolumeShader->SetUniformUiIntRange("maxSteps", 16, 512);
-  mandelbulbVolumeShader->SetUniformUiIntRange("renderMode", 0, 1);
 
   // ------------- MATERIALS -------------
   std::shared_ptr<Material> triangleMaterial = std::make_shared<Material>(basicShader);
@@ -137,12 +96,42 @@ Scene::Scene()
   )));
 
   // ------------- VOLUME -------------
+  std::shared_ptr<Shader> mandelbulbVolumeShader = std::make_shared<Shader>(
+    "shaders/volume_vertex.glsl",
+    "shaders/mandelbulb_fragment.glsl"
+  );
+
   std::shared_ptr<Volume> mandelbulbVolume = std::make_shared<FloatVolume>(
     CreateSeedVolumeData(8, 8, 8),
     mandelbulbVolumeShader
   );
   mandelbulbVolume->position = glm::vec3(0.0f, 0.0f, 0.0f);
   mandelbulbVolume->scale = glm::vec3(1.5f, 1.5f, 1.5f);
+  
+  (*mandelbulbVolumeShader)["power"] = 8.0f;
+  (*mandelbulbVolumeShader)["bailout"] = 8.0f;
+  (*mandelbulbVolumeShader)["hitEpsilon"] = 0.0012f;
+  (*mandelbulbVolumeShader)["maxDistance"] = 4.0f;
+  (*mandelbulbVolumeShader)["stepScale"] = 0.75f;
+  (*mandelbulbVolumeShader)["fractalScale"] = 3.2f;
+  (*mandelbulbVolumeShader)["time"] = 0.0f;
+  (*mandelbulbVolumeShader)["animationSpeed"] = 0.150f;
+  (*mandelbulbVolumeShader)["maxSteps"] = 256;
+  (*mandelbulbVolumeShader)["renderMode"] = 0;
+  (*mandelbulbVolumeShader)["animateBulb"] = false;
+  (*mandelbulbVolumeShader)["fractalOffset"] = glm::vec3(0.0f, 0.0f, 0.0f);
+  (*mandelbulbVolumeShader)["baseColor"] = glm::vec3(0.95f, 0.55f, 0.3f);
+
+  mandelbulbVolumeShader->SetUniformUiFloatRange("power", 0.0f, 30.0f, 0.001f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("bailout", 2.0f, 16.0f, 0.1f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("hitEpsilon", 0.03f, 0.5f, 0.001f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("maxDistance", 0.5f, 8.0f, 0.05f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("stepScale", 0.2f, 1.0f, 0.01f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("fractalScale", 0.5f, 8.0f, 0.05f);
+  mandelbulbVolumeShader->SetUniformUiFloatRange("animationSpeed", 0.001f, 1.0f, 0.001f);
+  mandelbulbVolumeShader->SetUniformUiIntRange("maxSteps", 16, 512);
+  mandelbulbVolumeShader->SetUniformUiIntRange("renderMode", 0, 1);
+
   volumes.push_back(mandelbulbVolume);
 }
 
@@ -165,12 +154,6 @@ void Scene::Init()
  */
 void Scene::Update(float deltaTime)
 {
-  const auto mandelbulbShaderIt = shaders.find("volume_mandelbulb");
-  if (mandelbulbShaderIt != shaders.end() && mandelbulbShaderIt->second)
-  {
-    (*(mandelbulbShaderIt->second))["time"] = static_cast<float>(glfwGetTime());
-  }
-
   if (camera)
   {
     camera->Update(deltaTime);
@@ -192,6 +175,17 @@ void Scene::Update(float deltaTime)
         glm::vec3(std::cos(angle) * radius, 0.0f, std::sin(angle) * radius);
     }
   }
+
+  for (const auto& volume : volumes)
+  {
+    if (volume)
+    {
+      if (std::shared_ptr<Shader> shader = volume->getShader())
+      {
+        (*shader)["time"] = static_cast<float>(glfwGetTime());
+      }
+    }
+  }
 }
 
 void Scene::Apply(Shader& shader) const
@@ -201,7 +195,9 @@ void Scene::Apply(Shader& shader) const
     return;
   }
 
-  const int lightCount = static_cast<int>(std::min(lights.size(), static_cast<size_t>(kMaxLights)));
+  const int enabledCount = static_cast<int>(std::count_if(lights.begin(), lights.end(),
+    [](const std::shared_ptr<Light>& light) { return light && light->GetEnabled(); }));
+  const int lightCount = static_cast<int>(std::min(enabledCount, kMaxLights));
   shader.SetInt("lightCount", lightCount);
 }
 
@@ -213,8 +209,12 @@ void Scene::Render()
 {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  const int lightCount = static_cast<int>(std::min(lights.size(), static_cast<size_t>(kMaxLights)));
+  // Count active lights
+  const int enabledCount = static_cast<int>(std::count_if(lights.begin(), lights.end(),
+    [](const std::shared_ptr<Light>& light) { return light && light->GetEnabled(); }));
+  const int lightCount = static_cast<int>(std::min(enabledCount, kMaxLights));
 
+  // Set up frame uniforms
   frameUniforms.ClearProviders();
   frameUniforms.AddProvider(*this);
   if (camera)
@@ -368,6 +368,69 @@ void Scene::CollectInspectableFields(std::vector<UiField>& out)
     }
 
     lights[i]->CollectInspectableFields(out, "Light/" + std::to_string(i));
+  }
+}
+
+void Scene::CollectInspectableNodes(std::vector<InspectableNode>& out)
+{
+  // Collect shaders as nested nodes
+  for (auto& [shaderName, shader] : shaders)
+  {
+    if (!shader)
+    {
+      continue;
+    }
+
+    InspectableNode node;
+    node.nodeLabel = "Shader/" + shaderName;
+    node.isField = false;
+    node.nestedInspectable = std::static_pointer_cast<IInspectable>(shader);
+    out.push_back(node);
+  }
+
+  // Collect volumes as nested nodes
+  for (size_t i = 0; i < volumes.size(); ++i)
+  {
+    if (!volumes[i])
+    {
+      continue;
+    }
+
+    InspectableNode node;
+    node.nodeLabel = "Volume/" + std::to_string(i);
+    node.isField = false;
+    node.nestedInspectable = std::static_pointer_cast<IInspectable>(volumes[i]);
+    out.push_back(node);
+  }
+
+  // Collect game objects as nested nodes
+  for (size_t i = 0; i < gameObjects.size(); ++i)
+  {
+    if (!gameObjects[i])
+    {
+      continue;
+    }
+
+    InspectableNode node;
+    node.nodeLabel = "GameObject/" + std::to_string(i);
+    node.isField = false;
+    node.nestedInspectable = std::static_pointer_cast<IInspectable>(gameObjects[i]);
+    out.push_back(node);
+  }
+
+  // Collect lights as nested nodes
+  for (size_t i = 0; i < lights.size(); ++i)
+  {
+    if (!lights[i])
+    {
+      continue;
+    }
+
+    InspectableNode node;
+    node.nodeLabel = "Light/" + std::to_string(i);
+    node.isField = false;
+    node.nestedInspectable = std::static_pointer_cast<IInspectable>(lights[i]);
+    out.push_back(node);
   }
 }
 

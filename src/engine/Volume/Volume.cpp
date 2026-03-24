@@ -170,4 +170,21 @@ void Volume::CollectInspectableFields(std::vector<UiField>& out, const std::stri
   };
   out.push_back(std::move(visibleField));
 
+
+}
+
+void Volume::CollectInspectableNodes(std::vector<InspectableNode>& out, const std::string& nodePrefix)
+{
+  // First, collect the volume's own fields
+  IInspectable::CollectInspectableNodes(out, nodePrefix);
+
+  // Then, add the shader as a nested inspectable node
+  if (shader)
+  {
+    InspectableNode shaderNode;
+    shaderNode.nodeLabel = "Shader";
+    shaderNode.isField = false;
+    shaderNode.nestedInspectable = std::static_pointer_cast<IInspectable>(shader);
+    out.push_back(shaderNode);
+  }
 }
