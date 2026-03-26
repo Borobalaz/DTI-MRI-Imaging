@@ -11,7 +11,7 @@
 #include <string>
 #include "Scene/Scene.h"
 #include "InspectionMovement.h"
-#include "Gui/UIRenderer.h"
+#include "Gui/GuiRoot.h"
 #include "Scene/DtiVolumeScene.h"
 
 namespace
@@ -66,6 +66,7 @@ namespace
     ImGui::DestroyContext();
   }
 
+  
   void SetupInitialDockLayout(ImGuiID dockspaceId)
   {
     ImGui::DockBuilderRemoveNode(dockspaceId);
@@ -84,12 +85,14 @@ namespace
 
 int main()
 {
+  // Create main application window
   GLFWwindow* window = CreateMainWindow();
   if (window == nullptr)
   {
     return -1;
   }
 
+  // Create and initialize the scene
   DtiVolumeScene scene;
   scene.Init();
   if (!scene.LoadDataset("assets/volumes/ds001553", "", ""))
@@ -97,30 +100,25 @@ int main()
     std::cout << "DTI dataset load failed: " << scene.GetLastLoadError() << "\n";
   }
 
-  InspectionMovement* inspectionMovement = nullptr;
+  BaseMovement* movement = nullptr;
   if (std::shared_ptr<Camera> sceneCamera = scene.GetCamera())
   {
-    auto movement = std::make_unique<InspectionMovement>(window, glm::vec3(0.0f));
-    inspectionMovement = movement.get();
-    sceneCamera->SetMoveComponent(std::move(movement));
+    auto moveComponent = std::make_unique<InspectionMovement>(window, glm::vec3(0.0f));
+    BaseMovement* movementPtr = moveComponent.get();
+    sceneCamera->SetMoveComponent(std::move(moveComponent));
+    movement = movementPtr;
   }
-  //scene.SetSkybox(SkyboxFaces{
-  //  "assets/textures/skybox/right.png",
-  //  "assets/textures/skybox/left.png",
-  //  "assets/textures/skybox/top.png",
-  //  "assets/textures/skybox/bottom.png",
-  //  "assets/textures/skybox/front.png",
-  //  "assets/textures/skybox/back.png"
-  //});
 
+  // Initialize ImGui for GUI rendering
   InitializeImGui(window);
-
-  UIRenderer::SceneFramebuffer sceneFramebuffer;
+  GuiRoot gui;
 
   float lastTime = glfwGetTime();
 
-  while (!glfwWindowShouldClose(window)) {
-
+  // Main application loop
+  while (!glfwWindowShouldClose(window)) 
+  {
+    // Time management
     float currentTime = glfwGetTime();
     float deltaTime = currentTime - lastTime;
     lastTime = currentTime;
@@ -146,13 +144,11 @@ int main()
       layoutInitialized = true;
     }
 
-    UIRenderer::RenderRuntimeControls(scene, deltaTime);
-    UIRenderer::RenderScenePanel(scene,
-                   sceneFramebuffer,
-                   framebufferWidth,
-                   framebufferHeight,
-                   deltaTime,
-                   inspectionMovement);
+    gui.Render(scene,
+           deltaTime,
+           framebufferWidth,
+           framebufferHeight,
+           movement);
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -161,7 +157,8 @@ int main()
     glfwPollEvents();
   }
 
-  sceneFramebuffer.Destroy();
+  // Cleanup and exit
+  gui.Destroy();
   ShutdownImGui();
 
   scene.Destroy();

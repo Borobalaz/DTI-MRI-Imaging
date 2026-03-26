@@ -1,0 +1,123 @@
+classDiagram
+  class GuiRoot {
+    -PanelRegistry panelRegistry
+    -SceneFramebuffer sceneFramebuffer
+    +Render(scene, deltaTime, windowFramebufferWidth, windowFramebufferHeight, movement) void
+    +Destroy() void
+  }
+
+  class PanelRegistry {
+    -vector~unique_ptr~GUIPanel~~ panels
+    +RegisterPanel(panel) void
+    +IsEmpty() bool
+    +RenderAll(context) void
+  }
+
+  class GUIPanel {
+    <<interface>>
+    +Render(context) void*
+  }
+
+  class RuntimeControlsPanel {
+    -GuiTheme theme
+    -unordered_map~UiFieldKind, unique_ptr~IWidget~~ widgets
+    +Render(context) void
+  }
+
+  class ScenePanel {
+    +Render(context) void
+  }
+
+  class GuiRenderContext {
+    +Scene& scene
+    +float deltaTime
+    +SceneFramebuffer* sceneFramebuffer
+    +int windowFramebufferWidth
+    +int windowFramebufferHeight
+    +BaseMovement* movement
+  }
+
+  class SceneFramebuffer {
+    +GLuint framebuffer
+    +GLuint colorTexture
+    +GLuint depthStencilRenderbuffer
+    +int width
+    +int height
+    +EnsureSize(newWidth, newHeight) void
+    +Destroy() void
+    +GetImGuiTextureId() ImTextureID
+  }
+
+  class IInspectable {
+    <<interface>>
+    +CollectInspectableFields(out, groupPrefix) void*
+    +CollectInspectableNodes(out, nodePrefix) void
+  }
+
+  class InspectableNode {
+    +string nodeLabel
+    +bool isField
+    +UiField field
+    +shared_ptr~IInspectable~ nestedInspectable
+  }
+
+  class IWidget {
+    <<interface>>
+    +Render(field, value) bool*
+  }
+
+  class BoolFieldWidget
+  class IntFieldWidget
+  class FloatFieldWidget
+  class Vec3FieldWidget
+  class Color3FieldWidget
+
+  class GuiTheme {
+    +GetNodeHeaderStyle() NodeHeaderStyle
+    +SetNodeHeaderStyle(style) void
+  }
+
+  class Scene {
+    <<external>>
+  }
+
+  class BaseMovement {
+    <<external>>
+  }
+
+  class InspectionMovement {
+    <<external>>
+  }
+
+  GUIPanel <|-- RuntimeControlsPanel
+  GUIPanel <|-- ScenePanel
+
+  GuiRoot *-- PanelRegistry
+  GuiRoot *-- SceneFramebuffer
+
+  PanelRegistry *-- GUIPanel : owns panels
+  PanelRegistry ..> GuiRenderContext : renders with
+
+  RuntimeControlsPanel *-- GuiTheme
+  RuntimeControlsPanel *-- IWidget : owns widget instances
+  RuntimeControlsPanel ..> Scene : inspects
+
+  ScenePanel ..> GuiRenderContext
+  ScenePanel ..> SceneFramebuffer
+  ScenePanel ..> Scene : render target
+  ScenePanel ..> BaseMovement
+  ScenePanel ..> InspectionMovement : dynamic_cast
+
+  InspectableNode o-- IInspectable : nestedInspectable
+  RuntimeControlsPanel ..> InspectableNode
+
+  IWidget <|-- BoolFieldWidget
+  IWidget <|-- IntFieldWidget
+  IWidget <|-- FloatFieldWidget
+  IWidget <|-- Vec3FieldWidget
+  IWidget <|-- Color3FieldWidget
+
+  GuiRenderContext ..> Scene
+  GuiRenderContext ..> SceneFramebuffer
+  GuiRenderContext ..> BaseMovement
+
