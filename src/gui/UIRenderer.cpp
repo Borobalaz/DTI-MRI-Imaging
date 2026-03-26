@@ -14,19 +14,6 @@
 #include "Scene/Scene.h"
 #include "Gui/Inspectable.h"
 #include "InspectionMovement.h"
-#include "VolumeFileLoader.h"
-#include "FloatVolume.h"
-#include "Mat3Volume.h"
-#include "UInt16Volume.h"
-#include "UInt8Volume.h"
-
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <commdlg.h>
-#endif
 
 namespace
 {
@@ -136,154 +123,6 @@ ImTextureID UIRenderer::SceneFramebuffer::GetImGuiTextureId() const
 }
 
 /**
- * @brief Pick a volume file path using a file dialog.
- * 
- * @return std::string The selected file path.
- */
-std::string UIRenderer::PickVolumeFilePath()
-{
-#ifdef _WIN32
-  char selectedPath[4096] = {};
-
-  OPENFILENAMEA dialog{};
-  dialog.lStructSize = sizeof(dialog);
-  dialog.lpstrFilter =
-    "Volume Files\0*.vxa;*.nii;*.nii.gz;*.nrrd;*.nhdr;*.mha;*.mhd;*.hdr;*.img\0"
-    "All Files\0*.*\0";
-  dialog.lpstrFile = selectedPath;
-  dialog.nMaxFile = static_cast<DWORD>(sizeof(selectedPath));
-  dialog.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
-  dialog.lpstrTitle = "Open Volume File";
-
-  if (GetOpenFileNameA(&dialog) == TRUE)
-  {
-    return std::string(selectedPath);
-  }
-#endif
-
-  return std::string();
-}
-
-/**
- * @brief Handle the action of loading a volume file.
- * 
- * @param scene The scene to load the volume into.
- * @param volumeLoadStatus The status message for the volume load operation.
- */
-void UIRenderer::HandleVolumeLoadAction(Scene& scene, std::string& volumeLoadStatus)
-{
-  if (!ImGui::Button("Open Volume..."))
-  {
-    return;
-  }
-
-  const std::string filePath = PickVolumeFilePath();
-  if (filePath.empty())
-  {
-    volumeLoadStatus = "Volume load cancelled.";
-    return;
-  }
-
-  volumeLoadStatus = TryLoadVolumeStatus(scene, filePath);
-}
-
-/**
- * @brief Try to load a volume file and return the status message.
- * 
- * @param scene The scene to load the volume into.
- * @param filePath The path to the volume file.
- * @return std::string The status message for the volume load operation.
- */
-std::string UIRenderer::TryLoadVolumeStatus(Scene& scene, const std::string& filePath)
-{
-  std::optional<LoadedVolumeVariant> loadedVolume = VolumeFileLoader::Load(filePath);
-  if (!loadedVolume.has_value())
-  {
-    const std::string detailedError = VolumeFileLoader::GetLastError();
-    if (!detailedError.empty())
-    {
-      return "Failed to load volume: " + filePath + "\nReason: " + detailedError;
-    }
-
-    return "Failed to load volume: " + filePath;
-  }
-
-  std::shared_ptr<Shader> scalarShader = scene.GetActiveVolumeShader();
-  std::shared_ptr<Shader> matrixShader = scene.GetMatrixVolumeShader();
-  Volume* runtimeVolume = nullptr;
-  bool loadedTypeIsSupported = false;
-
-  std::visit(
-    [&](auto&& volumeData)
-    {
-      using VolumeDataType = std::decay_t<decltype(volumeData)>;
-
-      if constexpr (std::is_same_v<VolumeDataType, VolumeData<float>>)
-      {
-        loadedTypeIsSupported = true;
-        if (scalarShader)
-        {
-          runtimeVolume = new FloatVolume(volumeData, scalarShader);
-        }
-      }
-      else if constexpr (std::is_same_v<VolumeDataType, VolumeData<uint16_t>>)
-      {
-        loadedTypeIsSupported = true;
-        if (scalarShader)
-        {
-          runtimeVolume = new UInt16Volume(volumeData, scalarShader);
-        }
-      }
-      else if constexpr (std::is_same_v<VolumeDataType, VolumeData<uint8_t>>)
-      {
-        loadedTypeIsSupported = true;
-        if (scalarShader)
-        {
-          runtimeVolume = new UInt8Volume(volumeData, scalarShader);
-        }
-      }
-      else if constexpr (std::is_same_v<VolumeDataType, VolumeData<glm::mat3>>)
-      {
-        loadedTypeIsSupported = true;
-        if (matrixShader)
-        {
-          runtimeVolume = new Mat3Volume(volumeData, matrixShader);
-        }
-      }
-    },
-    loadedVolume.value());
-
-  if (runtimeVolume != nullptr)
-  {
-    scene.SetVolume(runtimeVolume);
-    return "Loaded volume: " + filePath;
-  }
-
-  if (!loadedTypeIsSupported)
-  {
-    return "Load failed: unsupported volume type for runtime scene loader.";
-  }
-
-  return "Failed to create runtime volume for: " + filePath;
-}
-
-/**
- * @brief Render the status message for the volume load operation.
- * 
- * @param volumeLoadStatus The status message to render.
- */
-void UIRenderer::RenderVolumeLoadStatus(const std::string& volumeLoadStatus)
-{
-  if (volumeLoadStatus.empty())
-  {
-    return;
-  }
-
-  ImGui::TextWrapped("%s", volumeLoadStatus.c_str());
-  ImGui::Separator();
-}
-
-/**
  * @brief Render the inspectable controls for the scene.
  * 
  * @param scene The scene to render controls for.
@@ -324,11 +163,15 @@ void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
     UiFieldValue value = field.getter();
 
     ImGui::PushID(node.nodeLabel.c_str());
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted(field.label.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::PushItemWidth(-FLT_MIN);
 
     if (field.kind == UiFieldKind::Bool)
     {
       bool currentValue = std::holds_alternative<bool>(value) ? std::get<bool>(value) : false;
-      if (ImGui::Checkbox(field.label.c_str(), &currentValue))
+      if (ImGui::Checkbox("##value", &currentValue))
       {
         field.setter(currentValue);
       }
@@ -336,7 +179,7 @@ void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
     else if (field.kind == UiFieldKind::Int)
     {
       int currentValue = std::holds_alternative<int>(value) ? std::get<int>(value) : 0;
-      if (ImGui::SliderInt(field.label.c_str(), &currentValue, field.minInt, field.maxInt))
+      if (ImGui::SliderInt("##value", &currentValue, field.minInt, field.maxInt))
       {
         field.setter(currentValue);
       }
@@ -344,7 +187,7 @@ void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
     else if (field.kind == UiFieldKind::Float)
     {
       float currentValue = std::holds_alternative<float>(value) ? std::get<float>(value) : 0.0f;
-      if (ImGui::SliderFloat(field.label.c_str(), &currentValue, field.minFloat, field.maxFloat))
+      if (ImGui::SliderFloat("##value", &currentValue, field.minFloat, field.maxFloat))
       {
         field.setter(currentValue);
       }
@@ -352,7 +195,7 @@ void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
     else if (field.kind == UiFieldKind::Vec3)
     {
       glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
-      if (ImGui::DragFloat3(field.label.c_str(), &currentValue.x, field.speed))
+      if (ImGui::DragFloat3("##value", &currentValue.x, field.speed))
       {
         field.setter(currentValue);
       }
@@ -360,12 +203,13 @@ void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
     else if (field.kind == UiFieldKind::Color3)
     {
       glm::vec3 currentValue = std::holds_alternative<glm::vec3>(value) ? std::get<glm::vec3>(value) : glm::vec3(0.0f);
-      if (ImGui::ColorEdit3(field.label.c_str(), &currentValue.x))
+      if (ImGui::ColorEdit3("##value", &currentValue.x))
       {
         field.setter(currentValue);
       }
     }
 
+    ImGui::PopItemWidth();
     ImGui::PopID();
   }
   else
@@ -394,7 +238,11 @@ void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
       return;
     }
 
-    ImGuiTreeNodeFlags treeFlags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.18f, 0.22f, 0.30f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.24f, 0.30f, 0.40f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.30f, 0.36f, 0.48f, 0.95f));
+
+    ImGuiTreeNodeFlags treeFlags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Framed;
     if (ImGui::TreeNodeEx(node.nodeLabel.c_str(), treeFlags))
     {
       ImGui::Indent();
@@ -407,6 +255,8 @@ void UIRenderer::RenderInspectableNode(const InspectableNode& node, int depth)
       ImGui::Unindent();
       ImGui::TreePop();
     }
+
+    ImGui::PopStyleColor(3);
   }
 }
 
@@ -431,10 +281,6 @@ void UIRenderer::RenderRuntimeControls(Scene& scene, float deltaTime)
 {
   ImGui::Begin("Runtime Controls");
 
-  static std::string volumeLoadStatus;
-  HandleVolumeLoadAction(scene, volumeLoadStatus);
-  RenderVolumeLoadStatus(volumeLoadStatus);
-  ImGui::Separator();
   ImGui::Separator();
   RenderInspectableControls(scene);
   RenderFps(deltaTime);

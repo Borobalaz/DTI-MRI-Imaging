@@ -104,14 +104,14 @@ int main()
     inspectionMovement = movement.get();
     sceneCamera->SetMoveComponent(std::move(movement));
   }
-  scene.SetSkybox(SkyboxFaces{
-    "assets/textures/skybox/right.png",
-    "assets/textures/skybox/left.png",
-    "assets/textures/skybox/top.png",
-    "assets/textures/skybox/bottom.png",
-    "assets/textures/skybox/front.png",
-    "assets/textures/skybox/back.png"
-  });
+  //scene.SetSkybox(SkyboxFaces{
+  //  "assets/textures/skybox/right.png",
+  //  "assets/textures/skybox/left.png",
+  //  "assets/textures/skybox/top.png",
+  //  "assets/textures/skybox/bottom.png",
+  //  "assets/textures/skybox/front.png",
+  //  "assets/textures/skybox/back.png"
+  //});
 
   InitializeImGui(window);
 

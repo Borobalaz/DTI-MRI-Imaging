@@ -360,6 +360,14 @@ void Shader::SetTexture(const std::string& name, int unit) const
   SetInt(name, unit);
 }
 
+/**
+ * @brief Set the range for a float uniform. This will be used by the UI to display a slider for this uniform with the specified range and speed.
+ * 
+ * @param name 
+ * @param minValue 
+ * @param maxValue 
+ * @param speed 
+ */
 void Shader::SetUniformUiFloatRange(const std::string& name, float minValue, float maxValue, float speed)
 {
   UniformUiConfig& config = uniformUiConfigs[name];
@@ -368,12 +376,20 @@ void Shader::SetUniformUiFloatRange(const std::string& name, float minValue, flo
   config.speed = speed;
 }
 
+/**
+ * @brief Set the range for an integer uniform. This will be used by the UI to display a slider for this uniform with the specified range.
+ * 
+ * @param name 
+ * @param minValue 
+ * @param maxValue 
+ */
 void Shader::SetUniformUiIntRange(const std::string& name, int minValue, int maxValue)
 {
   UniformUiConfig& config = uniformUiConfigs[name];
   config.minInt = minValue;
   config.maxInt = maxValue;
 }
+
 
 std::optional<UniformInfo> Shader::GetUniformInfo(const std::string& name) const
 {

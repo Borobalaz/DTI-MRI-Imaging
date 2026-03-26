@@ -56,6 +56,14 @@ namespace
   }
 }
 
+/**
+ * @brief Construct a new DTIVolume object from the provided DTI channels and shader. 
+ *    The constructor validates the input channels for metadata consistency and finite voxel values, 
+ *    and uploads available metrics to the GPU as textures.
+ * 
+ * @param channels 
+ * @param shader 
+ */
 DTIVolume::DTIVolume(DTIVolumeChannels channels,
                      std::shared_ptr<Shader> shader)
   : Volume(channels.fa.GetMetadata(), std::move(shader)),
@@ -93,6 +101,11 @@ DTIVolume::DTIVolume(DTIVolumeChannels channels,
   SyncActiveMetricToAvailable();
 }
 
+/**
+ * @brief Uniformprovider implementation to bind DTI-specific uniforms to the shader before drawing.
+ * 
+ * @param shader 
+ */
 void DTIVolume::Apply(Shader& shader) const
 {
   Volume::Apply(shader);

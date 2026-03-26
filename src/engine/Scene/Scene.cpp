@@ -35,32 +35,15 @@ namespace
  * 
  */
 Scene::Scene()
-  : clearColor{0.8f, 0.3f, 0.3f, 1.0f},
+  : clearColor{1.0f, 1.0f, 1.0f, 1.0f},
     camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.1f, 100.0f)),
     matrixTestUniformValue(0.5f, 0.5f, 0.5f)
 {
 
   // ------------- SHADERS -------------
-  const std::shared_ptr<Shader> basicShader = std::make_shared<Shader>(
-    "shaders/vertex.glsl",
-    "shaders/fragment.glsl"
-  );
-  shaders["phong"] = basicShader;
-
-  const std::shared_ptr<Shader> scalarVolumeShader = std::make_shared<Shader>(
-    "shaders/volume_vertex.glsl",
-    "shaders/volume_fragment.glsl"
-  );
-  shaders["volumeShader"] = scalarVolumeShader;
-
-  (*scalarVolumeShader)["threshold"] = 0.0f;
-  scalarVolumeShader->SetUniformUiFloatRange("threshold", 0.0f, 100.0f);
-  (*scalarVolumeShader)["color"] = glm::vec3(0.9f, 0.9f, 0.95f);
 
 
   // ------------- MATERIALS -------------
-  std::shared_ptr<Material> triangleMaterial = std::make_shared<Material>(basicShader);
-  triangleMaterial->SetTexture(std::make_shared<Texture2D>("assets/textures/balazslogo.png"));
 
   // ------------- GAME OBJECTS -------------
   //const std::shared_ptr<GameObject> importedModel =
@@ -136,7 +119,9 @@ Scene::Scene()
 }
 
 /**
- * @brief Initialize the scene
+ * @brief Initialize the scene, 
+ *        enable depth testing, set clear color, set depth function, 
+ *        enable seamless cubemap sampling
  * 
  */
 void Scene::Init()
@@ -188,6 +173,11 @@ void Scene::Update(float deltaTime)
   }
 }
 
+/**
+ * @brief Apply the scene's uniforms to the given shader
+ * 
+ * @param shader The shader to apply uniforms to
+ */
 void Scene::Apply(Shader& shader) const
 {
   if (!shader.HasUniform("lightCount"))
@@ -287,6 +277,67 @@ void Scene::ClearSkybox()
   skybox.reset();
 }
 
+/**
+ * @brief Add a light to the scene
+ * 
+ * @param light The light to add
+ */
+void Scene::AddLight(std::shared_ptr<Light> light)
+{
+  if (light)
+  {
+    lights.push_back(std::move(light));
+  }
+}
+
+/**
+ * @brief Clear all lights from the scene
+ * 
+ */
+void Scene::ClearLights()
+{
+  lights.clear();
+}
+
+/**
+ * @brief Add a game object to the scene
+ * 
+ * @param gameObject The game object to add
+ */
+void Scene::AddGameObject(std::shared_ptr<GameObject> gameObject)
+{
+  if (gameObject)
+  {
+    gameObjects.push_back(std::move(gameObject));
+  }
+}
+
+/**
+ * @brief Clear all game objects from the scene
+ * 
+ */
+void Scene::ClearGameObjects()
+{
+  gameObjects.clear();
+}
+
+/**
+ * @brief Add a volume to the scene
+ * 
+ * @param volume The volume to add
+ */
+void Scene::AddVolume(std::shared_ptr<Volume> volume)
+{
+  if (volume)
+  {
+    volumes.push_back(std::move(volume));
+  }
+}
+
+/**
+ * @brief Clear all volumes from the scene
+ * 
+ */
 void Scene::ClearVolumes()
 {
   volumes.clear();
@@ -302,6 +353,11 @@ std::shared_ptr<Camera> Scene::GetCamera()
   return camera;
 }
 
+/**
+ * @brief Set the aspect ratio for the scene's camera
+ * 
+ * @param aspect The aspect ratio
+ */
 void Scene::SetCameraAspect(float aspect)
 {
   if (camera)
@@ -310,26 +366,15 @@ void Scene::SetCameraAspect(float aspect)
   }
 }
 
-void Scene::SetMatrixTestUniform(const glm::vec3& value)
+/**
+ * @brief Collect inspectable fields for the scene
+ * 
+ * @param out The vector to store the inspectable fields
+ */
+void Scene::CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix)
 {
-  matrixTestUniformValue = value;
+  const std::string prefix = groupPrefix.empty() ? "" : (groupPrefix + "/");
 
-  const auto it = shaders.find("volume_matrix");
-  if (it != shaders.end() && it->second)
-  {
-    (*(it->second))["faThreshold"] = matrixTestUniformValue.x;
-    (*(it->second))["opacityScale"] = matrixTestUniformValue.y;
-    (*(it->second))["stepMultiplier"] = matrixTestUniformValue.z;
-  }
-}
-
-glm::vec3 Scene::GetMatrixTestUniform() const
-{
-  return matrixTestUniformValue;
-}
-
-void Scene::CollectInspectableFields(std::vector<UiField>& out)
-{
   for (auto& [shaderName, shader] : shaders)
   {
     if (!shader)
@@ -337,7 +382,7 @@ void Scene::CollectInspectableFields(std::vector<UiField>& out)
       continue;
     }
 
-    shader->CollectInspectableFields(out, "Shader/" + shaderName);
+    shader->CollectInspectableFields(out, prefix + "Shader/" + shaderName);
   }
 
   for (size_t i = 0; i < volumes.size(); ++i)
@@ -347,7 +392,7 @@ void Scene::CollectInspectableFields(std::vector<UiField>& out)
       continue;
     }
 
-    volumes[i]->CollectInspectableFields(out, "Volume/" + std::to_string(i));
+    volumes[i]->CollectInspectableFields(out, prefix + "Volume/" + std::to_string(i));
   }
 
   for (size_t i = 0; i < gameObjects.size(); ++i)
@@ -357,7 +402,7 @@ void Scene::CollectInspectableFields(std::vector<UiField>& out)
       continue;
     }
 
-    gameObjects[i]->CollectInspectableFields(out, "GameObject/" + std::to_string(i));
+    gameObjects[i]->CollectInspectableFields(out, prefix + "GameObject/" + std::to_string(i));
   }
 
   for (size_t i = 0; i < lights.size(); ++i)
@@ -367,12 +412,19 @@ void Scene::CollectInspectableFields(std::vector<UiField>& out)
       continue;
     }
 
-    lights[i]->CollectInspectableFields(out, "Light/" + std::to_string(i));
+    lights[i]->CollectInspectableFields(out, prefix + "Light/" + std::to_string(i));
   }
 }
 
-void Scene::CollectInspectableNodes(std::vector<InspectableNode>& out)
+/**
+ * @brief Collect inspectable nodes for the scene
+ * 
+ * @param out The vector to store the inspectable nodes
+ */
+void Scene::CollectInspectableNodes(std::vector<InspectableNode>& out, const std::string& nodePrefix)
 {
+  const std::string prefix = nodePrefix.empty() ? "" : (nodePrefix + "/");
+
   // Collect shaders as nested nodes
   for (auto& [shaderName, shader] : shaders)
   {
@@ -382,7 +434,7 @@ void Scene::CollectInspectableNodes(std::vector<InspectableNode>& out)
     }
 
     InspectableNode node;
-    node.nodeLabel = "Shader/" + shaderName;
+    node.nodeLabel = prefix + "Shader/" + shaderName;
     node.isField = false;
     node.nestedInspectable = std::static_pointer_cast<IInspectable>(shader);
     out.push_back(node);
@@ -397,7 +449,7 @@ void Scene::CollectInspectableNodes(std::vector<InspectableNode>& out)
     }
 
     InspectableNode node;
-    node.nodeLabel = "Volume/" + std::to_string(i);
+    node.nodeLabel = prefix + "Volume/" + std::to_string(i);
     node.isField = false;
     node.nestedInspectable = std::static_pointer_cast<IInspectable>(volumes[i]);
     out.push_back(node);
@@ -412,7 +464,7 @@ void Scene::CollectInspectableNodes(std::vector<InspectableNode>& out)
     }
 
     InspectableNode node;
-    node.nodeLabel = "GameObject/" + std::to_string(i);
+    node.nodeLabel = prefix + "GameObject/" + std::to_string(i);
     node.isField = false;
     node.nestedInspectable = std::static_pointer_cast<IInspectable>(gameObjects[i]);
     out.push_back(node);
@@ -427,44 +479,11 @@ void Scene::CollectInspectableNodes(std::vector<InspectableNode>& out)
     }
 
     InspectableNode node;
-    node.nodeLabel = "Light/" + std::to_string(i);
+    node.nodeLabel = prefix + "Light/" + std::to_string(i);
     node.isField = false;
     node.nestedInspectable = std::static_pointer_cast<IInspectable>(lights[i]);
     out.push_back(node);
   }
-}
-
-void Scene::SetVolume(Volume* volume)
-{
-  if (volume)
-  {
-    volumes.clear();
-    volumes.push_back(std::shared_ptr<Volume>(volume));
-  }
-  else
-  {
-    volumes.clear();
-  }
-}
-
-std::shared_ptr<Shader> Scene::GetActiveVolumeShader() const
-{
-  const auto it = shaders.find("volumeShader");
-  if (it != shaders.end())
-  {
-    return it->second;
-  }
-  return {};
-}
-
-std::shared_ptr<Shader> Scene::GetMatrixVolumeShader() const
-{
-  const auto it = shaders.find("volume_matrix");
-  if (it != shaders.end())
-  {
-    return it->second;
-  }
-  return {};
 }
 
 /**

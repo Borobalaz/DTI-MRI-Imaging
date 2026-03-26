@@ -34,10 +34,6 @@ public:
                                InspectionMovement* inspectionMovement);
 
 private:
-  static std::string PickVolumeFilePath();
-  static void HandleVolumeLoadAction(Scene& scene, std::string& volumeLoadStatus);
-  static std::string TryLoadVolumeStatus(Scene& scene, const std::string& filePath);
-  static void RenderVolumeLoadStatus(const std::string& volumeLoadStatus);
   static void RenderInspectableControls(Scene& scene);
   static void RenderInspectableNode(const class InspectableNode& node, int depth = 0);
   static void RenderFps(float deltaTime);
