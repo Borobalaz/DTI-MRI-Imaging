@@ -16,6 +16,14 @@ DtiVolumeScene::DtiVolumeScene()
 
 DtiVolumeScene::~DtiVolumeScene() = default;
 
+/**
+ * @brief Load a DTI dataset and initialize the scene for visualization
+ * 
+ * @param datasetRootPath The root path to the dataset
+ * @param subjectId The ID of the subject
+ * @param sessionId The ID of the session
+ * @return true if the dataset was loaded successfully, false otherwise
+ */
 bool DtiVolumeScene::LoadDataset(
   const std::string& datasetRootPath,
   const std::string& subjectId,
@@ -60,15 +68,10 @@ bool DtiVolumeScene::LoadDataset(
     }
 
     // Create DTI volume from processed channels with volume shader
-    auto volumeShader = GetActiveVolumeShader();
-    if (!volumeShader)
-    {
-      // Fallback: create new shader if not available
-      volumeShader = std::make_shared<Shader>(
+    std::shared_ptr<Shader> volumeShader = std::make_shared<Shader>(
         "shaders/volume_vertex.glsl",
         "shaders/volume_fragment.glsl"
       );
-    }
     
     dtiVolume = std::make_shared<DTIVolume>(result.channels, volumeShader);
     
@@ -77,7 +80,7 @@ bool DtiVolumeScene::LoadDataset(
     
     // Add to scene for rendering
     ClearVolumes();  // Remove any previous volumes
-    SetVolume(dtiVolume.get());
+    AddVolume(dtiVolume);
 
     return true;
   }
@@ -95,6 +98,11 @@ bool DtiVolumeScene::LoadDataset(
   }
 }
 
+/**
+ * @brief Set the channel to visualize (0=FA, 1=MD, 2=AD, 3=RD)
+ * 
+ * @param metricIndex 
+ */
 void DtiVolumeScene::SetActiveMetric(int metricIndex)
 {
   if (dtiVolume)
@@ -103,6 +111,11 @@ void DtiVolumeScene::SetActiveMetric(int metricIndex)
   }
 }
 
+/**
+ * @brief Set the threshold for volume rendering. Voxels with metric values below this threshold will be hidden.
+ * 
+ * @param threshold 
+ */
 void DtiVolumeScene::SetThreshold(float threshold)
 {
   if (dtiVolume)
@@ -113,6 +126,11 @@ void DtiVolumeScene::SetThreshold(float threshold)
   }
 }
 
+/**
+ * @brief Set the opacity for volume rendering. Voxels with metric values below this threshold will be hidden.
+ * 
+ * @param opacity 
+ */
 void DtiVolumeScene::SetOpacity(float opacity)
 {
   if (dtiVolume)
@@ -123,11 +141,19 @@ void DtiVolumeScene::SetOpacity(float opacity)
   }
 }
 
+/**
+ * @brief Get the DTI volume associated with the scene
+ * 
+ * @return std::shared_ptr<DTIVolume> 
+ */
 std::shared_ptr<DTIVolume> DtiVolumeScene::GetDtiVolume() const
 {
   return dtiVolume;
 }
 
+/**
+ * @brief Set up default visualization parameters for the DTI volume
+ */
 void DtiVolumeScene::SetupDefaultVisualization()
 {
   // Scene constructor already sets up default camera and lighting

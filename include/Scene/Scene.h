@@ -26,7 +26,7 @@ class Skybox;
 class TextureCube;
 class Volume;
 
-class Scene : public UniformProvider
+class Scene : public UniformProvider, public IInspectable
 {
 public:
   Scene();
@@ -38,23 +38,28 @@ public:
   void Destroy();
   void Apply(Shader& shader) const override;
 
+  // Skybox management
   void SetSkybox(std::shared_ptr<TextureCube> cubemap);
   void SetSkybox(const SkyboxFaces& faces);
   void ClearSkybox();
 
-  void ClearVolumes();
-
+  // Camera management
   std::shared_ptr<Camera> GetCamera();
   void SetCameraAspect(float aspect);
-  void SetMatrixTestUniform(const glm::vec3& value);
-  glm::vec3 GetMatrixTestUniform() const;
-  void CollectInspectableFields(std::vector<UiField>& out);
-  void CollectInspectableNodes(std::vector<InspectableNode>& out);
 
+  // IInspectable implementation
+  void CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix = "") override;
+  void CollectInspectableNodes(std::vector<InspectableNode>& out, const std::string& nodePrefix = "") override;
 
-  void SetVolume(Volume* volume);
-  std::shared_ptr<Shader> GetActiveVolumeShader() const;
-  std::shared_ptr<Shader> GetMatrixVolumeShader() const;
+  // Scene content management
+  void AddLight(std::shared_ptr<Light> light);
+  void ClearLights();
+
+  void AddGameObject(std::shared_ptr<GameObject> gameObject);
+  void ClearGameObjects();
+
+  void AddVolume(std::shared_ptr<Volume> volume);
+  void ClearVolumes();
 
 private:
   float clearColor[4];

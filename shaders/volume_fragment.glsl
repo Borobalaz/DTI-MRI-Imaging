@@ -30,11 +30,20 @@ struct ShaderUniforms {
   vec3 color;
 };
 
+struct DtiUniforms {
+  int metricCount;
+  int activeMetric;
+  int activeMetricTexture;
+  float threshold;
+  float opacityScale;
+};
+
 uniform CameraUniforms camera;
 uniform VolumeObjectUniforms volumeObject;
 uniform VolumeUniforms volume;
 uniform ShaderUniforms shader;
 uniform sampler3D volumeTextures[MAX_VOLUME_TEXTURES];
+uniform DtiUniforms dti;
 
 bool IntersectBox(vec3 rayOrigin, vec3 rayDirection, out float tMin, out float tMax)
 {
@@ -53,6 +62,12 @@ bool IntersectBox(vec3 rayOrigin, vec3 rayDirection, out float tMin, out float t
 
 float SampleScalar(vec3 textureCoord)
 {
+  // For DTI volumes, use the active metric texture if available
+  if (dti.metricCount > 0 && dti.activeMetricTexture >= 0 && dti.activeMetricTexture < volume.textureCount)
+  {
+    return texture(volumeTextures[dti.activeMetricTexture], textureCoord).r;
+  }
+  // Fallback to first texture for non-DTI volumes
   return texture(volumeTextures[0], textureCoord).r;
 }
 
@@ -97,13 +112,17 @@ void main()
           all(lessThanEqual(textureCoord, vec3(1.0))))
       {
         float scalar = SampleScalar(textureCoord);
+        
+        // Use DTI threshold if available, otherwise fall back to shader.threshold
+        float threshold = (dti.metricCount > 0) ? dti.threshold : shader.threshold;
         float normalizedDensity = clamp(
-          (scalar - shader.threshold) / max(1.0 - shader.threshold, 1e-5),
+          (scalar - threshold) / max(1.0 - threshold, 1e-5),
           0.0,
           1.0);
 
-        // Convert density into alpha, scaled by step length for stable appearance.
-        float sampleAlpha = normalizedDensity * stepSize * maxDimension * 0.2;
+        // Use DTI opacity scale if available, otherwise use default scaling
+        float opacityScale = (dti.metricCount > 0) ? dti.opacityScale : 1.0;
+        float sampleAlpha = normalizedDensity * stepSize * maxDimension * 0.2 * opacityScale;
         sampleAlpha = clamp(sampleAlpha, 0.0, 1.0);
         vec3 sampleColor = shader.color * normalizedDensity;
 
