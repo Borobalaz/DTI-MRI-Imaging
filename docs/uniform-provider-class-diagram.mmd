@@ -1,8 +1,8 @@
 classDiagram
 
 class UniformProvider {
-  <<interface>>
-  +Apply(shader: Shader) const
+  <<abstract>>
+  +Apply(shader: Shader&) const
 }
 
 class CompositeUniformProvider
@@ -27,6 +27,7 @@ UniformProvider <|-- TypedUniformProvider
 UniformProvider <|-- Shader
 UniformProvider <|-- Camera
 UniformProvider <|-- Light
+UniformProvider <|-- Scene
 UniformProvider <|-- GameObject
 UniformProvider <|-- Volume
 
@@ -34,6 +35,8 @@ Camera <|-- PerspectiveCamera
 
 CompositeUniformProvider o-- UniformProvider : providers[*]
 Scene *-- CompositeUniformProvider : frameUniforms
+Scene *-- Camera : camera
+Scene o-- Shader : shaders[*]
 Scene o-- Light : lights[*]
 Scene o-- GameObject : gameObjects[*]
 Scene o-- Volume : volumes[*]

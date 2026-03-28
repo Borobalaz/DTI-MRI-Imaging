@@ -1,0 +1,37 @@
+sequenceDiagram
+  autonumber
+  participant Scene
+  participant GL as OpenGL
+  participant Frame as CompositeUniformProvider
+  participant Cam as Camera
+  participant Light as Light[i]
+  participant Obj as GameObject[i]
+  participant Sky as Skybox
+  participant Vol as Volume[i]
+
+  Scene->>GL: glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+  Scene->>Scene: count enabled lights (clamped to max)
+
+  Scene->>Frame: ClearProviders()
+  Scene->>Frame: AddProvider(*Scene)
+  opt camera exists
+    Scene->>Frame: AddProvider(*camera)
+    Scene->>Cam: (provider referenced by frame uniforms)
+  end
+
+  loop for each enabled light
+    Scene->>Light: SetUniformIndex(i)
+    Scene->>Frame: AddProvider(*light)
+  end
+
+  loop for each game object
+    Scene->>Obj: Draw(frameUniforms)
+  end
+
+  opt skybox and camera exist
+    Scene->>Sky: Draw(*camera)
+  end
+
+  loop for each non-null volume
+    Scene->>Vol: Draw(frameUniforms)
+  end

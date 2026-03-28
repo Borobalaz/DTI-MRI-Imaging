@@ -2,19 +2,19 @@ classDiagram
     class IDrawable {
         <<interface>>
         -bool visible
-        +Draw(frameUniforms) void*
+        +Draw(frameUniforms: UniformProvider) const void
         +SetVisible(isVisible) void
     }
 
     class UniformProvider {
         <<abstract>>
-        +Apply(shader) void*
-        +SetUniformUiFloatRange(name, min, max) void
+        +Apply(shader: Shader&) const void
     }
 
     class IInspectable {
         <<interface>>
-        +CollectInspectableFields(out, groupPrefix) void*
+        +CollectInspectableFields(out, groupPrefix) void
+        +CollectInspectableNodes(out, nodePrefix) void
     }
 
     class GameObject {
@@ -24,8 +24,8 @@ classDiagram
         +glm::vec3 scale
         +AddMesh(mesh) void
         +Update(deltaTime) void
-        +Draw(frameUniforms) void
-        +Apply(shader) void
+        +Draw(frameUniforms: UniformProvider) const void
+        +Apply(shader: Shader&) const void
         +CollectInspectableFields(out, groupPrefix) void
         -BuildModelMatrix() glm::mat4
     }
@@ -39,40 +39,41 @@ classDiagram
         #glm::vec3 spacing
         #shared_ptr~VolumeGeometry~ geometry
         #shared_ptr~Shader~ shader
-        +Draw(frameUniforms) void
-        +Apply(shader) void
-        +IsValid() bool
+        +Draw(frameUniforms: UniformProvider) const void
+        +Apply(shader: Shader&) const void
+        +IsValid() const bool
         +CollectInspectableFields(out, groupPrefix) void
-        #GetTextureSet() VolumeTextureSet*
+        +CollectInspectableNodes(out, nodePrefix) void
+        #GetTextureSet() const VolumeTextureSet&
         #BuildModelMatrix() glm::mat4
     }
 
     class FloatVolume {
         -VolumeTextureSet textureSet
-        +GetTextureSet() VolumeTextureSet
+        +GetTextureSet() const VolumeTextureSet&
     }
 
     class UInt16Volume {
         -VolumeTextureSet textureSet
-        +GetTextureSet() VolumeTextureSet
+        +GetTextureSet() const VolumeTextureSet&
     }
 
     class UInt8Volume {
         -VolumeTextureSet textureSet
-        +GetTextureSet() VolumeTextureSet
+        +GetTextureSet() const VolumeTextureSet&
     }
 
     class Mat3Volume {
         -VolumeTextureSet textureSet
-        +GetTextureSet() VolumeTextureSet
+        +GetTextureSet() const VolumeTextureSet&
     }
 
     class Skybox {
         -shared_ptr~TextureCube~ cubemap
         -shared_ptr~CubeGeometry~ geometry
         -shared_ptr~Shader~ shader
-        +Draw(camera) void
-        +IsValid() bool
+        +Draw(camera: Camera) const void
+        +IsValid() const bool
     }
 
     IDrawable <|-- GameObject
@@ -88,5 +89,4 @@ classDiagram
     Volume <|-- UInt8Volume
     Volume <|-- Mat3Volume
 
-    note "Skybox has Draw(Camera)\nbut does NOT inherit IDrawable"
-    Skybox ..> "uses" IDrawable
+    Skybox ..> Camera : uses

@@ -1,8 +1,8 @@
 classDiagram
 
 class UniformProvider {
-  <<interface>>
-  +Apply(shader: Shader) const
+  <<abstract>>
+  +Apply(shader: Shader&) const
 }
 
 class IDrawable {
@@ -17,10 +17,11 @@ class IInspectable {
 
 class Volume {
   <<abstract>>
-  +Apply(shader: Shader) const
+  +Apply(shader: Shader&) const
   +Draw(frameUniforms: UniformProvider) const
-  +IsValid() bool
+  +IsValid() const bool
   +CollectInspectableFields(out, groupPrefix)
+  +CollectInspectableNodes(out, nodePrefix)
   #GetTextureSet() const VolumeTextureSet&
 }
 
@@ -30,10 +31,10 @@ class UInt16Volume
 class Mat3Volume
 
 class VolumeTextureSet {
-  +AddTexture(texture: Texture3D)
-  +Bind(shader: Shader, baseUnit: uint, uniformBaseName: string)
-  +IsValid() bool
-  +Size() size_t
+  +AddTexture(texture: shared_ptr~Texture3D~)
+  +Bind(shader: Shader&, baseUnit: unsigned int, uniformBaseName: string) const
+  +IsValid() const bool
+  +Size() const size_t
 }
 
 class VolumeData~TVoxel~

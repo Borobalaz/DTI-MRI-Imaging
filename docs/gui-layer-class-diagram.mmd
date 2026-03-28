@@ -15,7 +15,7 @@ classDiagram
 
   class GUIPanel {
     <<interface>>
-    +Render(context) void*
+    +Render(context: GuiRenderContext&) void
   }
 
   class RuntimeControlsPanel {
@@ -50,7 +50,7 @@ classDiagram
 
   class IInspectable {
     <<interface>>
-    +CollectInspectableFields(out, groupPrefix) void*
+    +CollectInspectableFields(out, groupPrefix) void
     +CollectInspectableNodes(out, nodePrefix) void
   }
 
@@ -63,7 +63,7 @@ classDiagram
 
   class IWidget {
     <<interface>>
-    +Render(field, value) bool*
+    +Render(field: UiField, value: UiFieldValue) const bool
   }
 
   class BoolFieldWidget
@@ -73,8 +73,8 @@ classDiagram
   class Color3FieldWidget
 
   class GuiTheme {
-    +GetNodeHeaderStyle() NodeHeaderStyle
-    +SetNodeHeaderStyle(style) void
+    +GetNodeHeaderStyle() const NodeHeaderStyle&
+    +SetNodeHeaderStyle(style: const NodeHeaderStyle&) void
   }
 
   class Scene {

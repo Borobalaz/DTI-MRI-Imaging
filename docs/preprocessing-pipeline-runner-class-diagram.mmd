@@ -1,0 +1,111 @@
+classDiagram
+
+class MriPreprocessingRequest {
+  +string datasetRootPath
+  +string preferredSubjectId
+  +string preferredSessionId
+  +bool preferAnatomicalVolumes
+  +bool generateAllChannels
+}
+
+class MriPreprocessingReport {
+  +string sourceVolumePath
+  +vector~string~ executedStages
+  +vector~string~ warnings
+}
+
+class MriPreprocessingResult {
+  +DTIVolumeChannels channels
+  +MriPreprocessingReport report
+}
+
+class MriPreprocessingContext {
+  +MriPreprocessingRequest request
+  +MriPreprocessingReport report
+  +vector~string~ candidateVolumePaths
+  +string selectedSourceVolumePath
+  +VolumeData~float~ loadedVolume
+  +VolumeData~float~ normalizedVolume
+  +DTIVolumeChannels outputChannels
+}
+
+class IMriPreprocessingStage {
+  <<interface>>
+  +Name() const char*
+  +Execute(context: MriPreprocessingContext&) const
+}
+
+class MriPreprocessingPipeline {
+  +AddStage(stage: unique_ptr~IMriPreprocessingStage~) MriPreprocessingPipeline&
+  +Execute(request: const MriPreprocessingRequest&) const MriPreprocessingResult
+  -vector~unique_ptr~IMriPreprocessingStage~~ stages
+}
+
+class DatasetDiscoveryStage {
+  +Name() const char*
+  +Execute(context: MriPreprocessingContext&) const
+}
+
+class ScalarVolumeLoadStage {
+  +Name() const char*
+  +Execute(context: MriPreprocessingContext&) const
+}
+
+class IntensityNormalizationStage {
+  +Name() const char*
+  +Execute(context: MriPreprocessingContext&) const
+}
+
+class DerivedDtiChannelSynthesisStage {
+  +Name() const char*
+  +Execute(context: MriPreprocessingContext&) const
+}
+
+class MriToDtiPreprocessor {
+  +MriToDtiPreprocessor()
+  +Process(request: const MriPreprocessingRequest&) const MriPreprocessingResult
+  -MriPreprocessingPipeline pipeline
+}
+
+class MriPreprocessingRunnerRequest {
+  +MriPreprocessingRequest preprocessingRequest
+  +string outputDirectory
+  +string outputBasename
+}
+
+class MriPreprocessingRunnerResult {
+  +bool success
+  +string message
+  +MriPreprocessingResult preprocessingResult
+  +vector~string~ writtenFiles
+}
+
+class MriPreprocessingRunner {
+  +MriPreprocessingRunner()
+  +Run(request: const MriPreprocessingRunnerRequest&) const MriPreprocessingRunnerResult
+  +BuildSummary(result: const MriPreprocessingRunnerResult&) static string
+}
+
+IMriPreprocessingStage <|-- DatasetDiscoveryStage
+IMriPreprocessingStage <|-- ScalarVolumeLoadStage
+IMriPreprocessingStage <|-- IntensityNormalizationStage
+IMriPreprocessingStage <|-- DerivedDtiChannelSynthesisStage
+
+MriPreprocessingPipeline *-- IMriPreprocessingStage : stages
+MriPreprocessingPipeline ..> MriPreprocessingContext : executes
+MriPreprocessingPipeline ..> MriPreprocessingRequest : input
+MriPreprocessingPipeline ..> MriPreprocessingResult : output
+
+MriPreprocessingContext *-- MriPreprocessingRequest : request
+MriPreprocessingContext *-- MriPreprocessingReport : report
+MriPreprocessingResult *-- MriPreprocessingReport : report
+
+MriToDtiPreprocessor *-- MriPreprocessingPipeline : owns
+MriToDtiPreprocessor ..> MriPreprocessingRequest : Process input
+MriToDtiPreprocessor ..> MriPreprocessingResult : Process output
+
+MriPreprocessingRunnerRequest *-- MriPreprocessingRequest : preprocessingRequest
+MriPreprocessingRunnerResult *-- MriPreprocessingResult : preprocessingResult
+MriPreprocessingRunner ..> MriPreprocessingRunnerRequest : Run input
+MriPreprocessingRunner ..> MriPreprocessingRunnerResult : Run output
+MriPreprocessingRunner ..> MriToDtiPreprocessor : uses in Run

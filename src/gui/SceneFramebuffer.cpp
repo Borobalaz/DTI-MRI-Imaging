@@ -2,6 +2,11 @@
 
 #include <iostream>
 
+/**
+ * @brief Ensures the framebuffer is at least the specified size
+ * @param newWidth The desired width
+ * @param newHeight The desired height
+ */
 void SceneFramebuffer::EnsureSize(int newWidth, int newHeight)
 {
   if (newWidth <= 0 || newHeight <= 0)
@@ -44,6 +49,9 @@ void SceneFramebuffer::EnsureSize(int newWidth, int newHeight)
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+/**
+ * @brief Destroys the scene framebuffer and its associated resources
+ */
 void SceneFramebuffer::Destroy()
 {
   if (framebuffer == 0)
@@ -61,6 +69,10 @@ void SceneFramebuffer::Destroy()
   height = 0;
 }
 
+/**
+ * @brief Gets the ImGui texture ID for the scene framebuffer
+ * @return The ImGui texture ID
+ */
 ImTextureID SceneFramebuffer::GetImGuiTextureId() const
 {
   return (ImTextureID)(uintptr_t)colorTexture;

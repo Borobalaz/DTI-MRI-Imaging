@@ -1,0 +1,46 @@
+sequenceDiagram
+  autonumber
+  participant Caller
+  participant Runner as MriPreprocessingRunner
+  participant FS as std::filesystem
+  participant Pre as MriToDtiPreprocessor
+  participant Pipe as MriPreprocessingPipeline
+  participant S1 as DatasetDiscoveryStage
+  participant S2 as ScalarVolumeLoadStage
+  participant S3 as IntensityNormalizationStage
+  participant S4 as DerivedDtiChannelSynthesisStage
+  participant IO as VolumeFileLoader
+
+  Caller->>Runner: Run(request)
+  Runner->>Runner: validate datasetRootPath / outputDirectory
+  Runner->>FS: create_directories(outputDirectory)
+  Runner->>Runner: resolve outputBaseName (default dti_proxy)
+
+  Runner->>Pre: Process(preprocessingRequest)
+  Pre->>Pipe: Execute(request)
+  Pipe->>Pipe: create MriPreprocessingContext
+
+  Pipe->>S1: Execute(context)
+  Pipe->>Pipe: report.executedStages.push_back(Name())
+  Pipe->>S2: Execute(context)
+  Pipe->>Pipe: report.executedStages.push_back(Name())
+  Pipe->>S3: Execute(context)
+  Pipe->>Pipe: report.executedStages.push_back(Name())
+  Pipe->>S4: Execute(context)
+  Pipe->>Pipe: report.executedStages.push_back(Name())
+  Pipe-->>Pre: MriPreprocessingResult
+  Pre-->>Runner: MriPreprocessingResult
+
+  Runner->>IO: Save(faPath, channels.fa)
+  alt md present
+    Runner->>IO: Save(mdPath, *channels.md)
+  end
+  alt ad present
+    Runner->>IO: Save(adPath, *channels.ad)
+  end
+  alt rd present
+    Runner->>IO: Save(rdPath, *channels.rd)
+  end
+
+  Runner->>Runner: success=true, message=... , writtenFiles+=paths
+  Runner-->>Caller: MriPreprocessingRunnerResult

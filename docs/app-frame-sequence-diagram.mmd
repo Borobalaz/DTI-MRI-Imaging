@@ -1,0 +1,53 @@
+sequenceDiagram
+  autonumber
+  participant Main as main loop
+  participant ImGui as ImGui
+  participant Gui as GuiRoot
+  participant Registry as PanelRegistry
+  participant Runtime as RuntimeControlsPanel
+  participant ScenePanel as ScenePanel
+  participant Move as InspectionMovement
+  participant FB as SceneFramebuffer
+  participant Scene as Scene
+  participant GL as OpenGL
+
+  loop while !glfwWindowShouldClose
+    Main->>Main: compute deltaTime
+    Main->>Main: glfwGetFramebufferSize(window)
+
+    Main->>ImGui: ImGui_ImplOpenGL3_NewFrame()
+    Main->>ImGui: ImGui_ImplGlfw_NewFrame()
+    Main->>ImGui: ImGui::NewFrame()
+    Main->>ImGui: DockSpaceOverViewport(...)
+
+    Main->>Gui: Render(scene, deltaTime, framebufferWidth, framebufferHeight, movement)
+    Gui->>Registry: RenderAll(context)
+
+    Registry->>Runtime: Render(context)
+    Runtime->>ImGui: Begin("Runtime Controls")
+    Runtime->>Scene: CollectInspectableNodes(nodes)
+    Runtime->>ImGui: draw controls + FPS
+    Runtime->>ImGui: End()
+
+    Registry->>ScenePanel: Render(context)
+    ScenePanel->>ImGui: Begin("Scene")
+    alt movement is InspectionMovement
+      ScenePanel->>Move: SetInputEnabled(IsWindowFocused())
+    end
+    ScenePanel->>FB: EnsureSize(targetSceneWidth, targetSceneHeight)
+    ScenePanel->>Scene: Update(deltaTime)
+    ScenePanel->>GL: glBindFramebuffer(sceneFramebuffer.framebuffer)
+    ScenePanel->>GL: glViewport(scene framebuffer size)
+    ScenePanel->>Scene: SetCameraAspect(width / height)
+    ScenePanel->>Scene: Render()
+    ScenePanel->>GL: glBindFramebuffer(0)
+    ScenePanel->>GL: glViewport(window framebuffer size)
+    ScenePanel->>GL: glClear(GL_COLOR_BUFFER_BIT)
+    ScenePanel->>ImGui: Image(sceneFramebuffer texture)
+    ScenePanel->>ImGui: End()
+
+    Main->>ImGui: ImGui::Render()
+    Main->>ImGui: ImGui_ImplOpenGL3_RenderDrawData()
+    Main->>Main: glfwSwapBuffers(window)
+    Main->>Main: glfwPollEvents()
+  end
