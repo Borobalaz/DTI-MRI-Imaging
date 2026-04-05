@@ -66,7 +66,6 @@ namespace
     ImGui::DestroyContext();
   }
 
-  
   void SetupInitialDockLayout(ImGuiID dockspaceId)
   {
     ImGui::DockBuilderRemoveNode(dockspaceId);
@@ -95,7 +94,10 @@ int main()
   // Create and initialize the scene
   DtiVolumeScene scene;
   scene.Init();
-  if (!scene.LoadDataset("assets/volumes/ds001553", "", ""))
+  if (!scene.LoadDataset(
+    "assets/volumes/dwi/HARDI150.nii.gz",
+    "assets/volumes/dwi/HARDI150.bval",
+    "assets/volumes/dwi/HARDI150.bvec"))
   {
     std::cout << "DTI dataset load failed: " << scene.GetLastLoadError() << "\n";
   }

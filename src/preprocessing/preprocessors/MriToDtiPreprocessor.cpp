@@ -7,10 +7,9 @@
 MriToDtiPreprocessor::MriToDtiPreprocessor()
 {
   pipeline
-    .AddStage(CreateDatasetDiscoveryStage())
-    .AddStage(CreateScalarVolumeLoadStage())
-    .AddStage(CreateIntensityNormalizationStage())
-    .AddStage(CreateDerivedDtiChannelSynthesisStage());
+    .AddStage(CreateDwiGradientNormalizationStage())
+    .AddStage(CreateDwiTensorSynthesisStage());
+    //.AddStage(CreateDwiNormalizationStage());
 }
 
 MriPreprocessingResult MriToDtiPreprocessor::Process(const MriPreprocessingRequest& request) const

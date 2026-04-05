@@ -4,7 +4,6 @@
 
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
-std::unique_ptr<IMriPreprocessingStage> CreateDatasetDiscoveryStage();
-std::unique_ptr<IMriPreprocessingStage> CreateScalarVolumeLoadStage();
-std::unique_ptr<IMriPreprocessingStage> CreateIntensityNormalizationStage();
-std::unique_ptr<IMriPreprocessingStage> CreateDerivedDtiChannelSynthesisStage();
+std::unique_ptr<IMriPreprocessingStage> CreateDwiGradientNormalizationStage();
+std::unique_ptr<IMriPreprocessingStage> CreateDwiTensorSynthesisStage();
+std::unique_ptr<IMriPreprocessingStage> CreateDwiNormalizationStage();

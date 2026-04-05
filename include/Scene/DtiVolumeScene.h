@@ -22,20 +22,14 @@ class DtiVolumeScene : public Scene
 {
 public:
   DtiVolumeScene();
-  ~DtiVolumeScene();
 
   /**
-   * @brief Load and process an MRI dataset into DTI metrics.
-   * 
-   * @param datasetRootPath Path to the dataset root (e.g., "C:/data/ds001553")
-   * @param subjectId Subject identifier (e.g., "sub-01")
-   * @param sessionId Optional session identifier (e.g., "ses-01")
-   * @return true if loading succeeded, false otherwise
+   * @brief Load and process DTI inputs into tensor channels for rendering.
    */
   bool LoadDataset(
-    const std::string& datasetRootPath,
-    const std::string& subjectId,
-    const std::string& sessionId = "");
+    const std::string& dwiVolumePathOverride,
+    const std::string& bvalPathOverride,
+    const std::string& bvecPathOverride);
 
   /**
    * @brief Set the active DTI metric to display.
@@ -78,9 +72,4 @@ private:
   std::shared_ptr<DTIVolume> dtiVolume;
   MriToDtiPreprocessor preprocessor;
   std::string lastLoadError;
-
-  /**
-   * @brief Setup default lighting and camera for DTI visualization.
-   */
-  void SetupDefaultVisualization();
 };

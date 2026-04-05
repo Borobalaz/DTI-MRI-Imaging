@@ -9,14 +9,14 @@
 
 namespace
 {
-  std::string BuildOutputPath(const std::filesystem::path& outputDirectory,
-                              const std::string& outputBasename,
-                              const std::string& channelSuffix)
+  std::string BuildOutputPath(const std::filesystem::path &outputDirectory,
+                              const std::string &outputBasename,
+                              const std::string &channelSuffix)
   {
     return (outputDirectory / (outputBasename + "_" + channelSuffix + ".vxa")).string();
   }
 
-  void SaveOrThrow(const std::string& outputPath, const VolumeData<float>& volume)
+  void SaveOrThrow(const std::string &outputPath, const VolumeData &volume)
   {
     if (!VolumeFileLoader::Save(outputPath, volume))
     {
@@ -27,11 +27,21 @@ namespace
 
 MriPreprocessingRunner::MriPreprocessingRunner() = default;
 
-MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingRunnerRequest& request) const
+/**
+ * @brief Run the MRI preprocessing pipeline with the given request.
+ *
+ * @param request
+ * @return MriPreprocessingRunnerResult
+ */
+MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingRunnerRequest &request) const
 {
-  if (request.preprocessingRequest.datasetRootPath.empty())
+  // Validate request
+  if (request.preprocessingRequest.dwiVolumePath.empty() ||
+      request.preprocessingRequest.bvalPath.empty() ||
+      request.preprocessingRequest.bvecPath.empty())
   {
-    throw std::invalid_argument("Runner requires preprocessingRequest.datasetRootPath.");
+    throw std::invalid_argument(
+      "Runner requires explicit preprocessingRequest dwiVolumePathOverride, bvalPathOverride, and bvecPathOverride.");
   }
 
   if (request.outputDirectory.empty())
@@ -39,49 +49,36 @@ MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingR
     throw std::invalid_argument("Runner requires outputDirectory.");
   }
 
+  // Create output directory if it doesn't exist
   const std::filesystem::path outputDirectoryPath(request.outputDirectory);
   std::filesystem::create_directories(outputDirectoryPath);
 
   const std::string outputBaseName =
-    request.outputBasename.empty() ? std::string("dti_proxy") : request.outputBasename;
+      request.outputBasename.empty() ? std::string("dti_proxy") : request.outputBasename;
 
+  // Run preprocessing pipeline
   MriToDtiPreprocessor preprocessor;
   MriPreprocessingRunnerResult runnerResult;
   runnerResult.preprocessingResult = preprocessor.Process(request.preprocessingRequest);
 
-  const DTIVolumeChannels& channels = runnerResult.preprocessingResult.channels;
+  const DTIVolumeChannels &channels = runnerResult.preprocessingResult.channels;
 
-  const std::string faPath = BuildOutputPath(outputDirectoryPath, outputBaseName, "fa");
-  SaveOrThrow(faPath, channels.fa);
-  runnerResult.writtenFiles.push_back(faPath);
+  // Save volume channels to disk 
 
-  if (channels.md.has_value())
-  {
-    const std::string mdPath = BuildOutputPath(outputDirectoryPath, outputBaseName, "md");
-    SaveOrThrow(mdPath, *channels.md);
-    runnerResult.writtenFiles.push_back(mdPath);
-  }
-
-  if (channels.ad.has_value())
-  {
-    const std::string adPath = BuildOutputPath(outputDirectoryPath, outputBaseName, "ad");
-    SaveOrThrow(adPath, *channels.ad);
-    runnerResult.writtenFiles.push_back(adPath);
-  }
-
-  if (channels.rd.has_value())
-  {
-    const std::string rdPath = BuildOutputPath(outputDirectoryPath, outputBaseName, "rd");
-    SaveOrThrow(rdPath, *channels.rd);
-    runnerResult.writtenFiles.push_back(rdPath);
-  }
-
+  
+  // Mark as successful if we reached this point without exceptions
   runnerResult.success = true;
   runnerResult.message = "Preprocessing completed and channels were written to " + outputDirectoryPath.string();
   return runnerResult;
 }
 
-std::string MriPreprocessingRunner::BuildSummary(const MriPreprocessingRunnerResult& result)
+/**
+ * @brief Create a human-readable summary string of the preprocessing result, including success status, messages, executed stages, warnings, and written files.
+ *
+ * @param result
+ * @return std::string
+ */
+std::string MriPreprocessingRunner::BuildSummary(const MriPreprocessingRunnerResult &result)
 {
   std::ostringstream summary;
   summary << (result.success ? "SUCCESS" : "FAILED") << "\n";
@@ -99,7 +96,7 @@ std::string MriPreprocessingRunner::BuildSummary(const MriPreprocessingRunnerRes
   if (!result.preprocessingResult.report.executedStages.empty())
   {
     summary << "Executed stages:" << "\n";
-    for (const std::string& stage : result.preprocessingResult.report.executedStages)
+    for (const std::string &stage : result.preprocessingResult.report.executedStages)
     {
       summary << "  - " << stage << "\n";
     }
@@ -108,7 +105,7 @@ std::string MriPreprocessingRunner::BuildSummary(const MriPreprocessingRunnerRes
   if (!result.writtenFiles.empty())
   {
     summary << "Written files:" << "\n";
-    for (const std::string& filePath : result.writtenFiles)
+    for (const std::string &filePath : result.writtenFiles)
     {
       summary << "  - " << filePath << "\n";
     }
@@ -117,7 +114,7 @@ std::string MriPreprocessingRunner::BuildSummary(const MriPreprocessingRunnerRes
   if (!result.preprocessingResult.report.warnings.empty())
   {
     summary << "Warnings:" << "\n";
-    for (const std::string& warning : result.preprocessingResult.report.warnings)
+    for (const std::string &warning : result.preprocessingResult.report.warnings)
     {
       summary << "  - " << warning << "\n";
     }

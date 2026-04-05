@@ -20,12 +20,13 @@ public:
   void Draw(const UniformProvider& frameUniforms) const override;
   void Apply(Shader& shader) const override;
   void CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix) override;
+  void CollectInspectableNodes(std::vector<InspectableNode>& out, const std::string& nodePrefix) override;
 
+private:
   glm::vec3 position;
   glm::vec3 rotation;
   glm::vec3 scale;
 
-private:
   glm::mat4 BuildModelMatrix() const;
 
   std::vector<std::shared_ptr<Mesh>> meshes;

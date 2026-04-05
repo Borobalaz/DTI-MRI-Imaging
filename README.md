@@ -93,6 +93,10 @@ cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.
 cmake --build build --config Release
 ```
 
+### Build-Time Discovery Overrides
+
+If your data is not organized in subject/session folders, pass explicit paths directly through `DtiVolumeScene::LoadDataset(...)` from `main.cpp`.
+
 ## Output
 
 Expected executable path:

@@ -19,9 +19,9 @@ namespace
 {
   constexpr int kMaxLights = 16;
 
-  VolumeData<float> CreateSeedVolumeData(int width, int height, int depth)
+  VolumeData CreateSeedVolumeData(int width, int height, int depth)
   {
-    VolumeData<float> data(width, height, depth);
+    VolumeData data(width, height, depth);
     for (float& voxel : data.GetVoxels())
     {
       voxel = 1.0f;
@@ -88,9 +88,9 @@ Scene::Scene()
     CreateSeedVolumeData(8, 8, 8),
     mandelbulbVolumeShader
   );
-  mandelbulbVolume->position = glm::vec3(0.0f, 0.0f, 0.0f);
-  mandelbulbVolume->scale = glm::vec3(1.5f, 1.5f, 1.5f);
-  
+  mandelbulbVolume->setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+  mandelbulbVolume->setScale(glm::vec3(1.5f, 1.5f, 1.5f));
+
   (*mandelbulbVolumeShader)["power"] = 8.0f;
   (*mandelbulbVolumeShader)["bailout"] = 8.0f;
   (*mandelbulbVolumeShader)["hitEpsilon"] = 0.0012f;

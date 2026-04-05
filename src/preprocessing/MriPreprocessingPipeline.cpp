@@ -1,5 +1,11 @@
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
+/**
+ * @brief Add a preprocessing stage to the pipeline.
+ * 
+ * @param stage 
+ * @return MriPreprocessingPipeline& 
+ */
 MriPreprocessingPipeline& MriPreprocessingPipeline::AddStage(std::unique_ptr<IMriPreprocessingStage> stage)
 {
   if (stage)
@@ -10,6 +16,12 @@ MriPreprocessingPipeline& MriPreprocessingPipeline::AddStage(std::unique_ptr<IMr
   return *this;
 }
 
+/**
+ * @brief Execute the preprocessing pipeline with the given request.
+ * 
+ * @param request 
+ * @return MriPreprocessingResult 
+ */
 MriPreprocessingResult MriPreprocessingPipeline::Execute(const MriPreprocessingRequest& request) const
 {
   MriPreprocessingContext context(request);

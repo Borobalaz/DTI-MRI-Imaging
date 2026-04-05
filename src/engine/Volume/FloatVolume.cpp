@@ -2,7 +2,7 @@
 
 #include "Texture3D.h"
 
-FloatVolume::FloatVolume(const VolumeData<float>& volumeData,
+FloatVolume::FloatVolume(const VolumeData& volumeData,
                          std::shared_ptr<Shader> shader)
   : Volume(volumeData.GetMetadata(), std::move(shader))
 {
@@ -16,9 +16,4 @@ FloatVolume::FloatVolume(const VolumeData<float>& volumeData,
     GL_FLOAT,
     volumeData.GetVoxels().data(),
     true));
-}
-
-const VolumeTextureSet& FloatVolume::GetTextureSet() const
-{
-  return textureSet;
 }

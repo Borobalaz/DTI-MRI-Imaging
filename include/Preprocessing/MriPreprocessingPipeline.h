@@ -4,16 +4,16 @@
 #include <string>
 #include <vector>
 
+#include <glm/glm.hpp>
+
 #include "VolumeData.h"
 #include "DTIVolume.h"
 
 struct MriPreprocessingRequest
 {
-  std::string datasetRootPath;
-  std::string preferredSubjectId;
-  std::string preferredSessionId;
-  bool preferAnatomicalVolumes = true;
-  bool generateAllChannels = true;
+  std::string dwiVolumePath;
+  std::string bvalPath;
+  std::string bvecPath;
 };
 
 struct MriPreprocessingReport
@@ -29,25 +29,37 @@ struct MriPreprocessingResult
   MriPreprocessingReport report;
 };
 
+/**
+ * @brief DTO object of the processor pipeline. 
+ *        It carries the request, report, result and intermediate data. 
+ * 
+ */
 struct MriPreprocessingContext
 {
-  explicit MriPreprocessingContext(MriPreprocessingRequest request)
-    : request(std::move(request))
-  {
-  }
+  explicit MriPreprocessingContext(MriPreprocessingRequest request) : request(std::move(request)) {}
 
   MriPreprocessingRequest request;
   MriPreprocessingReport report;
 
-  std::vector<std::string> candidateVolumePaths;
-  std::string selectedSourceVolumePath;
+  // inputs
+  std::string selectedDwiVolumePath;
+  std::string selectedBvalPath;
+  std::string selectedBvecPath;
+  
+  // calculated
+  std::vector<float> bValues;
+  std::vector<glm::vec3> gradientDirections;
+  bool gradientMetadataValid = false;
 
-  VolumeData<float> loadedVolume;
-  VolumeData<float> normalizedVolume;
-
+  // output
   DTIVolumeChannels outputChannels;
 };
 
+/**
+ * @brief A stage of the preprocessor. Each stage performs a specific task in the preprocessing pipeline, 
+ *        such as normalizing bvectors or synthesizing the D tensor.
+ * 
+ */
 class IMriPreprocessingStage
 {
 public:
@@ -56,6 +68,10 @@ public:
   virtual void Execute(MriPreprocessingContext& context) const = 0;
 };
 
+/**
+ * @brief A vector of stages that can be executed in order.
+ *        Returns a Result object containing the output DTIVolumeChannels (D tensor)
+ */
 class MriPreprocessingPipeline
 {
 public:
