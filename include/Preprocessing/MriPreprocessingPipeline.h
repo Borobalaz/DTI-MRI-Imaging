@@ -28,6 +28,7 @@ struct MriPreprocessingResult
 {
   DTIVolumeChannels channels;
   std::shared_ptr<Mesh> surfaceMesh;
+  std::shared_ptr<Mesh> streamlineMesh;
   MriPreprocessingReport report;
 };
 
@@ -56,6 +57,7 @@ struct MriPreprocessingContext
   // output
   DTIVolumeChannels outputChannels;
   std::shared_ptr<Mesh> outputSurfaceMesh;
+  std::shared_ptr<Mesh> outputStreamlineMesh;
 };
 
 /**

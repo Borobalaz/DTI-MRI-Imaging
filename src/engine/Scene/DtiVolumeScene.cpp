@@ -110,6 +110,29 @@ bool DtiVolumeScene::LoadDataset(
       result.report.warnings.push_back("No brain surface mesh was generated for DTI scene rendering.");
     }
 
+    if (result.streamlineMesh)
+    {
+      std::shared_ptr<Shader> streamlineShader = std::make_shared<Shader>(
+          "shaders/streamline_vertex.glsl",
+          "shaders/streamline_fragment.glsl");
+
+      std::shared_ptr<Material> streamlineMaterial = std::make_shared<Material>(streamlineShader);
+      streamlineMaterial->SetAmbientColor(glm::vec3(1.0f, 0.58f, 0.16f));
+      streamlineMaterial->SetDiffuseColor(glm::vec3(1.0f, 0.58f, 0.16f));
+      streamlineMaterial->SetSpecularColor(glm::vec3(0.0f, 0.0f, 0.0f));
+      streamlineMaterial->SetShininess(1.0f);
+
+      result.streamlineMesh->SetMaterial(streamlineMaterial);
+      std::shared_ptr<GameObject> streamlineObject = std::make_shared<GameObject>();
+      streamlineObject->AddMesh(result.streamlineMesh);
+      streamlineObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
+      AddGameObject(streamlineObject);
+    }
+    else
+    {
+      result.report.warnings.push_back("No fiber streamlines were generated for DTI scene rendering.");
+    }
+
     return true;
   }
   catch (const std::exception& ex)

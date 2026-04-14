@@ -73,10 +73,22 @@ void Material::Bind() const
 
   shader->Use();
 
-  shader->SetVec3("material.ambientColor", ambientColor);
-  shader->SetVec3("material.diffuseColor", diffuseColor);
-  shader->SetVec3("material.specularColor", specularColor);
-  shader->SetFloat("material.shininess", shininess);
+  if (shader->HasUniform("material.ambientColor"))
+  {
+    shader->SetVec3("material.ambientColor", ambientColor);
+  }
+  if (shader->HasUniform("material.diffuseColor"))
+  {
+    shader->SetVec3("material.diffuseColor", diffuseColor);
+  }
+  if (shader->HasUniform("material.specularColor"))
+  {
+    shader->SetVec3("material.specularColor", specularColor);
+  }
+  if (shader->HasUniform("material.shininess"))
+  {
+    shader->SetFloat("material.shininess", shininess);
+  }
 
   constexpr int diffuseTextureUnit = 0;
   constexpr int specularTextureUnit = 1;
@@ -84,14 +96,26 @@ void Material::Bind() const
   if (diffuseTexture)
   {
     diffuseTexture->Bind(diffuseTextureUnit);
-    shader->SetTexture("material.diffuseTexture", diffuseTextureUnit);
+    if (shader->HasUniform("material.diffuseTexture"))
+    {
+      shader->SetTexture("material.diffuseTexture", diffuseTextureUnit);
+    }
   }
-  shader->SetBool("material.hasDiffuseTexture", diffuseTexture != nullptr);
+  if (shader->HasUniform("material.hasDiffuseTexture"))
+  {
+    shader->SetBool("material.hasDiffuseTexture", diffuseTexture != nullptr);
+  }
 
   if (specularTexture)
   {
     specularTexture->Bind(specularTextureUnit);
-    shader->SetTexture("material.specularTexture", specularTextureUnit);
+    if (shader->HasUniform("material.specularTexture"))
+    {
+      shader->SetTexture("material.specularTexture", specularTextureUnit);
+    }
   }
-  shader->SetBool("material.hasSpecularTexture", specularTexture != nullptr);
+  if (shader->HasUniform("material.hasSpecularTexture"))
+  {
+    shader->SetBool("material.hasSpecularTexture", specularTexture != nullptr);
+  }
 }

@@ -13,6 +13,7 @@ MriToDtiPreprocessor::MriToDtiPreprocessor()
     .AddStage(CreateDwiPrincipalEigenvectorStage())
     .AddStage(CreateDwiScalarSynthesisStage())
     .AddStage(CreateDwiBrainSurfaceMeshStage())
+    .AddStage(CreateDwiFiberTractographyStage())
     .AddStage(CreateDwiNormalizationStage());
 }
 
