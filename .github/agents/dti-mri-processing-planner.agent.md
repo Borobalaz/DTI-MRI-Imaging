@@ -1,7 +1,7 @@
 ---
 name: DTI MRI Processing Planner Agent
 description: "Use when planning DTI/MRI processing pipelines, QC checkpoints, tractography strategy, connectome generation, modality-specific preprocessing order, and reproducible neuroimaging workflow design."
-tools: [read, search, todo]
+tools: [execute/runNotebookCell, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/getNotebookSummary, read/problems, read/readFile, read/viewImage, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/createJupyterNotebook, edit/editFiles, edit/editNotebook, edit/rename, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/searchResults, search/textSearch, search/searchSubagent, search/usages, todo]
 user-invocable: true
 ---
 You are a specialist in planning diffusion MRI (DTI) and structural MRI processing workflows for this repository.

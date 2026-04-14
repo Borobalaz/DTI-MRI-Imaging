@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <filesystem>
+#include <chrono>
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -38,6 +40,9 @@ public:
 
 
   void Use() const;
+
+  // Hot reload: check if source files have changed and reload if needed
+  bool ReloadIfChanged();
 
   // uniform helpers
   void SetBool(const std::string& name, bool value) const;
@@ -91,6 +96,10 @@ private:
   std::string ReadFile(const std::string& path);
   unsigned int Compile(unsigned int type, const std::string& source);
 
+  // Hot reload helpers
+  std::filesystem::file_time_type GetFileModTime(const std::string& path) const;
+  bool RebuildProgram(const std::string& vertexCode, const std::string& fragmentCode);
+
   mutable std::unordered_map<std::string, GLint> uniformLocationCache;
   std::unordered_map<std::string, UniformInfo> uniformsByName;
 
@@ -107,4 +116,10 @@ private:
   // The IInspectable interface forwards these to the UI (to be displayed and changed)
   std::unordered_map<std::string, UniformUiConfig> uniformUiConfigs;
   std::map<std::string, UniformValue> storedUniforms;
+
+  // File paths and modification times for hot reload
+  std::string vertexPath;
+  std::string fragmentPath;
+  std::filesystem::file_time_type lastVertexModTime;
+  std::filesystem::file_time_type lastFragmentModTime;
 };

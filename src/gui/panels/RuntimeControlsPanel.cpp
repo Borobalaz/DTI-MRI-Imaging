@@ -17,6 +17,7 @@ RuntimeControlsPanel::RuntimeControlsPanel()
   RegisterWidget(UiFieldKind::Float, std::make_unique<FloatFieldWidget>());
   RegisterWidget(UiFieldKind::Vec3, std::make_unique<Vec3FieldWidget>());
   RegisterWidget(UiFieldKind::Color3, std::make_unique<Color3FieldWidget>());
+  RegisterWidget(UiFieldKind::ComboBox, std::make_unique<ComboBoxFieldWidget>());
 }
 
 void RuntimeControlsPanel::RegisterWidget(UiFieldKind kind, std::unique_ptr<IWidget> widget)

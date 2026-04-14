@@ -1,331 +1,508 @@
 #include "DTIVolume.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <iostream>
+#include <string>
 #include <stdexcept>
 
 #include "Texture3D.h"
+#include "Scene/Scene.h"
 
 namespace
 {
   constexpr float kSpacingEpsilon = 1e-4f;
+
+  glm::vec3 NormalizeSafe(const glm::vec3 &v)
+  {
+    float len = glm::length(v);
+    if (len > 1e-8f)
+      return v / len;
+    return glm::vec3(0.0f);
+  }
 
   bool NearlyEqual(float a, float b)
   {
     return std::fabs(a - b) <= kSpacingEpsilon;
   }
 
-  bool HasFiniteVoxelData(const VolumeData<float>& volumeData)
+  bool HasFiniteVoxelData(const VolumeData &volumeData)
   {
-    const std::vector<float>& voxels = volumeData.GetVoxels();
+    const std::vector<float> &voxels = volumeData.GetVoxels();
     return std::all_of(voxels.begin(), voxels.end(),
-      [](float v)
-      {
-        return std::isfinite(v) != 0;
-      });
+                       [](float v)
+                       {
+                         return std::isfinite(v) != 0;
+                       });
   }
 
-  bool HasCompatibleMetadata(const VolumeData<float>& candidate,
-                             const VolumeMetadata& reference)
+  bool HasCompatibleMetadata(const VolumeData &candidate,
+           const glm::ivec3 &referenceDimensions,
+           const glm::vec3 &referenceSpacing)
   {
-    const VolumeMetadata& metadata = candidate.GetMetadata();
-    return metadata.dimensions == reference.dimensions &&
-      NearlyEqual(metadata.spacing.x, reference.spacing.x) &&
-      NearlyEqual(metadata.spacing.y, reference.spacing.y) &&
-      NearlyEqual(metadata.spacing.z, reference.spacing.z);
+      const glm::ivec3 &dimensions = candidate.GetDimensions();
+      const glm::vec3 &spacing = candidate.GetSpacing();
+      return dimensions == referenceDimensions &&
+        NearlyEqual(spacing.x, referenceSpacing.x) &&
+        NearlyEqual(spacing.y, referenceSpacing.y) &&
+        NearlyEqual(spacing.z, referenceSpacing.z);
   }
 
-  void ValidateChannel(const std::optional<VolumeData<float>>& candidate,
-                       const char* name,
-                       const VolumeMetadata& reference)
+  std::vector<float> PackRgbaChannels(const VolumeData &r,
+                                      const VolumeData &g,
+                                      const VolumeData &b,
+                                      const VolumeData &a)
   {
-    if (!candidate.has_value())
+    const std::vector<float> &rVoxels = r.GetVoxels();
+    const std::vector<float> &gVoxels = g.GetVoxels();
+    const std::vector<float> &bVoxels = b.GetVoxels();
+    const std::vector<float> &aVoxels = a.GetVoxels();
+
+    const size_t voxelCount = rVoxels.size();
+    std::vector<float> packed(voxelCount * 4U, 0.0f);
+
+    for (size_t i = 0; i < voxelCount; ++i)
     {
-      return;
+      const size_t base = i * 4U;
+      packed[base + 0U] = rVoxels[i];
+      packed[base + 1U] = gVoxels[i];
+      packed[base + 2U] = bVoxels[i];
+      packed[base + 3U] = aVoxels[i];
     }
 
-    if (!HasCompatibleMetadata(*candidate, reference))
+    return packed;
+  }
+
+  std::vector<float> PackRgbChannels(const VolumeData &r,
+                                     const VolumeData &g,
+                                     const VolumeData &b)
+  {
+    const std::vector<float> &rVoxels = r.GetVoxels();
+    const std::vector<float> &gVoxels = g.GetVoxels();
+    const std::vector<float> &bVoxels = b.GetVoxels();
+
+    const size_t voxelCount = rVoxels.size();
+    std::vector<float> packed(voxelCount * 3U, 0.0f);
+
+    for (size_t i = 0; i < voxelCount; ++i)
     {
-      throw std::invalid_argument(std::string("DTI channel metadata mismatch: ") + name);
+      const size_t base = i * 3U;
+      packed[base + 0U] = rVoxels[i];
+      packed[base + 1U] = gVoxels[i];
+      packed[base + 2U] = bVoxels[i];
     }
 
-    if (!HasFiniteVoxelData(*candidate))
-    {
-      throw std::invalid_argument(std::string("DTI channel contains non-finite values: ") + name);
-    }
+    return packed;
   }
 }
 
 /**
- * @brief Construct a new DTIVolume object from the provided DTI channels and shader. 
- *    The constructor validates the input channels for metadata consistency and finite voxel values, 
+ * @brief Construct a new DTIVolume object from the provided DTI channels and shader.
+ *    The constructor validates the input channels for metadata consistency and finite voxel values,
  *    and uploads available metrics to the GPU as textures.
- * 
- * @param channels 
- * @param shader 
+ *
+ * @param channels
+ * @param shader
  */
 DTIVolume::DTIVolume(DTIVolumeChannels channels,
                      std::shared_ptr<Shader> shader)
-  : Volume(channels.fa.GetMetadata(), std::move(shader)),
-    channels(std::move(channels))
+    : Volume(channels.Dxx.GetDimensions(), channels.Dxx.GetSpacing(), std::move(shader)),
+      channels(std::move(channels))
 {
-  const VolumeMetadata& reference = this->channels.fa.GetMetadata();
-  if (reference.dimensions.x <= 0 || reference.dimensions.y <= 0 || reference.dimensions.z <= 0)
+  // Hallod ez konkrétan majdnem 2 héting volt egy bug amit nem találtam meg és lófaszt sem mutatott a volume render.
+  // Úgy töltöttem fel a textúrát, hogy channels.Dxx
+  // De a kontruktor ugye azt a pointer std::move-val kinullolta kb, és utána a this->channels-ben volt.
+  // c:
+  const DTIVolumeChannels &gpuChannels = this->channels;
+
+  const std::array<const VolumeData *, 16> metadataValidatedChannels = {
+      &gpuChannels.Dxx,
+      &gpuChannels.Dyy,
+      &gpuChannels.Dzz,
+      &gpuChannels.Dxy,
+      &gpuChannels.Dxz,
+      &gpuChannels.Dyz,
+      &gpuChannels.EVx,
+      &gpuChannels.EVy,
+      &gpuChannels.EVz,
+      &gpuChannels.FA,
+      &gpuChannels.MD,
+      &gpuChannels.AD,
+      &gpuChannels.RD,
+      &gpuChannels.L1,
+      &gpuChannels.L2,
+      &gpuChannels.L3};
+
+  const glm::ivec3 &referenceDimensions = gpuChannels.Dxx.GetDimensions();
+  const glm::vec3 &referenceSpacing = gpuChannels.Dxx.GetSpacing();
+
+  // Validate metadata consistency across channels
+  for (const VolumeData *channel : metadataValidatedChannels)
   {
-    throw std::invalid_argument("DTIVolume requires positive dimensions.");
+    if (!HasCompatibleMetadata(*channel, referenceDimensions, referenceSpacing))
+    {
+      throw std::invalid_argument("All DTI channels must have the same dimensions and spacing.");
+    }
   }
 
-  if (!HasFiniteVoxelData(this->channels.fa))
+  // Validate finite voxel data
+  for (const VolumeData *channel : metadataValidatedChannels)
   {
-    throw std::invalid_argument("DTI channel contains non-finite values: FA");
+    if (!HasFiniteVoxelData(*channel))
+    {
+      throw std::invalid_argument("All DTI channels must have finite voxel values.");
+    }
   }
 
-  ValidateChannel(this->channels.md, "MD", reference);
-  ValidateChannel(this->channels.ad, "AD", reference);
-  ValidateChannel(this->channels.rd, "RD", reference);
+  const int width = referenceDimensions.x;
+  const int height = referenceDimensions.y;
+  const int depth = referenceDimensions.z;
 
-  AddMetricTexture(Metric::FA, this->channels.fa);
-  if (this->channels.md.has_value())
-  {
-    AddMetricTexture(Metric::MD, *this->channels.md);
-  }
-  if (this->channels.ad.has_value())
-  {
-    AddMetricTexture(Metric::AD, *this->channels.ad);
-  }
-  if (this->channels.rd.has_value())
-  {
-    AddMetricTexture(Metric::RD, *this->channels.rd);
-  }
+  // Texture 0 (RGB): (Dxx, Dyy, Dzz)
+  const std::vector<float> tensorDiagRgb = PackRgbChannels(
+      gpuChannels.Dxx,
+      gpuChannels.Dyy,
+      gpuChannels.Dzz);
+  textureSet.AddTexture(std::make_shared<Texture3D>(
+      width,
+      height,
+      depth,
+      GL_RGB32F,
+      GL_RGB,
+      GL_FLOAT,
+      tensorDiagRgb.data(),
+      true));
 
-  SyncActiveMetricToAvailable();
+  // Texture 1 (RGB): (Dxy, Dxz, Dyz)
+  const std::vector<float> tensorOffDiagRgb = PackRgbChannels(
+      gpuChannels.Dxy,
+      gpuChannels.Dxz,
+      gpuChannels.Dyz);
+  textureSet.AddTexture(std::make_shared<Texture3D>(
+      width,
+      height,
+      depth,
+      GL_RGB32F,
+      GL_RGB,
+      GL_FLOAT,
+      tensorOffDiagRgb.data(),
+      true));
+
+  // Texture 2 (RGB): (EVx, EVy, EVz)
+  const std::vector<float> principalEigenvectorRgb = PackRgbChannels(
+      gpuChannels.EVx,
+      gpuChannels.EVy,
+      gpuChannels.EVz);
+  textureSet.AddTexture(std::make_shared<Texture3D>(
+      width,
+      height,
+      depth,
+      GL_RGB32F,
+      GL_RGB,
+      GL_FLOAT,
+      principalEigenvectorRgb.data(),
+      true));
+
+  // Texture 3 (RGB): (L1, L2, L3)
+  const std::vector<float> eigenvaluesRgb = PackRgbChannels(
+      gpuChannels.L1,
+      gpuChannels.L2,
+      gpuChannels.L3);
+  textureSet.AddTexture(std::make_shared<Texture3D>(
+      width,
+      height,
+      depth,
+      GL_RGB32F,
+      GL_RGB,
+      GL_FLOAT,
+      eigenvaluesRgb.data(),
+      true));
+
+  // Texture 4: (FA, MD, AD, RD)
+  const std::vector<float> scalarMetricsRgba = PackRgbaChannels(
+      gpuChannels.FA,
+      gpuChannels.MD,
+      gpuChannels.AD,
+      gpuChannels.RD);
+  textureSet.AddTexture(std::make_shared<Texture3D>(
+      width,
+      height,
+      depth,
+      GL_RGBA32F,
+      GL_RGBA,
+      GL_FLOAT,
+      scalarMetricsRgba.data(),
+      true));
+
+  InitializeRenderModes();
 }
 
 /**
  * @brief Uniformprovider implementation to bind DTI-specific uniforms to the shader before drawing.
- * 
- * @param shader 
+ *
+ * @param shader
  */
-void DTIVolume::Apply(Shader& shader) const
+void DTIVolume::Apply(Shader &shader) const
 {
   Volume::Apply(shader);
-
-  const int metricCount = GetAvailableMetricCount();
-  const int textureIndex = GetTextureIndexForMetric(static_cast<Metric>(activeMetric));
-
-  if (shader.HasUniform("dti.metricCount"))
-  {
-    shader.SetInt("dti.metricCount", metricCount);
-  }
-  if (shader.HasUniform("dti.activeMetric"))
-  {
-    shader.SetInt("dti.activeMetric", activeMetric);
-  }
-  if (shader.HasUniform("dti.activeMetricTexture"))
-  {
-    shader.SetInt("dti.activeMetricTexture", textureIndex);
-  }
-  if (shader.HasUniform("dti.threshold"))
-  {
-    shader.SetFloat("dti.threshold", metricThreshold);
-  }
-  if (shader.HasUniform("dti.opacityScale"))
-  {
-    shader.SetFloat("dti.opacityScale", opacityScale);
-  }
-
-  // Compatibility bridge for existing shaders that use shader.* uniforms.
-  if (shader.HasUniform("shader.activeMetric"))
-  {
-    shader.SetInt("shader.activeMetric", activeMetric);
-  }
-  if (shader.HasUniform("shader.metricTexture"))
-  {
-    shader.SetInt("shader.metricTexture", textureIndex);
-  }
-  if (shader.HasUniform("shader.threshold"))
-  {
-    shader.SetFloat("shader.threshold", metricThreshold);
-  }
-  if (shader.HasUniform("shader.opacityScale"))
-  {
-    shader.SetFloat("shader.opacityScale", opacityScale);
-  }
+  shader["shader.selectedChannel"] = selectedChannel;
 }
 
-void DTIVolume::CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix)
+/**
+ * @brief Draw the DTI volume using the provided frame uniforms. This sets up blending and depth state for proper volume rendering.
+ *        Bind the DTI textures and draw the geometry. Restore GL state afterwards.
+ *
+ * @param frameUniforms
+ */
+void DTIVolume::Draw(const UniformProvider &frameUniforms) const
+{
+  Volume::Draw(frameUniforms);
+}
+
+/**
+ * @brief IInspectable implementation. Add the DTI-specific fields to the inspectable fields for UI editing.
+ *
+ * @param out
+ * @param groupPrefix
+ */
+void DTIVolume::CollectInspectableFields(std::vector<UiField> &out, const std::string &groupPrefix)
 {
   Volume::CollectInspectableFields(out, groupPrefix);
 
   const std::string group = groupPrefix.empty() ? "DTI" : (groupPrefix + "/DTI");
 
-  UiField activeMetricField;
-  activeMetricField.group = group;
-  activeMetricField.label = "Active Metric";
-  activeMetricField.kind = UiFieldKind::Int;
-  activeMetricField.minInt = 0;
-  activeMetricField.maxInt = kMetricCount - 1;
-  activeMetricField.getter = [this]() -> UiFieldValue
+  // Render mode selection field
+  UiField renderModeField;
+  renderModeField.group = group;
+  renderModeField.label = "Render Mode";
+  renderModeField.kind = UiFieldKind::ComboBox;
+  renderModeField.comboItems.reserve(renderModes.size());
+  for (const RenderMode &mode : renderModes)
   {
-    return activeMetric;
+    renderModeField.comboItems.push_back(mode.label);
+  }
+  renderModeField.getter = [this]() -> UiFieldValue
+  {
+    return selectedRenderMode;
   };
-  activeMetricField.setter = [this](const UiFieldValue& value)
+  renderModeField.setter = [this](const UiFieldValue &value)
   {
     if (!std::holds_alternative<int>(value))
     {
       return;
     }
 
-    SetActiveMetric(std::get<int>(value));
-  };
-  out.push_back(std::move(activeMetricField));
-
-  UiField thresholdField;
-  thresholdField.group = group;
-  thresholdField.label = "Metric Threshold";
-  thresholdField.kind = UiFieldKind::Float;
-  thresholdField.minFloat = 0.0f;
-  thresholdField.maxFloat = 1.0f;
-  thresholdField.speed = 0.005f;
-  thresholdField.getter = [this]() -> UiFieldValue
-  {
-    return metricThreshold;
-  };
-  thresholdField.setter = [this](const UiFieldValue& value)
-  {
-    if (!std::holds_alternative<float>(value))
+    const int selected = std::get<int>(value);
+    if (!SetActiveRenderMode(selected))
     {
-      return;
+      std::cout << "Failed to switch DTI render mode index: " << selected << std::endl;
     }
-
-    metricThreshold = std::clamp(std::get<float>(value), 0.0f, 1.0f);
   };
-  out.push_back(std::move(thresholdField));
+  out.push_back(std::move(renderModeField));
 
-  UiField opacityField;
-  opacityField.group = group;
-  opacityField.label = "Opacity Scale";
-  opacityField.kind = UiFieldKind::Float;
-  opacityField.minFloat = 0.05f;
-  opacityField.maxFloat = 4.0f;
-  opacityField.speed = 0.01f;
-  opacityField.getter = [this]() -> UiFieldValue
+  // Only show channel selection when in the channel slice render mode (index 0)
+  if (selectedRenderMode == 0)
   {
-    return opacityScale;
-  };
-  opacityField.setter = [this](const UiFieldValue& value)
-  {
-    if (!std::holds_alternative<float>(value))
+    UiField selectedChannelField;
+    selectedChannelField.group = group;
+    selectedChannelField.label = "Selected Channel";
+    selectedChannelField.kind = UiFieldKind::ComboBox;
+    selectedChannelField.comboItems = {
+        "Dxx", "Dyy", "Dzz", "Dxy", "Dxz", "Dyz",
+        "EVx", "EVy", "EVz",
+        "FA", "MD", "AD", "RD",
+        "L1", "L2", "L3"};
+    selectedChannelField.getter = [this]() -> UiFieldValue
     {
-      return;
-    }
-
-    opacityScale = std::clamp(std::get<float>(value), 0.05f, 4.0f);
-  };
-  out.push_back(std::move(opacityField));
-}
-
-int DTIVolume::GetAvailableMetricCount() const
-{
-  int count = 0;
-  for (int textureIndex : metricTextureIndices)
-  {
-    if (textureIndex >= 0)
+      return selectedChannel;
+    };
+    selectedChannelField.setter = [this](const UiFieldValue &value)
     {
-      ++count;
-    }
-  }
+      if (!std::holds_alternative<int>(value))
+      {
+        return;
+      }
 
-  return count;
-}
+      const int selected = std::get<int>(value);
+      if (selected < 0 || selected > 15)
+      {
+        return;
+      }
 
-int DTIVolume::GetActiveMetric() const
-{
-  return activeMetric;
-}
-
-void DTIVolume::SetActiveMetric(int metricIndex)
-{
-  activeMetric = std::clamp(metricIndex, 0, kMetricCount - 1);
-  SyncActiveMetricToAvailable();
-}
-
-bool DTIVolume::HasMetric(Metric metric) const
-{
-  return GetTextureIndexForMetric(metric) >= 0;
-}
-
-int DTIVolume::GetTextureIndexForMetric(Metric metric) const
-{
-  return metricTextureIndices[ToMetricIndex(metric)];
-}
-
-const VolumeTextureSet& DTIVolume::GetTextureSet() const
-{
-  return textureSet;
-}
-
-int DTIVolume::ToMetricIndex(Metric metric)
-{
-  const int index = static_cast<int>(metric);
-  if (index < 0 || index >= kMetricCount)
-  {
-    throw std::out_of_range("DTIVolume metric index out of range.");
-  }
-
-  return index;
-}
-
-const char* DTIVolume::MetricNameByIndex(int metricIndex)
-{
-  switch (metricIndex)
-  {
-    case 0:
-      return "FA";
-    case 1:
-      return "MD";
-    case 2:
-      return "AD";
-    case 3:
-      return "RD";
-    default:
-      return "Unknown";
+      selectedChannel = selected;
+    };
+    out.push_back(std::move(selectedChannelField));
   }
 }
 
-void DTIVolume::AddMetricTexture(Metric metric, const VolumeData<float>& volumeData)
+/**
+ * @brief Initialize the available render modes for the DTI volume.
+ *        Each render mode corresponds to a different shader that visualizes the DTI data in a specific way (e.g. channel slice, principal eigenvector RGB).
+ *
+ */
+void DTIVolume::InitializeRenderModes()
 {
-  const VolumeMetadata& metadata = volumeData.GetMetadata();
-  const int textureIndex = static_cast<int>(textureSet.Size());
+  renderModes.clear();
 
-  textureSet.AddTexture(std::make_shared<Texture3D>(
-    metadata.dimensions.x,
-    metadata.dimensions.y,
-    metadata.dimensions.z,
-    GL_R32F,
-    GL_RED,
-    GL_FLOAT,
-    volumeData.GetVoxels().data(),
-    true));
+  // Channel Slice Mode
+  std::shared_ptr<Shader> channelSliceShader = std::make_shared<Shader>(
+      "shaders/volume_vertex.glsl",
+      "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl");
+  if (channelSliceShader && channelSliceShader->ID != 0)
+  {
+    (*channelSliceShader)["shader.sliceZ"] = 0.5f;
+    channelSliceShader->SetUniformUiFloatRange("shader.sliceZ", 0.0f, 1.0f, 0.001f);
+    renderModes.push_back(RenderMode{"Channel Slice", channelSliceShader});
+  }
 
-  metricTextureIndices[ToMetricIndex(metric)] = textureIndex;
+  // Principal Eigenvector RGB Mode
+  std::shared_ptr<Shader> principalDirectionShader = std::make_shared<Shader>(
+      "shaders/volume_vertex.glsl",
+      "shaders/dti_fragment_shaders/volume_dti_ev_slice_fragment.glsl");
+
+  if (principalDirectionShader && principalDirectionShader->ID != 0)
+  {
+    (*principalDirectionShader)["shader.sliceZ"] = 0.5f;
+    principalDirectionShader->SetUniformUiFloatRange("shader.sliceZ", 0.0f, 1.0f, 0.001f);
+    (*principalDirectionShader)["shader.density"] = 1.0f;
+    principalDirectionShader->SetUniformUiFloatRange("shader.density", 0.0f, 20.0f, 0.01f);
+    renderModes.push_back(RenderMode{"Principal EV RGB", principalDirectionShader});
+  }
+
+  // 3D FA Raymarch Mode
+  std::shared_ptr<Shader> faRaymarchShader = std::make_shared<Shader>(
+      "shaders/volume_vertex.glsl",
+      "shaders/dti_fragment_shaders/volume_dti_fa_raymarch_fragment.glsl");
+
+  if (faRaymarchShader && faRaymarchShader->ID != 0)
+  {
+    (*faRaymarchShader)["shader.threshold"] = 0.15f;
+    faRaymarchShader->SetUniformUiFloatRange("shader.threshold", 0.0f, 1.0f, 0.001f);
+    (*faRaymarchShader)["shader.density"] = 1.0f;
+    faRaymarchShader->SetUniformUiFloatRange("shader.density", 0.0f, 20.0f, 0.01f);
+    (*faRaymarchShader)["shader.stepSize"] = 0.0f;
+    faRaymarchShader->SetUniformUiFloatRange("shader.stepSize", 0.0f, 0.1f, 0.0005f);
+    (*faRaymarchShader)["shader.maxSteps"] = 512;
+    faRaymarchShader->SetUniformUiIntRange("shader.maxSteps", 1, 2048);
+    renderModes.push_back(RenderMode{"FA 3D Raymarch", faRaymarchShader});
+  }
+
+  // 3D direction color-coded raymarch mode.
+  std::shared_ptr<Shader> directionRaymarchShader = std::make_shared<Shader>(
+      "shaders/volume_vertex.glsl",
+      "shaders/dti_fragment_shaders/volume_dti_direction_raymarch_fragment.glsl");
+
+  if (directionRaymarchShader && directionRaymarchShader->ID != 0)
+  {
+    (*directionRaymarchShader)["shader.threshold"] = 0.15f;
+    directionRaymarchShader->SetUniformUiFloatRange("shader.threshold", 0.0f, 1.0f, 0.001f);
+    (*directionRaymarchShader)["shader.density"] = 1.0f;
+    directionRaymarchShader->SetUniformUiFloatRange("shader.density", 0.0f, 20.0f, 0.01f);
+    (*directionRaymarchShader)["shader.stepSize"] = 0.0005f;
+    directionRaymarchShader->SetUniformUiFloatRange("shader.stepSize", 0.0005f, 0.1f, 0.0005f);
+    (*directionRaymarchShader)["shader.maxSteps"] = 512;
+    directionRaymarchShader->SetUniformUiIntRange("shader.maxSteps", 1, 2048);
+    renderModes.push_back(RenderMode{"Direction 3D Raymarch", directionRaymarchShader});
+  }
+
+  // Lit FA isosurface mode with ambient occlusion.
+  std::shared_ptr<Shader> surfaceLitShader = std::make_shared<Shader>(
+      "shaders/volume_vertex.glsl",
+      "shaders/dti_fragment_shaders/volume_dti_surface_lit_fragment.glsl");
+
+  if (surfaceLitShader && surfaceLitShader->ID != 0)
+  {
+    (*surfaceLitShader)["shader.threshold"] = 0.1f;
+    surfaceLitShader->SetUniformUiFloatRange("shader.threshold", 0.0f, 1.0f, 0.001f);
+    (*surfaceLitShader)["shader.stepSize"] = 0.0f;
+    surfaceLitShader->SetUniformUiFloatRange("shader.stepSize", 0.0f, 0.1f, 0.0005f);
+    (*surfaceLitShader)["shader.maxSteps"] = 200;
+    surfaceLitShader->SetUniformUiIntRange("shader.maxSteps", 1, 2048);
+    (*surfaceLitShader)["shader.specularStrength"] = 0.5f;
+    surfaceLitShader->SetUniformUiFloatRange("shader.specularStrength", 0.0f, 2.0f, 0.01f);
+    (*surfaceLitShader)["shader.shininess"] = 18.0f;
+    surfaceLitShader->SetUniformUiFloatRange("shader.shininess", 2.0f, 256.0f, 1.0f);
+    (*surfaceLitShader)["shader.aoStrength"] = 0.85f;
+    surfaceLitShader->SetUniformUiFloatRange("shader.aoStrength", 0.0f, 2.0f, 0.01f);
+    (*surfaceLitShader)["shader.aoRadius"] = 0.04f;
+    surfaceLitShader->SetUniformUiFloatRange("shader.aoRadius", 0.005f, 0.2f, 0.001f);
+    (*surfaceLitShader)["shader.aoSamples"] = 8;
+    surfaceLitShader->SetUniformUiIntRange("shader.aoSamples", 1, 24);
+    renderModes.push_back(RenderMode{"FA Surface Lit", surfaceLitShader});
+  }
+
+  // Additional render modes can be added here following the same pattern.
+
+  if (renderModes.empty())
+  {
+    throw std::runtime_error("DTIVolume could not initialize any valid render mode shader.");
+  }
+
+  SetActiveRenderMode(0);
 }
 
-void DTIVolume::SyncActiveMetricToAvailable()
+/**
+ * @brief Set the active render mode by index. This changes which shader is used for rendering the DTI volume.
+ *
+ * @param modeIndex
+ * @return true
+ * @return false
+ */
+bool DTIVolume::SetActiveRenderMode(int modeIndex)
 {
-  if (metricTextureIndices[activeMetric] >= 0)
+  if (modeIndex < 0 || modeIndex >= static_cast<int>(renderModes.size()))
+  {
+    return false;
+  }
+
+  const RenderMode &mode = renderModes[static_cast<size_t>(modeIndex)];
+  if (!mode.shader || mode.shader->ID == 0)
+  {
+    return false;
+  }
+
+  selectedRenderMode = modeIndex;
+  shader = mode.shader; // Set the base shader to the active render mode shader. This will be used in Draw().
+  return true;
+}
+
+/**
+ * @brief Get a pointer to the active render mode.
+ *
+ * @return const DTIVolume::RenderMode*
+ */
+const DTIVolume::RenderMode *DTIVolume::GetActiveRenderMode() const
+{
+  if (selectedRenderMode < 0 || selectedRenderMode >= static_cast<int>(renderModes.size()))
+  {
+    return nullptr;
+  }
+
+  return &renderModes[static_cast<size_t>(selectedRenderMode)];
+}
+
+/**
+ * @brief Register all render mode shaders with a scene for hot reload tracking.
+ *        This allows shader changes to be detected and reloaded at runtime.
+ *
+ * @param scene The scene to register shaders with
+ */
+void DTIVolume::RegisterShadersWithScene(Scene* scene)
+{
+  if (!scene)
   {
     return;
   }
 
-  for (int metricIndex = 0; metricIndex < kMetricCount; ++metricIndex)
+  for (size_t i = 0; i < renderModes.size(); ++i)
   {
-    if (metricTextureIndices[metricIndex] >= 0)
+    const auto& mode = renderModes[i];
+    if (mode.shader)
     {
-      activeMetric = metricIndex;
-      return;
+      // Use render mode label as a unique identifier for the shader
+      std::string shaderId = "DTIVolume/" + mode.label;
+      scene->RegisterShader(shaderId, mode.shader);
     }
   }
-
-  throw std::runtime_error("DTIVolume has no available metrics.");
 }

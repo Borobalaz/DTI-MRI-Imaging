@@ -1,2 +1,6 @@
 build
 .dist
+
+# Large DWI volume files (use external data loading or Git LFS)
+assets/volumes/dwi/*.nii.gz
+assets/volumes/dwi/*.nii

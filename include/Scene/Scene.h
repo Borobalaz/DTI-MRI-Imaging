@@ -61,6 +61,12 @@ public:
   void AddVolume(std::shared_ptr<Volume> volume);
   void ClearVolumes();
 
+  // Shader management
+  void RegisterShader(const std::string& name, std::shared_ptr<Shader> shader);
+
+  // Hot reload: recheck all shader files and reload if changed
+  void ReloadShadersIfChanged();
+
 private:
   float clearColor[4];
 

@@ -2,7 +2,7 @@
 
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
-class IntensityNormalizationStage final : public IMriPreprocessingStage
+class DWIInputValidationStage final : public IMriPreprocessingStage
 {
 public:
   const char* Name() const override;

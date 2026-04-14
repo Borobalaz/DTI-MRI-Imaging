@@ -6,30 +6,32 @@
 
 #include "VolumeTextureSet.h"
 
-namespace
-{
-  constexpr unsigned int kVolumeTextureBaseUnit = 8;
-}
-
-Volume::Volume(const VolumeMetadata& metadata,
+/**
+ * @brief Construct a new Volume:: Volume object
+ * 
+ * @param metadata 
+ * @param shader 
+ */
+Volume::Volume(const glm::ivec3& dimensions,
+               const glm::vec3& spacing,
                std::shared_ptr<Shader> shader)
-  : dimensions(metadata.dimensions),
-    spacing(metadata.spacing),
+  : dimensions(dimensions),
+    spacing(spacing),
     geometry(std::make_shared<VolumeGeometry>()),
     shader(std::move(shader))
 {
 }
 
+/**
+ * @brief Apply the volume's uniform values to the shader.
+ * 
+ * @param shader The shader to apply the uniforms to.
+ */
 void Volume::Apply(Shader& shader) const
 {
   if (shader.HasUniform("volume.dimensions"))
   {
     shader.SetVec3("volume.dimensions", glm::vec3(dimensions));
-  }
-
-  if (shader.HasUniform("volume.spacing"))
-  {
-    shader.SetVec3("volume.spacing", spacing);
   }
 
   if (shader.HasUniform("volume.textureCount"))
@@ -38,6 +40,11 @@ void Volume::Apply(Shader& shader) const
   }
 }
 
+/**
+ * @brief Draw the volume using the provided uniform values.
+ * 
+ * @param frameUniforms The uniform values for the current frame.
+ */
 void Volume::Draw(const UniformProvider& frameUniforms) const
 {
   if (!IsValid() || !visible)
@@ -57,9 +64,17 @@ void Volume::Draw(const UniformProvider& frameUniforms) const
   frameUniforms.Apply(*shader);
   shader->Apply(*shader);
   Apply(*shader);
-  shader->SetMat4("volumeObject.modelMatrix", BuildModelMatrix());
-  shader->SetMat4("volumeObject.inverseModelMatrix", glm::inverse(BuildModelMatrix()));
-  GetTextureSet().Bind(*shader, kVolumeTextureBaseUnit, "volumeTextures");
+  const glm::mat4 modelMatrix = BuildModelMatrix();
+  const glm::mat4 inverseModelMatrix = glm::inverse(modelMatrix);
+  if (shader->HasUniform("volumeObject.modelMatrix"))
+  {
+    shader->SetMat4("volumeObject.modelMatrix", modelMatrix);
+  }
+  if (shader->HasUniform("volumeObject.inverseModelMatrix"))
+  {
+    shader->SetMat4("volumeObject.inverseModelMatrix", inverseModelMatrix);
+  }
+  GetTextureSet().Bind(*shader, "volumeTextures");
   geometry->Draw(*shader);
 
   if (!previousBlendEnabled)
@@ -69,6 +84,11 @@ void Volume::Draw(const UniformProvider& frameUniforms) const
   glDepthMask(previousDepthWriteMask);
 }
 
+/**
+ * @brief Check if the volume is valid based on the presence of geometry, shader, and valid dimensions and textures. 
+ * 
+ * @return True if the volume is valid, false otherwise.
+ */
 bool Volume::IsValid() const
 {
   return dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0 &&
@@ -76,6 +96,11 @@ bool Volume::IsValid() const
          GetTextureSet().IsValid();
 }
 
+/**
+ * @brief Build the model matrix for the volume.
+ * 
+ * @return The model matrix.
+ */
 glm::mat4 Volume::BuildModelMatrix() const
 {
   glm::mat4 model = glm::mat4(1.0f);
@@ -87,6 +112,12 @@ glm::mat4 Volume::BuildModelMatrix() const
   return model;
 }
 
+/**
+ * @brief IInspectable implementation. Add the volume's transform fields to the inspectable fields for UI editing.
+ * 
+ * @param out 
+ * @param groupPrefix 
+ */
 void Volume::CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix)
 {
   const std::string group = groupPrefix.empty() ? "Volume" : groupPrefix;
@@ -173,6 +204,12 @@ void Volume::CollectInspectableFields(std::vector<UiField>& out, const std::stri
 
 }
 
+/**
+ * @brief IInspectable implementation. Add the fields and a shader node to the Volume inspectable.  
+ * 
+ * @param out 
+ * @param nodePrefix 
+ */
 void Volume::CollectInspectableNodes(std::vector<InspectableNode>& out, const std::string& nodePrefix)
 {
   // First, collect the volume's own fields

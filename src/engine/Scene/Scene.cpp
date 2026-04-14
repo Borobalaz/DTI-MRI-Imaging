@@ -19,9 +19,9 @@ namespace
 {
   constexpr int kMaxLights = 16;
 
-  VolumeData<float> CreateSeedVolumeData(int width, int height, int depth)
+  VolumeData CreateSeedVolumeData(int width, int height, int depth)
   {
-    VolumeData<float> data(width, height, depth);
+    VolumeData data(width, height, depth);
     for (float& voxel : data.GetVoxels())
     {
       voxel = 1.0f;
@@ -88,9 +88,9 @@ Scene::Scene()
     CreateSeedVolumeData(8, 8, 8),
     mandelbulbVolumeShader
   );
-  mandelbulbVolume->position = glm::vec3(0.0f, 0.0f, 0.0f);
-  mandelbulbVolume->scale = glm::vec3(1.5f, 1.5f, 1.5f);
-  
+  mandelbulbVolume->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+  mandelbulbVolume->SetScale(glm::vec3(1.5f, 1.5f, 1.5f));
+
   (*mandelbulbVolumeShader)["power"] = 8.0f;
   (*mandelbulbVolumeShader)["bailout"] = 8.0f;
   (*mandelbulbVolumeShader)["hitEpsilon"] = 0.0012f;
@@ -341,6 +341,35 @@ void Scene::AddVolume(std::shared_ptr<Volume> volume)
 void Scene::ClearVolumes()
 {
   volumes.clear();
+}
+
+/**
+ * @brief Register a shader with the scene for hot reload tracking
+ * 
+ * @param name The identifier name for this shader
+ * @param shader The shader to track
+ */
+void Scene::RegisterShader(const std::string& name, std::shared_ptr<Shader> shader)
+{
+  if (shader)
+  {
+    shaders[name] = shader;
+  }
+}
+
+/**
+ * @brief Hot reload: check all shader files for modifications and reload if changed
+ * 
+ */
+void Scene::ReloadShadersIfChanged()
+{
+  for (auto& [name, shader] : shaders)
+  {
+    if (shader && shader->ReloadIfChanged())
+    {
+      // Shader was reloaded successfully
+    }
+  }
 }
 
 /**

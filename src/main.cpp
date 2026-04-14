@@ -66,7 +66,6 @@ namespace
     ImGui::DestroyContext();
   }
 
-  
   void SetupInitialDockLayout(ImGuiID dockspaceId)
   {
     ImGui::DockBuilderRemoveNode(dockspaceId);
@@ -95,7 +94,10 @@ int main()
   // Create and initialize the scene
   DtiVolumeScene scene;
   scene.Init();
-  if (!scene.LoadDataset("assets/volumes/ds001553", "", ""))
+  if (!scene.LoadDataset(
+    "assets/volumes/dwi/HARDI150_hdbet_masked4d.nii.gz",
+    "assets/volumes/dwi/HARDI150.bval",
+    "assets/volumes/dwi/HARDI150.bvec"))
   {
     std::cout << "DTI dataset load failed: " << scene.GetLastLoadError() << "\n";
   }
@@ -122,6 +124,9 @@ int main()
     float currentTime = glfwGetTime();
     float deltaTime = currentTime - lastTime;
     lastTime = currentTime;
+
+    // Hot reload: check shader files for changes
+    scene.ReloadShadersIfChanged();
 
     int framebufferWidth = 0;
     int framebufferHeight = 0;

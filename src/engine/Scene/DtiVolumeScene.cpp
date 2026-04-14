@@ -4,6 +4,9 @@
 #include "PointLight.h"
 #include "DirectionalLight.h"
 #include "PerspectiveCamera.h"
+#include "Material.h"
+#include "Mesh.h"
+#include "GameObject.h"
 
 #include <iostream>
 #include <glm/glm.hpp>
@@ -11,23 +14,20 @@
 DtiVolumeScene::DtiVolumeScene()
   : dtiVolume(nullptr)
 {
-  SetupDefaultVisualization();
 }
-
-DtiVolumeScene::~DtiVolumeScene() = default;
 
 /**
  * @brief Load a DTI dataset and initialize the scene for visualization
  * 
- * @param datasetRootPath The root path to the dataset
- * @param subjectId The ID of the subject
- * @param sessionId The ID of the session
+ * @param dwiVolumePath The path to the DWI volume
+ * @param bvalPath The path to the b-values file
+ * @param bvecPath The path to the b-vectors file
  * @return true if the dataset was loaded successfully, false otherwise
  */
 bool DtiVolumeScene::LoadDataset(
-  const std::string& datasetRootPath,
-  const std::string& subjectId,
-  const std::string& sessionId)
+  const std::string& dwiVolumePath,
+  const std::string& bvalPath,
+  const std::string& bvecPath)
 {
   lastLoadError.clear();
 
@@ -35,11 +35,9 @@ bool DtiVolumeScene::LoadDataset(
   {
     // Configure preprocessing request
     MriPreprocessingRequest request;
-    request.datasetRootPath = datasetRootPath;
-    request.preferredSubjectId = subjectId;
-    request.preferredSessionId = sessionId;
-    request.preferAnatomicalVolumes = true;
-    request.generateAllChannels = true;
+    request.dwiVolumePath = dwiVolumePath;
+    request.bvalPath = bvalPath;
+    request.bvecPath = bvecPath;
 
     // Run preprocessing pipeline
     MriPreprocessingResult result = preprocessor.Process(request);
@@ -51,11 +49,12 @@ bool DtiVolumeScene::LoadDataset(
       return false;
     }
 
-    std::cout << "✓ Loaded: " << result.report.sourceVolumePath << std::endl;
-    std::cout << "  Executed stages:\n";
+    // Print preprocessing report
+    std::cout << "Loaded: " << result.report.sourceVolumePath << std::endl;
+    std::cout << "Executed stages:\n";
     for (const auto& stage : result.report.executedStages)
     {
-      std::cout << "    • " << stage << "\n";
+      std::cout << "    - " << stage << "\n";
     }
 
     if (!result.report.warnings.empty())
@@ -63,24 +62,76 @@ bool DtiVolumeScene::LoadDataset(
       std::cout << "  Warnings:\n";
       for (const auto& warning : result.report.warnings)
       {
-        std::cout << "    ⚠ " << warning << "\n";
+        std::cout << "    [!] " << warning << "\n";
       }
     }
 
-    // Create DTI volume from processed channels with volume shader
+    // Create DTI volume from processed channels with tensor-eigenvector shader
     std::shared_ptr<Shader> volumeShader = std::make_shared<Shader>(
         "shaders/volume_vertex.glsl",
-        "shaders/volume_fragment.glsl"
+        "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl"
       );
+    (*volumeShader)["shader.sliceZ"] = 0.5f;
+    volumeShader->SetUniformUiFloatRange("shader.sliceZ", 0.0f, 1.0f, 0.001f);
+    (*volumeShader)["shader.density"] = 1.0f;
+    volumeShader->SetUniformUiFloatRange("shader.density", 0.0f, 1.0f, 0.0001f);
     
     dtiVolume = std::make_shared<DTIVolume>(result.channels, volumeShader);
-    
-    // Set initial rendering parameters
-    dtiVolume->SetActiveMetric(0);  // 0=FA, 1=MD, 2=AD, 3=RD
-    
+    dtiVolume->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
+
     // Add to scene for rendering
-    ClearVolumes();  // Remove any previous volumes
+    ClearVolumes();
     AddVolume(dtiVolume);
+
+    // Register shaders for hot reload tracking
+    dtiVolume->RegisterShadersWithScene(this);
+
+    ClearGameObjects();
+    if (result.surfaceMesh)
+    {
+      std::shared_ptr<Shader> meshShader = std::make_shared<Shader>(
+          "shaders/vertex.glsl",
+          "shaders/fragment.glsl");
+
+      std::shared_ptr<Material> meshMaterial = std::make_shared<Material>(meshShader);
+      meshMaterial->SetAmbientColor(glm::vec3(0.35f, 0.35f, 0.35f));
+      meshMaterial->SetDiffuseColor(glm::vec3(0.62f, 0.62f, 0.62f));
+      meshMaterial->SetSpecularColor(glm::vec3(0.08f, 0.08f, 0.08f));
+      meshMaterial->SetShininess(18.0f);
+
+      result.surfaceMesh->SetMaterial(meshMaterial);
+      std::shared_ptr<GameObject> brainSurfaceObject = std::make_shared<GameObject>();
+      brainSurfaceObject->AddMesh(result.surfaceMesh);
+      brainSurfaceObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
+      AddGameObject(brainSurfaceObject);
+    }
+    else
+    {
+      result.report.warnings.push_back("No brain surface mesh was generated for DTI scene rendering.");
+    }
+
+    if (result.streamlineMesh)
+    {
+      std::shared_ptr<Shader> streamlineShader = std::make_shared<Shader>(
+          "shaders/streamline_vertex.glsl",
+          "shaders/streamline_fragment.glsl");
+
+      std::shared_ptr<Material> streamlineMaterial = std::make_shared<Material>(streamlineShader);
+      streamlineMaterial->SetAmbientColor(glm::vec3(1.0f, 0.58f, 0.16f));
+      streamlineMaterial->SetDiffuseColor(glm::vec3(1.0f, 0.58f, 0.16f));
+      streamlineMaterial->SetSpecularColor(glm::vec3(0.0f, 0.0f, 0.0f));
+      streamlineMaterial->SetShininess(1.0f);
+
+      result.streamlineMesh->SetMaterial(streamlineMaterial);
+      std::shared_ptr<GameObject> streamlineObject = std::make_shared<GameObject>();
+      streamlineObject->AddMesh(result.streamlineMesh);
+      streamlineObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
+      AddGameObject(streamlineObject);
+    }
+    else
+    {
+      result.report.warnings.push_back("No fiber streamlines were generated for DTI scene rendering.");
+    }
 
     return true;
   }
@@ -96,67 +147,4 @@ bool DtiVolumeScene::LoadDataset(
     std::cerr << lastLoadError << std::endl;
     return false;
   }
-}
-
-/**
- * @brief Set the channel to visualize (0=FA, 1=MD, 2=AD, 3=RD)
- * 
- * @param metricIndex 
- */
-void DtiVolumeScene::SetActiveMetric(int metricIndex)
-{
-  if (dtiVolume)
-  {
-    dtiVolume->SetActiveMetric(metricIndex);
-  }
-}
-
-/**
- * @brief Set the threshold for volume rendering. Voxels with metric values below this threshold will be hidden.
- * 
- * @param threshold 
- */
-void DtiVolumeScene::SetThreshold(float threshold)
-{
-  if (dtiVolume)
-  {
-    // Note: threshold is exposed through the UI/inspectable system
-    // To set it programmatically, you would need to add public accessors to DTIVolume
-    // For now, this is a placeholder for future enhancement
-  }
-}
-
-/**
- * @brief Set the opacity for volume rendering. Voxels with metric values below this threshold will be hidden.
- * 
- * @param opacity 
- */
-void DtiVolumeScene::SetOpacity(float opacity)
-{
-  if (dtiVolume)
-  {
-    // Note: opacity is exposed through the UI/inspectable system
-    // To set it programmatically, you would need to add public accessors to DTIVolume
-    // For now, this is a placeholder for future enhancement
-  }
-}
-
-/**
- * @brief Get the DTI volume associated with the scene
- * 
- * @return std::shared_ptr<DTIVolume> 
- */
-std::shared_ptr<DTIVolume> DtiVolumeScene::GetDtiVolume() const
-{
-  return dtiVolume;
-}
-
-/**
- * @brief Set up default visualization parameters for the DTI volume
- */
-void DtiVolumeScene::SetupDefaultVisualization()
-{
-  // Scene constructor already sets up default camera and lighting
-  // This method can be extended for DTI-specific visualization parameters
-  std::cout << "DTI Volume Scene initialized with default visualization settings.\n";
 }

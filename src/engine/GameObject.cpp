@@ -15,6 +15,11 @@ GameObject::~GameObject()
 {
 }
 
+/**
+ * @brief Push back a mesh on the game object.
+ *
+ * @param mesh
+ */
 void GameObject::AddMesh(std::shared_ptr<Mesh> mesh)
 {
   if (!mesh)
@@ -25,11 +30,21 @@ void GameObject::AddMesh(std::shared_ptr<Mesh> mesh)
   meshes.push_back(std::move(mesh));
 }
 
+/**
+ * @brief You know.
+ *
+ * @param deltaTime
+ */
 void GameObject::Update(float deltaTime)
 {
 }
 
-void GameObject::Draw(const UniformProvider& frameUniforms) const
+/**
+ * @brief Render the game object's meshes with the provided uniforms.
+ *
+ * @param frameUniforms
+ */
+void GameObject::Draw(const UniformProvider &frameUniforms) const
 {
   if (meshes.empty() || !visible)
   {
@@ -40,7 +55,7 @@ void GameObject::Draw(const UniformProvider& frameUniforms) const
   compositeProvider.AddProvider(frameUniforms);
   compositeProvider.AddProvider(*this);
 
-  for (const auto& mesh : meshes)
+  for (const auto &mesh : meshes)
   {
     if (mesh)
     {
@@ -49,12 +64,22 @@ void GameObject::Draw(const UniformProvider& frameUniforms) const
   }
 }
 
-void GameObject::Apply(Shader& shader) const
+/**
+ * @brief UniformProvider implementation. Set the gameObject uniforms in the shader.
+ *
+ * @param shader
+ */
+void GameObject::Apply(Shader &shader) const
 {
   const glm::mat4 modelMatrix = BuildModelMatrix();
   shader.SetMat4(ComposeUniformName("gameObject", "modelMatrix"), modelMatrix);
 }
 
+/**
+ * @brief Construct the model matrix from the position, rotation and scale of the gameObject.
+ *
+ * @return glm::mat4
+ */
 glm::mat4 GameObject::BuildModelMatrix() const
 {
   glm::mat4 model = glm::mat4(1.0f);
@@ -66,7 +91,13 @@ glm::mat4 GameObject::BuildModelMatrix() const
   return model;
 }
 
-void GameObject::CollectInspectableFields(std::vector<UiField>& out, const std::string& groupPrefix)
+/**
+ * @brief IInspectable implementation.
+ *
+ * @param out
+ * @param groupPrefix
+ */
+void GameObject::CollectInspectableFields(std::vector<UiField> &out, const std::string &groupPrefix)
 {
   const std::string group = groupPrefix.empty() ? "GameObject" : groupPrefix;
 
@@ -79,7 +110,7 @@ void GameObject::CollectInspectableFields(std::vector<UiField>& out, const std::
   {
     return position;
   };
-  positionField.setter = [this](const UiFieldValue& value)
+  positionField.setter = [this](const UiFieldValue &value)
   {
     if (!std::holds_alternative<glm::vec3>(value))
     {
@@ -99,7 +130,7 @@ void GameObject::CollectInspectableFields(std::vector<UiField>& out, const std::
   {
     return rotation;
   };
-  rotationField.setter = [this](const UiFieldValue& value)
+  rotationField.setter = [this](const UiFieldValue &value)
   {
     if (!std::holds_alternative<glm::vec3>(value))
     {
@@ -119,7 +150,7 @@ void GameObject::CollectInspectableFields(std::vector<UiField>& out, const std::
   {
     return scale;
   };
-  scaleField.setter = [this](const UiFieldValue& value)
+  scaleField.setter = [this](const UiFieldValue &value)
   {
     if (!std::holds_alternative<glm::vec3>(value))
     {
@@ -138,7 +169,7 @@ void GameObject::CollectInspectableFields(std::vector<UiField>& out, const std::
   {
     return visible;
   };
-  visibleField.setter = [this](const UiFieldValue& value)
+  visibleField.setter = [this](const UiFieldValue &value)
   {
     if (!std::holds_alternative<bool>(value))
     {
@@ -148,5 +179,16 @@ void GameObject::CollectInspectableFields(std::vector<UiField>& out, const std::
     visible = std::get<bool>(value);
   };
   out.push_back(std::move(visibleField));
+}
 
+/**
+ * @brief IInspectable implementation. The gameObject has no subNodes to inspect.
+ * 
+ * @param out 
+ * @param nodePrefix 
+ */
+void GameObject::CollectInspectableNodes(std::vector<InspectableNode> &out, const std::string &nodePrefix)
+{
+  //Collect the gameObjects's own fields
+  IInspectable::CollectInspectableNodes(out, nodePrefix);
 }

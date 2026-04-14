@@ -31,3 +31,9 @@ class Color3FieldWidget : public IWidget
 public:
   bool Render(const UiField& field, UiFieldValue& value) const override;
 };
+
+class ComboBoxFieldWidget : public IWidget
+{
+public:
+  bool Render(const UiField& field, UiFieldValue& value) const override;
+};

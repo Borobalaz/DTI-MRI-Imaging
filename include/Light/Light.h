@@ -29,15 +29,8 @@ public:
     // Lights do not have nested nodes in this implementation
   }
 
-  void SetEnabled(bool isEnabled)
-  {
-    enabled = isEnabled;
-  }
-
-  bool GetEnabled() const
-  {
-    return enabled;
-  }
+  void SetEnabled(bool isEnabled) { enabled = isEnabled; }
+  bool GetEnabled() const { return enabled; }
 
   glm::vec3 ambient;
   glm::vec3 diffuse;

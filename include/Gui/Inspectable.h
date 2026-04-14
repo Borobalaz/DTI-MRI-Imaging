@@ -14,7 +14,8 @@ enum class UiFieldKind
   Int,
   Float,
   Vec3,
-  Color3
+  Color3,
+  ComboBox
 };
 
 using UiFieldValue = std::variant<bool, int, float, glm::vec3>;
@@ -24,6 +25,8 @@ struct UiField
   std::string group;
   std::string label;
   UiFieldKind kind = UiFieldKind::Float;
+
+  std::vector<std::string> comboItems;
 
   float minFloat = 0.0f;
   float maxFloat = 1.0f;
