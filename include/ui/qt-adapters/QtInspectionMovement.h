@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <unordered_set>
 
 #include <QPointF>
@@ -63,4 +64,5 @@ private:
   float accumulatedPanDeltaY;
 
   std::unordered_set<int> pressedKeys;
+  mutable std::mutex mutex;
 };

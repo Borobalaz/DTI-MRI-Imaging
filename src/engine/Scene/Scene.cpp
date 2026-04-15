@@ -194,8 +194,14 @@ void Scene::Apply(Shader& shader) const
  */
 void Scene::Render()
 {
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  // Qt Quick can reset GL state between frames, so enforce depth state before drawing.
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glDepthMask(GL_TRUE);
+  glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
 
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
   // Count active lights
   const int enabledCount = static_cast<int>(std::count_if(lights.begin(), lights.end(),
     [](const std::shared_ptr<Light>& light) { return light && light->GetEnabled(); }));

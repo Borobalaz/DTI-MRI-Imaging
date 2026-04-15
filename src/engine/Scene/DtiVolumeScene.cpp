@@ -79,7 +79,7 @@ bool DtiVolumeScene::LoadDataset(
 
     // Add to scene for rendering
     ClearVolumes();
-    AddVolume(dtiVolume);
+    //AddVolume(dtiVolume);
 
     // Register shaders for hot reload tracking
     dtiVolume->RegisterShadersWithScene(this);
@@ -100,8 +100,8 @@ bool DtiVolumeScene::LoadDataset(
       result.surfaceMesh->SetMaterial(meshMaterial);
       std::shared_ptr<GameObject> brainSurfaceObject = std::make_shared<GameObject>();
       brainSurfaceObject->AddMesh(result.surfaceMesh);
-      brainSurfaceObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
-      AddGameObject(brainSurfaceObject);
+      brainSurfaceObject->SetRotation(glm::vec3(90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
+      //AddGameObject(brainSurfaceObject);
     }
     else
     {
@@ -123,7 +123,7 @@ bool DtiVolumeScene::LoadDataset(
       result.streamlineMesh->SetMaterial(streamlineMaterial);
       std::shared_ptr<GameObject> streamlineObject = std::make_shared<GameObject>();
       streamlineObject->AddMesh(result.streamlineMesh);
-      streamlineObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
+      streamlineObject->SetRotation(glm::vec3(90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
       AddGameObject(streamlineObject);
     }
     else

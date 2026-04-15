@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 
 #include <glm/gtc/constants.hpp>
 
@@ -46,6 +47,8 @@ void QtInspectionMovement::Update(float deltaTime,
                                   glm::vec3 &front,
                                   glm::vec3 &up)
 {
+  std::lock_guard<std::mutex> lock(mutex);
+
   if (!initialized)
   {
     InitializeFromPosition(position);
@@ -100,11 +103,11 @@ void QtInspectionMovement::Update(float deltaTime,
   }
   if (pressedKeys.count(Qt::Key_W) > 0)
   {
-    lookAtPoint += cameraUp * keyVelocity;
+    lookAtPoint -= cameraUp * keyVelocity;
   }
   if (pressedKeys.count(Qt::Key_S) > 0)
   {
-    lookAtPoint -= cameraUp * keyVelocity;
+    lookAtPoint += cameraUp * keyVelocity;
   }
 
   if (std::abs(pendingScrollOffset) >= 1e-5f)
@@ -123,16 +126,20 @@ void QtInspectionMovement::Update(float deltaTime,
 
 void QtInspectionMovement::SetInputEnabled(bool enabled)
 {
+  std::lock_guard<std::mutex> lock(mutex);
   inputEnabled = enabled;
 }
 
 void QtInspectionMovement::SetLookAtPoint(const glm::vec3 &point)
 {
+  std::lock_guard<std::mutex> lock(mutex);
   lookAtPoint = point;
 }
 
 void QtInspectionMovement::SetKeyPressed(int key, bool pressed)
 {
+  std::lock_guard<std::mutex> lock(mutex);
+
   if (pressed)
   {
     pressedKeys.insert(key);
@@ -145,6 +152,8 @@ void QtInspectionMovement::SetKeyPressed(int key, bool pressed)
 
 void QtInspectionMovement::SetMouseButtonPressed(Qt::MouseButton button, bool pressed)
 {
+  std::lock_guard<std::mutex> lock(mutex);
+
   if (button == Qt::LeftButton)
   {
     leftMousePressed = pressed;
@@ -174,6 +183,8 @@ void QtInspectionMovement::SetMouseButtonPressed(Qt::MouseButton button, bool pr
 
 void QtInspectionMovement::SetMousePosition(const QPointF &position)
 {
+  std::lock_guard<std::mutex> lock(mutex);
+
   const bool shiftPressed = pressedKeys.count(Qt::Key_Shift) > 0;
   const bool panGestureActive = middleMousePressed || (shiftPressed && rightMousePressed);
   const bool orbitGestureActive = leftMousePressed || rightMousePressed;
@@ -189,7 +200,7 @@ void QtInspectionMovement::SetMousePosition(const QPointF &position)
     {
       const QPointF delta = position - lastMousePosition;
       accumulatedPanDeltaX += static_cast<float>(delta.x());
-      accumulatedPanDeltaY += static_cast<float>(delta.y());
+      accumulatedPanDeltaY -= static_cast<float>(delta.y());
       lastMousePosition = position;
     }
 
@@ -208,7 +219,7 @@ void QtInspectionMovement::SetMousePosition(const QPointF &position)
     {
       const QPointF delta = position - lastMousePosition;
       accumulatedOrbitDeltaX += static_cast<float>(delta.x());
-      accumulatedOrbitDeltaY += static_cast<float>(delta.y());
+      accumulatedOrbitDeltaY -= static_cast<float>(delta.y());
       lastMousePosition = position;
     }
 
@@ -223,6 +234,7 @@ void QtInspectionMovement::SetMousePosition(const QPointF &position)
 
 void QtInspectionMovement::AddScrollDelta(float delta)
 {
+  std::lock_guard<std::mutex> lock(mutex);
   pendingScrollOffset += delta;
 }
 

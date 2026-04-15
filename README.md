@@ -331,7 +331,7 @@ Volume o-- Geometry : volumeGeometry
 The application is now hosted by a barebones Qt OpenGL window (`QOpenGLWindow`) that drives `Scene::Update` and `Scene::Render` directly.
 
 Entry point: `src/app/main.cpp`
-Window/runtime integration: `src/ui/qt-adapters/QtSceneWindow.cpp`
+Window/runtime integration: `src/ui/widgets/DTISceneWidget.cpp`
 
 ### Uniform Provider System
 
@@ -589,7 +589,7 @@ MriPreprocessingRunner ..> MriToDtiPreprocessor : uses in Run
 
 ### Application Frame Loop (Qt)
 
-The render loop is driven by Qt timer updates in `QtSceneWindow` and no longer relies on GLFW/ImGui frame orchestration.
+The render loop is driven by Qt timer updates in `DTISceneWidget` and no longer relies on GLFW/ImGui frame orchestration.
 
 ### Scene Render Sequence
 

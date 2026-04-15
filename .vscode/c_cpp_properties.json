@@ -16,6 +16,11 @@
         "C:/Qt/6.11.0/msvc2022_64/include",
         "C:/Qt/6.11.0/msvc2022_64/include/QtCore",
         "C:/Qt/6.11.0/msvc2022_64/include/QtGui",
+        "C:/Qt/6.11.0/msvc2022_64/include/QtNetwork",
+        "C:/Qt/6.11.0/msvc2022_64/include/QtQml",
+        "C:/Qt/6.11.0/msvc2022_64/include/QtQmlIntegration",
+        "C:/Qt/6.11.0/msvc2022_64/include/QtQmlModels",
+        "C:/Qt/6.11.0/msvc2022_64/include/QtQuick",
         "C:/Qt/6.11.0/msvc2022_64/include/QtWidgets",
         "C:/Qt/6.11.0/msvc2022_64/include/QtOpenGL",
         "C:/Qt/6.11.0/msvc2022_64/include/QtOpenGLWidgets"
@@ -29,7 +34,9 @@
           "${workspaceFolder}/include",
           "${workspaceFolder}/src",
           "C:/vcpkg/installed/x64-windows/include",
-          "C:/Qt/6.11.0/msvc2022_64/include"
+          "C:/Qt/6.11.0/msvc2022_64/include",
+          "C:/Qt/6.11.0/msvc2022_64/include/QtQml",
+          "C:/Qt/6.11.0/msvc2022_64/include/QtQuick"
         ],
         "limitSymbolsToIncludedHeaders": true
       }

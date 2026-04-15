@@ -16,7 +16,7 @@ find_package(OpenGL REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Core Gui OpenGL OpenGLWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui OpenGL Qml Quick)
 find_package(ITK CONFIG QUIET COMPONENTS
     ITKCommon
     ITKIOImageBase
@@ -34,11 +34,17 @@ find_path(STB_INCLUDE_DIR
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 set(QT_MAIN "${CMAKE_CURRENT_SOURCE_DIR}/src/app/main.cpp")
-file(GLOB_RECURSE QT_HOST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/qt-adapters/*.cpp")
+file(GLOB_RECURSE QT_HOST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/widgets/*.cpp")
 list(REMOVE_ITEM SOURCES "${QT_MAIN}" ${QT_HOST_SOURCES})
 list(REMOVE_DUPLICATES SOURCES)
 
-add_executable(app_qt ${SOURCES} ${QT_MAIN} ${QT_HOST_SOURCES})
+add_executable(app_qt
+    ${SOURCES}
+    ${QT_MAIN}
+    ${QT_HOST_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/DTISceneWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/qml/qml.qrc
+)
 
 target_include_directories(app_qt PRIVATE
     include
@@ -57,7 +63,8 @@ target_link_libraries(app_qt PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::OpenGL
-    Qt6::OpenGLWidgets
+    Qt6::Qml
+    Qt6::Quick
 )
 
 if (ITK_FOUND)
