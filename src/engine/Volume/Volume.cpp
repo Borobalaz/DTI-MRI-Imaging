@@ -23,6 +23,9 @@ Volume::Volume(const std::string& id,
     geometry(std::make_shared<VolumeGeometry>()),
     shader(std::move(shader))
 {
+  const glm::vec3 physicalExtents = glm::vec3(dimensions) * spacing;
+  const float maxExtent = std::max({physicalExtents.x, physicalExtents.y, physicalExtents.z, 1e-6f});
+  scale = physicalExtents / maxExtent;
 }
 
 /**

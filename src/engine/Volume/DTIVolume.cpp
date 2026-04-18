@@ -10,6 +10,9 @@
 #include "Texture/Texture3D.h"
 #include "Scene/Scene.h"
 
+#include "ui/mediator/InspectDropdownField.h"
+#include "ui/mediator/InspectSliderField.h"
+
 namespace
 {
   constexpr float kSpacingEpsilon = 1e-4f;
@@ -278,7 +281,7 @@ void DTIVolume::InitializeRenderModes()
       "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl");
   if (channelSliceShader && channelSliceShader->ID != 0)
   {
-    (*channelSliceShader)["shader.sliceZ"] = 0.5f;
+    (*channelSliceShader)["shader.sliceZ"] = sliceZValue;
     renderModes.push_back(RenderMode{"Channel Slice", channelSliceShader});
   }
 
@@ -290,7 +293,7 @@ void DTIVolume::InitializeRenderModes()
 
   if (principalDirectionShader && principalDirectionShader->ID != 0)
   {
-    (*principalDirectionShader)["shader.sliceZ"] = 0.5f;
+    (*principalDirectionShader)["shader.sliceZ"] = sliceZValue;
     (*principalDirectionShader)["shader.density"] = 1.0f;
     renderModes.push_back(RenderMode{"Principal EV RGB", principalDirectionShader});
   }
@@ -417,4 +420,115 @@ void DTIVolume::RegisterShadersWithScene(Scene* scene)
       scene->RegisterShader(shaderId, mode.shader);
     }
   }
+}
+
+std::vector<std::shared_ptr<InspectField>> DTIVolume::GetInspectFields()
+{  
+  std::vector<std::shared_ptr<InspectField>> fields;
+
+  const std::vector<std::shared_ptr<InspectField>> baseFields = Volume::GetInspectFields();
+  fields.insert(fields.end(), baseFields.begin(), baseFields.end());
+
+  QStringList renderModeOptions;
+  for (const auto& mode : renderModes)
+  {
+    renderModeOptions << QString::fromStdString(mode.label);
+  }
+
+  fields.push_back(std::make_shared<InspectDropdownField>(
+      "selectedRenderMode",
+      "Render Mode",
+      "Visualization",
+      renderModeOptions,
+      [this]() -> QString
+      {
+        if (selectedRenderMode < 0 || selectedRenderMode >= static_cast<int>(renderModes.size()))
+        {
+          return QString();
+        }
+
+        return QString::fromStdString(renderModes[static_cast<size_t>(selectedRenderMode)].label);
+      },
+      [this](const QString& newValue)
+      {
+        for (size_t i = 0; i < renderModes.size(); ++i)
+        {
+          if (QString::fromStdString(renderModes[i].label) == newValue)
+          {
+            SetActiveRenderMode(static_cast<int>(i));
+            break;
+          }
+        }
+      }
+      ));
+
+  if (selectedRenderMode == 0) // Channel Slice mode has an additional uniform for selected channel
+  {
+    QStringList channelOptions = {
+        "Dxx", "Dyy", "Dzz", "Dxy", "Dxz", "Dyz",
+        "EVx", "EVy", "EVz",
+        "FA", "MD", "AD", "RD",
+        "L1", "L2", "L3"
+    };
+
+    fields.push_back(std::make_shared<InspectDropdownField>(
+        "selectedChannel",
+        "Selected Channel",
+        "Visualization",
+        channelOptions,
+        [this, channelOptions]() -> QString
+        {
+          if (selectedChannel < 0 || selectedChannel >= static_cast<int>(channelOptions.size()))
+          {
+            return QString();
+          }
+
+          return channelOptions[static_cast<size_t>(selectedChannel)];
+        },
+        [this, channelOptions](const QString& newValue)
+        {
+          for (size_t i = 0; i < channelOptions.size(); ++i)
+          {
+            if (channelOptions[static_cast<size_t>(i)] == newValue)
+            {
+              selectedChannel = static_cast<int>(i);
+              break;
+            }
+          }
+        }
+      ));
+  }
+  if (selectedRenderMode == 1 || selectedRenderMode == 0) // Slice-based render modes
+  {
+    fields.push_back(std::make_shared<InspectSliderField>(
+        "sliceZ",
+        "Slice Z",
+        "Visualization",
+        0.0,
+        1.0,
+        0.1,
+        [this]() -> QVariant
+        {
+          return sliceZValue;
+        },
+        [this](const QVariant& newValue)
+        {
+          sliceZValue = static_cast<float>(newValue.toDouble());
+
+          for (size_t i = 0; i < renderModes.size(); ++i)
+          {
+            if (i == 0 || i == 1)
+            {
+              const RenderMode& mode = renderModes[i];
+              if (mode.shader)
+              {
+                (*mode.shader)["shader.sliceZ"] = sliceZValue;
+              }
+            }
+          }
+        }
+      ));
+  }
+      
+  return fields;
 }

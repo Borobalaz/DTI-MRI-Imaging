@@ -40,11 +40,13 @@ InspectorWidget::InspectorWidget(QWidget *parent)
   inspectorPanelLayout->addWidget(inspectorTitle);
 
   auto *scrollArea = new QScrollArea(this);
+  scrollArea->setObjectName("inspectorScrollArea");
   scrollArea->setWidgetResizable(true);
   scrollArea->setFrameShape(QFrame::NoFrame);
   scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
   inspectorContent = new QWidget(scrollArea);
+  inspectorContent->setObjectName("inspectorContent");
   inspectorLayout = new QVBoxLayout(inspectorContent);
   inspectorLayout->setContentsMargins(0, 0, 0, 0);
   inspectorLayout->setSpacing(10);
@@ -54,6 +56,11 @@ InspectorWidget::InspectorWidget(QWidget *parent)
   inspectorPanelLayout->addWidget(scrollArea, 1);
 }
 
+/**
+ * @brief Add fields to the layout and set up editor bindings for the given field objects.
+ * 
+ * @param fieldObjects 
+ */
 void InspectorWidget::setFields(const QObjectList &fieldObjects)
 {
   editorBindings.clear();
@@ -118,6 +125,13 @@ void InspectorWidget::clearInspector()
   }
 }
 
+/**
+ * @brief Put one field onto the inspector, 
+ *  creating an appropriate editor widget based on the field's editorUrl 
+ *  and setting up the binding to update the field when the editor value changes and vice versa.
+ * 
+ * @param field 
+ */
 void InspectorWidget::addFieldEditor(InspectField *field)
 {
   auto *row = new QWidget(inspectorContent);

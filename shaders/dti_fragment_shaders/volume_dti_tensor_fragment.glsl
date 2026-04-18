@@ -142,5 +142,5 @@ void main()
   vec3 color = vec3(value);
   float alpha = 1.0;
 
-  FragColor = vec4(color, alpha);
+  FragColor = vec4(color, color);
 }

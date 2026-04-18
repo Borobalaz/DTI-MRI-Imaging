@@ -52,6 +52,8 @@ public:
 
   // Register this volume's shaders with a scene for hot reload tracking
   void RegisterShadersWithScene(class Scene* scene);
+
+  std::vector<std::shared_ptr<InspectField>> GetInspectFields() override;
   
 private:
   struct RenderMode
@@ -68,6 +70,7 @@ private:
   DTIVolumeChannels channels;
   int selectedChannel = 0;
   int selectedRenderMode = 0;
+  float sliceZValue = 0.5f;
   std::vector<RenderMode> renderModes;
 
   enum SelectedChannelIndex

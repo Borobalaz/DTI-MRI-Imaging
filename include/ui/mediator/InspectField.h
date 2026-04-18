@@ -10,6 +10,10 @@
 #include <QVariantMap>
 #include <QObject>
 
+/**
+ * @brief A base class for inspectable fields in the inspector widget.
+ * 
+ */
 class InspectField : public QObject
 {
   Q_OBJECT

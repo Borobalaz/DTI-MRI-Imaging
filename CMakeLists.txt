@@ -54,6 +54,7 @@ add_executable(app_qt
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectColorField.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectTextField.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectDropdownField.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectSliderField.h
 )
 
 target_include_directories(app_qt PRIVATE

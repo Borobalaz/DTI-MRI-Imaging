@@ -23,8 +23,8 @@ public:
 private:
   struct EditorBinding
   {
-    QPointer<InspectField> field;
-    std::function<void(const QVariant &)> updateEditor;
+    QPointer<InspectField> field; 
+    std::function<void(const QVariant &)> updateEditor; // Update the editor widget to reflect the given field value
   };
 
   void clearInspector();
