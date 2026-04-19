@@ -7,9 +7,10 @@
 
 #include "Mesh.h"
 #include "IDrawable.h"
+#include "Shader.h"
 #include "Uniform/UniformProvider.h"
-#include "ui/mediator/InspectProvider.h"
-#include "ui/mediator/InspectField.h"
+#include "ui/widgets/inspect_fields/InspectProvider.h"
+#include "ui/widgets/inspect_fields/IInspectWidget.h"
 
 class GameObject : public UniformProvider, public IDrawable, public InspectProvider
 {
@@ -29,15 +30,16 @@ public:
   const glm::vec3& GetPosition() const { return position; }
   const glm::vec3& GetRotation() const { return rotation; }
   const glm::vec3& GetScale() const { return scale; }
+  std::string GetInspectDisplayName() const override;
   const std::string& GetId() const { return id; }
 
-  std::string GetInspectDisplayName() const override;
-  std::vector<std::shared_ptr<InspectField>> GetInspectFields() override;
+  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
 
 private:
   glm::vec3 position;
   glm::vec3 rotation;
   glm::vec3 scale;
+  bool visible = true;
 
   glm::mat4 BuildModelMatrix() const;
 

@@ -1,7 +1,7 @@
 #include "Light/Light.h"
 
-#include "ui/mediator/InspectBoolField.h"
-#include "ui/mediator/InspectColorField.h"
+#include "ui/widgets/inspect_fields/InspectCheckboxFieldWidget.h"
+#include "ui/widgets/inspect_fields/InspectColorFieldWidget.h"
 
 Light::Light(const std::string& id,
              const glm::vec3& ambient,
@@ -20,30 +20,55 @@ std::string Light::GetInspectDisplayName() const
   return id;
 }
 
-std::vector<std::shared_ptr<InspectField>> Light::GetInspectFields()
+std::vector<std::shared_ptr<IInspectWidget>> Light::GetInspectFields()
 {
-  return {
-    std::make_shared<InspectBoolField>("enabled",
-                                       "Enabled",
-                                       "Light",
-                                       [this]() { return enabled; },
-                                       [this](bool value) { enabled = value; }),
-    std::make_shared<InspectColorField>("ambient",
-                                        "Ambient",
-                                        "Color",
-                                        [this]() { return ambient; },
-                                        [this](const glm::vec3& value) { ambient = value; }),
-    std::make_shared<InspectColorField>("diffuse",
-                                        "Diffuse",
-                                        "Color",
-                                        [this]() { return diffuse; },
-                                        [this](const glm::vec3& value) { diffuse = value; }),
-    std::make_shared<InspectColorField>("specular",
-                                        "Specular",
-                                        "Color",
-                                        [this]() { return specular; },
-                                        [this](const glm::vec3& value) { specular = value; })
+  auto enabledField = std::make_shared<InspectCheckboxFieldWidget>("enabled", "Enabled", "Light");
+  enabledField->SetValue(enabled);
+  enabledField->valueChangedCallback = [this](const QVariant &value)
+  {
+    enabled = value.toBool();
   };
+
+  auto ambientField = std::make_shared<InspectColorFieldWidget>("ambient", "Ambient", "Color");
+  ambientField->SetValue(QVariantList{ambient.r, ambient.g, ambient.b});
+  ambientField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QVariantList list = value.toList();
+    if (list.size() >= 3)
+    {
+      ambient = glm::vec3(static_cast<float>(list[0].toDouble()),
+                          static_cast<float>(list[1].toDouble()),
+                          static_cast<float>(list[2].toDouble()));
+    }
+  };
+
+  auto diffuseField = std::make_shared<InspectColorFieldWidget>("diffuse", "Diffuse", "Color");
+  diffuseField->SetValue(QVariantList{diffuse.r, diffuse.g, diffuse.b});
+  diffuseField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QVariantList list = value.toList();
+    if (list.size() >= 3)
+    {
+      diffuse = glm::vec3(static_cast<float>(list[0].toDouble()),
+                          static_cast<float>(list[1].toDouble()),
+                          static_cast<float>(list[2].toDouble()));
+    }
+  };
+
+  auto specularField = std::make_shared<InspectColorFieldWidget>("specular", "Specular", "Color");
+  specularField->SetValue(QVariantList{specular.r, specular.g, specular.b});
+  specularField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QVariantList list = value.toList();
+    if (list.size() >= 3)
+    {
+      specular = glm::vec3(static_cast<float>(list[0].toDouble()),
+                           static_cast<float>(list[1].toDouble()),
+                           static_cast<float>(list[2].toDouble()));
+    }
+  };
+
+  return {enabledField, ambientField, diffuseField, specularField};
 }
 
 void Light::SetUniformIndex(int index)
@@ -61,4 +86,5 @@ void Light::Apply(Shader& shader) const
   // Base Light class doesn't apply any uniforms
   // Derived classes (PointLight, DirectionalLight) override this method
 }
+
 

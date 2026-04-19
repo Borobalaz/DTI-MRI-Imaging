@@ -18,7 +18,8 @@
 #include "Texture/TextureCube.h"
 #include "Uniform/UniformProvider.h"
 #include "Volume/Volume.h"
-#include "ui/mediator/InspectProvider.h"
+#include "Input/InputState.h"
+#include "ui/widgets/inspect_fields/InspectProvider.h"
 #include <memory>
 
 class Shader;
@@ -47,6 +48,10 @@ public:
   // Camera management
   std::shared_ptr<Camera> GetCamera() { return camera; }
   void SetCameraAspect(float aspect);
+
+  // Input state management
+  const InputState& GetInputState() const { return inputState; }
+  void SetInputState(const InputState& inputStateValue) { inputState = inputStateValue; }
 
   // Scene content management
   void AddLight(std::shared_ptr<Light> light) { lights.push_back(light); }
@@ -84,6 +89,8 @@ private:
   std::vector<std::shared_ptr<Volume>> volumes;
   std::vector<std::shared_ptr<GameObject>> gameObjects;
   std::vector<std::shared_ptr<Shader>> shaders;
+  InputState inputState;
 
   std::vector<InspectProvider*> inspectProviders;
 };
+

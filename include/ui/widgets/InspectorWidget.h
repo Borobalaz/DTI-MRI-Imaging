@@ -8,7 +8,7 @@
 
 class QVBoxLayout;
 class QWidget;
-class InspectField;
+class IInspectWidget;
 
 class InspectorWidget : public QFrame
 {
@@ -23,12 +23,12 @@ public:
 private:
   struct EditorBinding
   {
-    QPointer<InspectField> field; 
+    QPointer<QObject> field;
     std::function<void(const QVariant &)> updateEditor; // Update the editor widget to reflect the given field value
   };
 
   void clearInspector();
-  void addFieldEditor(InspectField *field);
+  void addFieldEditor(IInspectWidget *field);
 
   QWidget *inspectorContent = nullptr;
   QVBoxLayout *inspectorLayout = nullptr;

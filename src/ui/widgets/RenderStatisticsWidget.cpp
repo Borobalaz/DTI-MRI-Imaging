@@ -1,11 +1,11 @@
-#include "ui/widgets/RenderStatisctisWidget.h"
+#include "ui/widgets/RenderStatisticsWidget.h"
 
 #include <QFormLayout>
 #include <QLabel>
 
-#include "ui/widgets/RenderStatistics.h"
+#include "ui/state/RenderStatistics.h"
 
-RenderStatisctisWidget::RenderStatisctisWidget(QWidget *parent)
+RenderStatisticsWidget::RenderStatisticsWidget(QWidget *parent)
   : QFrame(parent)
 {
   setObjectName("renderStatsPanel");
@@ -32,7 +32,7 @@ RenderStatisctisWidget::RenderStatisctisWidget(QWidget *parent)
   layout->addRow("Avg Render Time", averageRenderTimeValueLabel);
 }
 
-void RenderStatisctisWidget::setRenderStatistics(RenderStatistics *newStatistics)
+void RenderStatisticsWidget::setRenderStatistics(RenderStatistics *newStatistics)
 {
   if (statistics == newStatistics)
   {
@@ -57,7 +57,7 @@ void RenderStatisctisWidget::setRenderStatistics(RenderStatistics *newStatistics
   refresh();
 }
 
-void RenderStatisctisWidget::refresh()
+void RenderStatisticsWidget::refresh()
 {
   if (!statistics)
   {

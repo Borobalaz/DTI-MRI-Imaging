@@ -132,6 +132,9 @@ void Scene::Update(float deltaTime)
       }
     }
   }
+
+  // Clear per-frame input impulses after the update pass consumed them.
+  inputState.ResetFrameTransientState();
 }
 
 /**

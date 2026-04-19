@@ -53,7 +53,7 @@ public:
   // Register this volume's shaders with a scene for hot reload tracking
   void RegisterShadersWithScene(class Scene* scene);
 
-  std::vector<std::shared_ptr<InspectField>> GetInspectFields() override;
+  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
   
 private:
   struct RenderMode

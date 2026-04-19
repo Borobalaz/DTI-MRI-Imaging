@@ -5,8 +5,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Uniform/CompositeUniformProvider.h"
-#include "ui/mediator/InspectBoolField.h"
-#include "ui/mediator/InspectVec3Field.h"
+#include "ui/widgets/inspect_fields/InspectCheckboxFieldWidget.h"
+#include "ui/widgets/inspect_fields/InspectVec3FieldWidget.h"
 
 GameObject::GameObject(const std::string& id)
   : id(id),
@@ -109,31 +109,57 @@ std::string GameObject::GetInspectDisplayName() const
 /**
  * @brief Get the fields that should be visible in the inspector: position, rotation, scale, and visibility.
  * 
- * @return std::vector<std::shared_ptr<InspectField>> 
+ * @return std::vector<std::shared_ptr<IInspectWidget>> 
  */
-std::vector<std::shared_ptr<InspectField>> GameObject::GetInspectFields()
+std::vector<std::shared_ptr<IInspectWidget>> GameObject::GetInspectFields()
 {
-  return {
-    std::make_shared<InspectVec3Field>("position",
-                                       "Position",
-                                       "Transform",
-                                       [this]() { return position; },
-                                       [this](const glm::vec3& value) { position = value; }),
-    std::make_shared<InspectVec3Field>("rotation",
-                                       "Rotation",
-                                       "Transform",
-                                       [this]() { return rotation; },
-                                       [this](const glm::vec3& value) { rotation = value; }),
-    std::make_shared<InspectVec3Field>("scale",
-                                       "Scale",
-                                       "Transform",
-                                       [this]() { return scale; },
-                                       [this](const glm::vec3& value) { scale = value; }),
-    std::make_shared<InspectBoolField>("isVisible",
-                                       "Visible",
-                                       "Rendering",
-                                       [this]() { return visible; },
-                                       [this](bool value) { visible = value; })
+  auto positionField = std::make_shared<InspectVec3FieldWidget>("position", "Position", "Transform");
+  positionField->SetValue(QVariantList{position.x, position.y, position.z});
+  positionField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QVariantList list = value.toList();
+    if (list.size() >= 3)
+    {
+      position = glm::vec3(static_cast<float>(list[0].toDouble()),
+                           static_cast<float>(list[1].toDouble()),
+                           static_cast<float>(list[2].toDouble()));
+    }
   };
+
+  auto rotationField = std::make_shared<InspectVec3FieldWidget>("rotation", "Rotation", "Transform");
+  rotationField->SetValue(QVariantList{rotation.x, rotation.y, rotation.z});
+  rotationField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QVariantList list = value.toList();
+    if (list.size() >= 3)
+    {
+      rotation = glm::vec3(static_cast<float>(list[0].toDouble()),
+                           static_cast<float>(list[1].toDouble()),
+                           static_cast<float>(list[2].toDouble()));
+    }
+  };
+
+  auto scaleField = std::make_shared<InspectVec3FieldWidget>("scale", "Scale", "Transform");
+  scaleField->SetValue(QVariantList{scale.x, scale.y, scale.z});
+  scaleField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QVariantList list = value.toList();
+    if (list.size() >= 3)
+    {
+      scale = glm::vec3(static_cast<float>(list[0].toDouble()),
+                        static_cast<float>(list[1].toDouble()),
+                        static_cast<float>(list[2].toDouble()));
+    }
+  };
+
+  auto visibleField = std::make_shared<InspectCheckboxFieldWidget>("isVisible", "Visible", "Rendering");
+  visibleField->SetValue(visible);
+  visibleField->valueChangedCallback = [this](const QVariant &value)
+  {
+    visible = value.toBool();
+  };
+
+  return {positionField, rotationField, scaleField, visibleField};
 }
+
 

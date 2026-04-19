@@ -9,10 +9,9 @@
 #include <QTimer>
 #include <QVariant>
 
-#include "ui/mediator/InspectField.h"
+#include "ui/widgets/inspect_fields/IInspectWidget.h"
 
 class InspectProvider;
-class InspectField;
 
 class QTSceneInspector : public QObject
 {
@@ -44,14 +43,15 @@ signals:
 private:
   void RebuildFieldObjects();
   void SyncSnapshots();
-  std::shared_ptr<InspectField> FindField(const QString& fieldId) const;
+  std::shared_ptr<IInspectWidget> FindField(const QString& fieldId) const;
 
   std::vector<InspectProvider*> providers;  // references to the inspectable objects in scene
   QStringList providerNames;
   int selectedIndex = -1;
   int revision = 0;
-  std::vector<std::shared_ptr<InspectField>> currentFields; // fields of the currently selected object
+  std::vector<std::shared_ptr<IInspectWidget>> currentFields; // fields of the currently selected object
   QObjectList fieldObjects;
   QHash<QString, QVariant> fieldSnapshots;
   QTimer syncTimer;
 };
+

@@ -6,8 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "Uniform/UniformProvider.h"
-#include "ui/mediator/InspectProvider.h"
-#include "ui/mediator/InspectField.h"
+#include "ui/widgets/inspect_fields/InspectProvider.h"
 
 class Light : public UniformProvider, public InspectProvider
 {
@@ -29,7 +28,7 @@ public:
   void Apply(Shader& shader) const override;
 
   std::string GetInspectDisplayName() const override;
-  std::vector<std::shared_ptr<InspectField>> GetInspectFields() override;
+  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
 
   void SetEnabled(bool isEnabled) { enabled = isEnabled; }
   bool GetEnabled() const { return enabled; }
@@ -46,3 +45,4 @@ protected:
 private:
   const std::string id;
 };
+

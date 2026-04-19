@@ -8,7 +8,7 @@
 
 class DTIViewportWidget;
 class InspectorWidget;
-class RenderStatisctisWidget;
+class RenderStatisticsWidget;
 class SceneObjectListWidget;
 
 class WidgetsMainWindow : public QMainWindow
@@ -32,7 +32,7 @@ private:
 
   DTIViewportWidget *viewportWidget = nullptr;
   InspectorWidget *inspectorWidget = nullptr;
-  RenderStatisctisWidget *renderStatisticsWidget = nullptr;
+  RenderStatisticsWidget *renderStatisticsWidget = nullptr;
 
   SceneObjectListWidget *sceneObjectListWidget = nullptr;
 };

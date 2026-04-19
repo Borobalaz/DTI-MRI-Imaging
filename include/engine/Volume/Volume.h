@@ -11,7 +11,7 @@
 #include "Volume/VolumeData.h"
 #include "Geometry/VolumeGeometry.h"
 #include "Volume/VolumeTextureSet.h"
-#include "ui/mediator/InspectProvider.h"
+#include "ui/widgets/inspect_fields/InspectProvider.h"
 
 class Volume : public UniformProvider, public IDrawable, public InspectProvider
 {
@@ -22,7 +22,7 @@ public:
   void Draw(const UniformProvider &frameUniforms) const override;
   bool IsValid() const;
   std::string GetInspectDisplayName() const override;
-  std::vector<std::shared_ptr<InspectField>> GetInspectFields() override;
+  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
 
   const std::shared_ptr<Shader> &getShader() const { return shader; }
   const VolumeTextureSet &GetTextureSet() const { return textureSet; }
@@ -68,3 +68,4 @@ protected:
   // The volume data encoded in textures for the shader 
   VolumeTextureSet textureSet;
 };
+

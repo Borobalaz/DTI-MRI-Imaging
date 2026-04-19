@@ -46,21 +46,15 @@ add_executable(app_qt
     ${QT_MAIN}
     ${QT_HOST_SOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/controllers/MainWindowShortcuts.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/OpenGLViewportWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/DTIViewportWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/InspectorWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/RenderStatistics.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/RenderStatisctisWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/state/RenderStatistics.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/RenderStatisticsWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/SceneObjectListWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/inspect_fields/InspectNumberFieldWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/windows/WidgetsMainWindow.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/qt-adapters/QTSceneInspector.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectField.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectBoolField.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectNumericField.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectVec3Field.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectColorField.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectTextField.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectDropdownField.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectSliderField.h
 )
 
 target_include_directories(app_qt PRIVATE
@@ -88,3 +82,4 @@ if (ITK_FOUND)
     target_link_libraries(app_qt PRIVATE ${ITK_LIBRARIES})
     target_compile_definitions(app_qt PRIVATE CONNECTOMICS_ENABLE_ITK_IO=1)
 endif()
+

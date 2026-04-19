@@ -4,7 +4,8 @@
 
 #include <QCoreApplication>
 #include <QHash>
-#include "ui/mediator/InspectProvider.h"
+#include "ui/widgets/inspect_fields/InspectProvider.h"
+#include "ui/widgets/inspect_fields/IInspectWidget.h"
 
 QTSceneInspector::QTSceneInspector(QObject* parent)
   : QObject(parent)
@@ -90,14 +91,14 @@ void QTSceneInspector::Update(const std::vector<InspectProvider*>& newProviders)
     return;
   }
 
-  std::vector<std::shared_ptr<InspectField>> refreshedFields = providers[static_cast<size_t>(selectedIndex)]->GetInspectFields();
+  std::vector<std::shared_ptr<IInspectWidget>> refreshedFields = providers[static_cast<size_t>(selectedIndex)]->GetInspectFields();
   bool changed = refreshedFields.size() != currentFields.size();
   if (!changed)
   {
     for (size_t i = 0; i < refreshedFields.size(); ++i)
     {
-      const std::shared_ptr<InspectField>& refreshed = refreshedFields[i];
-      const std::shared_ptr<InspectField>& existing = currentFields[i];
+      const std::shared_ptr<IInspectWidget>& refreshed = refreshedFields[i];
+      const std::shared_ptr<IInspectWidget>& existing = currentFields[i];
       const QString refreshedId = refreshed ? refreshed->fieldId() : QString();
       const QString existingId = existing ? existing->fieldId() : QString();
       if (refreshedId != existingId)
@@ -183,7 +184,7 @@ QVariantMap QTSceneInspector::fieldMeta(const QString& fieldId) const
 {
   QVariantMap meta;
 
-  const std::shared_ptr<InspectField> field = FindField(fieldId);
+  const std::shared_ptr<IInspectWidget> field = FindField(fieldId);
   if (field)
   {
     meta = field->meta();
@@ -194,25 +195,25 @@ QVariantMap QTSceneInspector::fieldMeta(const QString& fieldId) const
 
 QVariant QTSceneInspector::fieldValue(const QString& fieldId) const
 {
-  const std::shared_ptr<InspectField> field = FindField(fieldId);
+  const std::shared_ptr<IInspectWidget> field = FindField(fieldId);
   if (!field)
   {
     return QVariant();
   }
 
-  return field->value();
+  return field->GetValue();
 }
 
 bool QTSceneInspector::setFieldValue(const QString& fieldId, const QVariant& value)
 {
-  const std::shared_ptr<InspectField> field = FindField(fieldId);
+  const std::shared_ptr<IInspectWidget> field = FindField(fieldId);
   if (!field)
   {
     return false;
   }
 
-  field->setValue(value);
-  fieldSnapshots[field->fieldId()] = field->value();
+  field->SetValue(value);
+  fieldSnapshots[field->fieldId()] = field->GetValue();
   ++revision;
   emit fieldRevisionChanged();
   return true;
@@ -222,38 +223,41 @@ void QTSceneInspector::RebuildFieldObjects()
 {
   fieldObjects.clear();
   fieldSnapshots.clear();
-  for (const std::shared_ptr<InspectField>& field : currentFields)
+  for (const std::shared_ptr<IInspectWidget>& field : currentFields)
   {
     if (!field)
     {
       continue;
     }
 
-    if (QCoreApplication::instance() && field->thread() != QCoreApplication::instance()->thread())
+    auto *obj = dynamic_cast<QObject *>(field.get());
+    if (QCoreApplication::instance() && obj && obj->thread() != QCoreApplication::instance()->thread())
     {
-      field->moveToThread(QCoreApplication::instance()->thread());
+      obj->moveToThread(QCoreApplication::instance()->thread());
     }
 
-    fieldObjects.push_back(field.get());
-    fieldSnapshots.insert(field->fieldId(), field->value());
+    if (obj)
+    {
+      fieldObjects.push_back(obj);
+      fieldSnapshots.insert(field->fieldId(), field->GetValue());
+    }
   }
 }
 
 void QTSceneInspector::SyncSnapshots()
 {
-  for (const std::shared_ptr<InspectField>& field : currentFields)
+  for (const std::shared_ptr<IInspectWidget>& field : currentFields)
   {
     if (!field)
     {
       continue;
     }
 
-    const QVariant currentValue = field->value();
+    const QVariant currentValue = field->GetValue();
     const QVariant previousValue = fieldSnapshots.value(field->fieldId());
     if (currentValue != previousValue)
     {
       fieldSnapshots.insert(field->fieldId(), currentValue);
-      field->notifyValueChanged();
       emit fieldValueChanged(field->fieldId(), currentValue);
       ++revision;
       emit fieldRevisionChanged();
@@ -261,9 +265,9 @@ void QTSceneInspector::SyncSnapshots()
   }
 }
 
-std::shared_ptr<InspectField> QTSceneInspector::FindField(const QString& fieldId) const
+std::shared_ptr<IInspectWidget> QTSceneInspector::FindField(const QString& fieldId) const
 {
-  for (const std::shared_ptr<InspectField>& field : currentFields)
+  for (const std::shared_ptr<IInspectWidget>& field : currentFields)
   {
     if (field && field->fieldId() == fieldId)
     {
@@ -272,3 +276,4 @@ std::shared_ptr<InspectField> QTSceneInspector::FindField(const QString& fieldId
   }
   return nullptr;
 }
+

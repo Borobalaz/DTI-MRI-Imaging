@@ -10,7 +10,7 @@
 #include "ui/styles/LightThemeStyle.h"
 #include "ui/widgets/DTIViewportWidget.h"
 #include "ui/widgets/InspectorWidget.h"
-#include "ui/widgets/RenderStatisctisWidget.h"
+#include "ui/widgets/RenderStatisticsWidget.h"
 #include "ui/widgets/SceneObjectListWidget.h"
 
 /**
@@ -21,27 +21,37 @@
 WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
   : QMainWindow(parent)
 {
+  // Set up keyboard shortcuts
   shortcuts = std::make_unique<MainWindowShortcuts>(this);
   QObject::connect(shortcuts.get(), &MainWindowShortcuts::toggleThemeRequested, this, [this]()
   {
     toggleTheme();
   });
 
+  // Build the main window layout
   setupLayout();
 
   viewportWidget->setDwiPath("assets/volumes/dwi/HARDI150_hdbet_masked4d.nii.gz");
   viewportWidget->setBvalPath("assets/volumes/dwi/HARDI150.bval");
   viewportWidget->setBvecPath("assets/volumes/dwi/HARDI150.bvec");
 
+  // Wire signals between the QTSceneInspector, the scene object list 
+  //  and inspector widgets, to synchronize state between them
   wireAdapterSignals();
+
+  // Apply the initial theme
   applyTheme();
 
+  // Set initial window size and title
   resize(1600, 900);
   setWindowTitle("DTI Visualizer (Widgets)");
 }
 
 /**
- * @brief Build the main window ui layout.
+ * @brief Build the main window ui layout. 
+ *  This is a GridLayout with 3 columns and 2 rows. 
+ *  The left column has the scene object list and render statistics widgets, 
+ *  the middle column has the viewport, and the right column has the inspector.
  * 
  */
 void WidgetsMainWindow::setupLayout()
@@ -56,7 +66,7 @@ void WidgetsMainWindow::setupLayout()
   sceneObjectListWidget = new SceneObjectListWidget(root);
 
   // Left-bottom panel: render statistics
-  renderStatisticsWidget = new RenderStatisctisWidget(root);
+  renderStatisticsWidget = new RenderStatisticsWidget(root);
 
   // Scene viewport
   auto *viewportPanel = new QFrame(root);

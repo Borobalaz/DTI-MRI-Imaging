@@ -5,12 +5,12 @@
 class QLabel;
 class RenderStatistics;
 
-class RenderStatisctisWidget : public QFrame
+class RenderStatisticsWidget : public QFrame
 {
   Q_OBJECT
 
 public:
-  explicit RenderStatisctisWidget(QWidget *parent = nullptr);
+  explicit RenderStatisticsWidget(QWidget *parent = nullptr);
 
   void setRenderStatistics(RenderStatistics *statistics);
 

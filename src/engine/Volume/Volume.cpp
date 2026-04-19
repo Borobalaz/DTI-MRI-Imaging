@@ -5,9 +5,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Volume/VolumeTextureSet.h"
-#include "ui/mediator/InspectBoolField.h"
-#include "ui/mediator/InspectNumericField.h"
-#include "ui/mediator/InspectVec3Field.h"
+#include "ui/widgets/inspect_fields/InspectCheckboxFieldWidget.h"
+#include "ui/widgets/inspect_fields/InspectNumberFieldWidget.h"
+#include "ui/widgets/inspect_fields/InspectVec3FieldWidget.h"
 
 /**
  * @brief Construct a new Volume:: Volume object
@@ -109,20 +109,25 @@ std::string Volume::GetInspectDisplayName() const
   return id.empty() ? std::string("Volume") : id;
 }
 
-std::vector<std::shared_ptr<InspectField>> Volume::GetInspectFields()
+std::vector<std::shared_ptr<IInspectWidget>> Volume::GetInspectFields()
 {
-  std::vector<std::shared_ptr<InspectField>> fields;
-  fields.push_back(std::make_shared<InspectBoolField>("visible",
-                                                      "Visible",
-                                                      "Rendering",
-                                                      [this]() { return visible; },
-                                                      [this](bool value) { visible = value; }));
+  std::vector<std::shared_ptr<IInspectWidget>> fields;
+
+  // Visible checkbox
+  auto visibleField = std::make_shared<InspectCheckboxFieldWidget>("visible", "Visible", "Rendering");
+  visibleField->SetValue(visible);
+  visibleField->valueChangedCallback = [this](const QVariant &value)
+  {
+    visible = value.toBool();
+  };
+  fields.push_back(visibleField);
 
   if (!shader)
   {
     return fields;
   }
 
+  // Add fields for each stored uniform in the shader
   const std::map<std::string, Shader::UniformValue>& uniforms = shader->GetStoredUniforms();
   for (const auto& [uniformName, uniformValue] : uniforms)
   {
@@ -138,28 +143,22 @@ std::vector<std::shared_ptr<InspectField>> Volume::GetInspectFields()
 
     if (std::holds_alternative<bool>(uniformValue))
     {
-      fields.push_back(std::make_shared<InspectBoolField>(
+      auto field = std::make_shared<InspectCheckboxFieldWidget>(
           fieldId,
           fieldDisplayName,
-          "Shader Uniforms",
-          [this, uniformName]()
-          {
-            const auto& values = shader->GetStoredUniforms();
-            const auto it = values.find(uniformName);
-            return it != values.end() && std::holds_alternative<bool>(it->second)
-              ? std::get<bool>(it->second)
-              : false;
-          },
-          [this, uniformName](bool value)
-          {
-            (*shader)[uniformName] = value;
-          }));
+          "Shader Uniforms");
+      field->SetValue(std::holds_alternative<bool>(uniformValue) ? std::get<bool>(uniformValue) : false);
+      field->valueChangedCallback = [this, uniformName](const QVariant &value)
+      {
+        (*shader)[uniformName] = value.toBool();
+      };
+      fields.push_back(field);
       continue;
     }
 
     if (std::holds_alternative<int>(uniformValue))
     {
-      fields.push_back(std::make_shared<InspectNumericField>(
+      fields.push_back(std::make_shared<InspectNumberFieldWidget>(
           fieldId,
           fieldDisplayName,
           "Shader Uniforms",
@@ -182,7 +181,7 @@ std::vector<std::shared_ptr<InspectField>> Volume::GetInspectFields()
 
     if (std::holds_alternative<float>(uniformValue))
     {
-      fields.push_back(std::make_shared<InspectNumericField>(
+      fields.push_back(std::make_shared<InspectNumberFieldWidget>(
           fieldId,
           fieldDisplayName,
           "Shader Uniforms",
@@ -205,22 +204,24 @@ std::vector<std::shared_ptr<InspectField>> Volume::GetInspectFields()
 
     if (std::holds_alternative<glm::vec3>(uniformValue))
     {
-      fields.push_back(std::make_shared<InspectVec3Field>(
+      auto field = std::make_shared<InspectVec3FieldWidget>(
           fieldId,
           fieldDisplayName,
-          "Shader Uniforms",
-          [this, uniformName]()
-          {
-            const auto& values = shader->GetStoredUniforms();
-            const auto it = values.find(uniformName);
-            return it != values.end() && std::holds_alternative<glm::vec3>(it->second)
-              ? std::get<glm::vec3>(it->second)
-              : glm::vec3(0.0f);
-          },
-          [this, uniformName](const glm::vec3& value)
-          {
-            (*shader)[uniformName] = value;
-          }));
+          "Shader Uniforms");
+      field->SetValue(QVariantList{std::get<glm::vec3>(uniformValue).x,
+                                   std::get<glm::vec3>(uniformValue).y,
+                                   std::get<glm::vec3>(uniformValue).z});
+      field->valueChangedCallback = [this, uniformName](const QVariant &value)
+      {
+        const QVariantList list = value.toList();
+        if (list.size() >= 3)
+        {
+          (*shader)[uniformName] = glm::vec3(static_cast<float>(list[0].toDouble()),
+                                            static_cast<float>(list[1].toDouble()),
+                                            static_cast<float>(list[2].toDouble()));
+        }
+      };
+      fields.push_back(field);
     }
   }
 
@@ -242,3 +243,4 @@ glm::mat4 Volume::BuildModelMatrix() const
   model = glm::scale(model, scale);
   return model;
 }
+

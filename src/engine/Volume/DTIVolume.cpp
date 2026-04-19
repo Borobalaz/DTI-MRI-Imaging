@@ -10,7 +10,7 @@
 #include "Texture/Texture3D.h"
 #include "Scene/Scene.h"
 
-#include "ui/mediator/InspectDropdownField.h"
+#include "ui/widgets/inspect_fields/InspectDropdownFieldWidget.h"
 
 namespace
 {
@@ -421,11 +421,11 @@ void DTIVolume::RegisterShadersWithScene(Scene* scene)
   }
 }
 
-std::vector<std::shared_ptr<InspectField>> DTIVolume::GetInspectFields()
+std::vector<std::shared_ptr<IInspectWidget>> DTIVolume::GetInspectFields()
 {  
-  std::vector<std::shared_ptr<InspectField>> fields;
+  std::vector<std::shared_ptr<IInspectWidget>> fields;
 
-  const std::vector<std::shared_ptr<InspectField>> baseFields = Volume::GetInspectFields();
+  const std::vector<std::shared_ptr<IInspectWidget>> baseFields = Volume::GetInspectFields();
   fields.insert(fields.end(), baseFields.begin(), baseFields.end());
 
   QStringList renderModeOptions;
@@ -434,32 +434,28 @@ std::vector<std::shared_ptr<InspectField>> DTIVolume::GetInspectFields()
     renderModeOptions << QString::fromStdString(mode.label);
   }
 
-  fields.push_back(std::make_shared<InspectDropdownField>(
+  auto renderModeField = std::make_shared<InspectDropdownFieldWidget>(
       "selectedRenderMode",
       "Render Mode",
       "Visualization",
-      renderModeOptions,
-      [this]() -> QString
+      renderModeOptions);
+  renderModeField->SetValue(
+      (selectedRenderMode >= 0 && selectedRenderMode < static_cast<int>(renderModes.size()))
+        ? QString::fromStdString(renderModes[static_cast<size_t>(selectedRenderMode)].label)
+        : QString());
+  renderModeField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QString newValue = value.toString();
+    for (size_t i = 0; i < renderModes.size(); ++i)
+    {
+      if (QString::fromStdString(renderModes[i].label) == newValue)
       {
-        if (selectedRenderMode < 0 || selectedRenderMode >= static_cast<int>(renderModes.size()))
-        {
-          return QString();
-        }
-
-        return QString::fromStdString(renderModes[static_cast<size_t>(selectedRenderMode)].label);
-      },
-      [this](const QString& newValue)
-      {
-        for (size_t i = 0; i < renderModes.size(); ++i)
-        {
-          if (QString::fromStdString(renderModes[i].label) == newValue)
-          {
-            SetActiveRenderMode(static_cast<int>(i));
-            break;
-          }
-        }
+        SetActiveRenderMode(static_cast<int>(i));
+        break;
       }
-      ));
+    }
+  };
+  fields.push_back(renderModeField);
 
   if (selectedRenderMode == 0) // Channel Slice mode has an additional uniform for selected channel
   {
@@ -470,33 +466,30 @@ std::vector<std::shared_ptr<InspectField>> DTIVolume::GetInspectFields()
         "L1", "L2", "L3"
     };
 
-    fields.push_back(std::make_shared<InspectDropdownField>(
+    auto channelField = std::make_shared<InspectDropdownFieldWidget>(
         "selectedChannel",
         "Selected Channel",
         "Visualization",
-        channelOptions,
-        [this, channelOptions]() -> QString
+        channelOptions);
+    channelField->SetValue(
+        (selectedChannel >= 0 && selectedChannel < static_cast<int>(channelOptions.size()))
+          ? channelOptions[static_cast<size_t>(selectedChannel)]
+          : QString());
+    channelField->valueChangedCallback = [this, channelOptions](const QVariant &value)
+    {
+      const QString newValue = value.toString();
+      for (size_t i = 0; i < channelOptions.size(); ++i)
+      {
+        if (channelOptions[static_cast<size_t>(i)] == newValue)
         {
-          if (selectedChannel < 0 || selectedChannel >= static_cast<int>(channelOptions.size()))
-          {
-            return QString();
-          }
-
-          return channelOptions[static_cast<size_t>(selectedChannel)];
-        },
-        [this, channelOptions](const QString& newValue)
-        {
-          for (size_t i = 0; i < channelOptions.size(); ++i)
-          {
-            if (channelOptions[static_cast<size_t>(i)] == newValue)
-            {
-              selectedChannel = static_cast<int>(i);
-              break;
-            }
-          }
+          selectedChannel = static_cast<int>(i);
+          break;
         }
-      ));
+      }
+    };
+    fields.push_back(channelField);
   }
 
   return fields;
 }
+
