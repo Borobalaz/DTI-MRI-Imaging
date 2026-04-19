@@ -1,0 +1,34 @@
+#include "ui/styles/LightThemeStyle.h"
+
+QString LightThemeStyle::styleSheet() const
+{
+  return
+    "QMainWindow { background-color: #eef3f8; }"
+    "QFrame#objectsPanel, QFrame#renderStatsPanel, QFrame#inspectorPanel, QFrame#viewportPanel {"
+    "  background-color: #ffffff;"
+    "  border: 1px solid #c5d3e0;"
+    "  border-radius: 12px;"
+    "}"
+    "QLabel#panelTitle { color: #2a3b4f; font-weight: 700; font-size: 18px; }"
+    "QScrollArea#inspectorScrollArea { background-color: #ffffff; border: none; }"
+    "QScrollArea#inspectorScrollArea > QWidget > QWidget { background-color: #ffffff; }"
+    "QWidget#inspectorContent { background-color: #ffffff; }"
+    "QListWidget#objectList { background: transparent; color: #2a3b4f; border: none; }"
+    "QListWidget#objectList::item { padding: 8px; border-radius: 6px; }"
+    "QListWidget#objectList::item:selected { background: #dce8f5; color: #1f2f42; }"
+    "QListWidget#objectList::item:selected:active { background: #cfe0f2; color: #1f2f42; }"
+    "QLabel { color: #2a3b4f; }"
+    "QLineEdit, QDoubleSpinBox, QComboBox {"
+    "  background: #f7f9fc; color: #2a3b4f; border: 1px solid #c5d3e0; border-radius: 6px;"
+    "}"
+    "QLineEdit:focus, QDoubleSpinBox:focus, QComboBox:focus {"
+    "  color: #1f2f42; border: 1px solid #7ea6cf;"
+    "}"
+    "QLineEdit::selection, QAbstractSpinBox::selection {"
+    "  background: #cfe0f2; color: #1f2f42;"
+    "}"
+    "QComboBox QAbstractItemView {"
+    "  background: #ffffff; color: #1f2f42; selection-background-color: #cfe0f2; selection-color: #1f2f42;"
+    "}"
+    "QCheckBox { color: #2a3b4f; }";
+}

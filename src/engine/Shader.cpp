@@ -414,6 +414,11 @@ const std::unordered_map<std::string, UniformInfo>& Shader::GetUniformInfos() co
   return uniformsByName;
 }
 
+const std::map<std::string, Shader::UniformValue>& Shader::GetStoredUniforms() const
+{
+  return storedUniforms;
+}
+
 /**
  * @brief UniformProvider implementation for Shader, 
           applies stored uniform values to the shader when requested

@@ -11,7 +11,6 @@
 #include "Scene/Scene.h"
 
 #include "ui/mediator/InspectDropdownField.h"
-#include "ui/mediator/InspectSliderField.h"
 
 namespace
 {
@@ -498,37 +497,6 @@ std::vector<std::shared_ptr<InspectField>> DTIVolume::GetInspectFields()
         }
       ));
   }
-  if (selectedRenderMode == 1 || selectedRenderMode == 0) // Slice-based render modes
-  {
-    fields.push_back(std::make_shared<InspectSliderField>(
-        "sliceZ",
-        "Slice Z",
-        "Visualization",
-        0.0,
-        1.0,
-        0.1,
-        [this]() -> QVariant
-        {
-          return sliceZValue;
-        },
-        [this](const QVariant& newValue)
-        {
-          sliceZValue = static_cast<float>(newValue.toDouble());
 
-          for (size_t i = 0; i < renderModes.size(); ++i)
-          {
-            if (i == 0 || i == 1)
-            {
-              const RenderMode& mode = renderModes[i];
-              if (mode.shader)
-              {
-                (*mode.shader)["shader.sliceZ"] = sliceZValue;
-              }
-            }
-          }
-        }
-      ));
-  }
-      
   return fields;
 }

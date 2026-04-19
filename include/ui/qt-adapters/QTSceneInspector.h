@@ -14,11 +14,11 @@
 class InspectProvider;
 class InspectField;
 
-class InspectQtAdapter : public QObject
+class QTSceneInspector : public QObject
 {
   Q_OBJECT
 public:
-  explicit InspectQtAdapter(QObject* parent = nullptr);
+  explicit QTSceneInspector(QObject* parent = nullptr);
 
   QStringList objectNames() const;
   int selectedObjectIndex() const;
@@ -27,6 +27,7 @@ public:
   QObjectList fields() const;
   int fieldRevision() const;
 
+  void Update(const std::vector<InspectProvider*>& providers);
   void SetProviders(const std::vector<InspectProvider*>& providers);
 
   QVariantMap fieldMeta(const QString& fieldId) const;
@@ -41,6 +42,7 @@ signals:
   void fieldValueChanged(const QString& fieldId, const QVariant& value);
 
 private:
+  void RebuildFieldObjects();
   void SyncSnapshots();
   std::shared_ptr<InspectField> FindField(const QString& fieldId) const;
 

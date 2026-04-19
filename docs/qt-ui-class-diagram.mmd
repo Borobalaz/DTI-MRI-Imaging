@@ -1,0 +1,124 @@
+classDiagram
+  direction LR
+
+  class WidgetsMainWindow {
+    -DTIViewportWidget* viewportWidget
+    -InspectorWidget* inspectorWidget
+    -SceneObjectListWidget* sceneObjectListWidget
+    -setupLayout() void
+    -wireAdapterSignals() void
+    -refreshObjectList() void
+    -syncObjectSelection() void
+  }
+
+  class DTIViewportWidget {
+    -QString dwiPathValue
+    -QString bvalPathValue
+    -QString bvecPathValue
+    -unique_ptr~DtiVolumeScene~ scene
+    -QtInspectionMovement* movement
+    -QTSceneInspector* inspectAdapterObject
+    -QTimer frameTimer
+    -QElapsedTimer elapsedTimer
+    +inspectAdapter() QTSceneInspector&
+    +setDwiPath(path) void
+    +setBvalPath(path) void
+    +setBvecPath(path) void
+    +initializeGL() void
+    +resizeGL(width, height) void
+    +paintGL() void
+    -initializeScene() void
+    -updateInspectProviders(scene) void
+  }
+
+  class InspectorWidget {
+    -QWidget* inspectorContent
+    -QVBoxLayout* inspectorLayout
+    -QList~EditorBinding~ editorBindings
+    -bool isApplyingEditorState
+    +setFields(fieldObjects: QObjectList) void
+    +refreshBoundEditors() void
+    -clearInspector() void
+    -addFieldEditor(field: InspectField*) void
+  }
+
+  class SceneObjectListWidget {
+    -QListWidget* objectList
+    +setObjectNames(names: QStringList) void
+    +setCurrentIndex(index: int, emitSignal: bool) void
+    +currentRowChanged(row: int)
+  }
+
+  class QTSceneInspector {
+    -vector~InspectProvider*~ providers
+    -QStringList providerNames
+    -int selectedIndex
+    -int revision
+    -vector~shared_ptr~InspectField~~ currentFields
+    -QObjectList fieldObjects
+    -QHash~QString, QVariant~ fieldSnapshots
+    -QTimer syncTimer
+    +SetProviders(providers) void
+    +objectNames() QStringList
+    +fields() QObjectList
+    +setSelectedObjectIndex(index: int) void
+    +fieldMeta(fieldId: QString) QVariantMap
+    +fieldValue(fieldId: QString) QVariant
+    +setFieldValue(fieldId: QString, value: QVariant) bool
+  }
+
+  class InspectField {
+    <<abstract>>
+    +fieldId() QString
+    +displayName() QString
+    +groupName() QString
+    +value() QVariant
+    +setValue(value: QVariant) void
+    +valueChanged()
+  }
+
+  class InspectProvider {
+    <<interface>>
+    +GetInspectDisplayName() string
+    +GetInspectFields() vector~shared_ptr~InspectField~~
+  }
+
+  class QtInspectionMovement
+  class DtiVolumeScene
+  class Scene
+
+  class InspectBoolField
+  class InspectNumericField
+  class InspectSliderField
+  class InspectDropdownField
+  class InspectTextField
+  class InspectVec3Field
+  class InspectColorField
+
+  WidgetsMainWindow *-- DTIViewportWidget : owns
+  WidgetsMainWindow *-- InspectorWidget : owns
+  WidgetsMainWindow *-- SceneObjectListWidget : owns
+
+  DTIViewportWidget *-- QTSceneInspector : owns
+  DTIViewportWidget *-- QtInspectionMovement : owns
+  DTIViewportWidget *-- DtiVolumeScene : owns
+  DTIViewportWidget ..> Scene : updates providers
+
+  InspectorWidget ..> InspectField : renders editors
+  SceneObjectListWidget ..> QTSceneInspector : driven by names/index
+
+  WidgetsMainWindow ..> QTSceneInspector : wires signals
+  WidgetsMainWindow ..> DTIViewportWidget : reads adapter
+  WidgetsMainWindow ..> InspectorWidget : pushes fields
+  WidgetsMainWindow ..> SceneObjectListWidget : syncs selection
+
+  QTSceneInspector o-- InspectProvider : references
+  QTSceneInspector o-- InspectField : tracks selected fields
+
+  InspectField <|-- InspectBoolField
+  InspectField <|-- InspectNumericField
+  InspectField <|-- InspectSliderField
+  InspectField <|-- InspectDropdownField
+  InspectField <|-- InspectTextField
+  InspectField <|-- InspectVec3Field
+  InspectVec3Field <|-- InspectColorField

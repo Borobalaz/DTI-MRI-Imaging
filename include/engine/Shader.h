@@ -25,6 +25,9 @@ struct UniformInfo
 class Shader : public UniformProvider
 {
 public:
+  // Uniform storage
+  using UniformValue = std::variant<bool, int, float, glm::vec3, glm::mat4>;
+
   unsigned int ID;
 
   Shader() = default;
@@ -57,12 +60,9 @@ public:
   std::optional<UniformInfo> GetUniformInfo(const std::string& name) const;
   bool HasUniform(const std::string& name) const;
   const std::unordered_map<std::string, UniformInfo>& GetUniformInfos() const;
+  const std::map<std::string, UniformValue>& GetStoredUniforms() const;
 
   void Apply(Shader& shader) const override;
-
-
-  // Uniform storage
-  using UniformValue = std::variant<bool, int, float, glm::vec3, glm::mat4>;
 
   class UniformSlotProxy
   {
@@ -100,9 +100,8 @@ private:
   bool RebuildProgram(const std::string& vertexCode, const std::string& fragmentCode);
 
   mutable std::unordered_map<std::string, GLint> uniformLocationCache;
-  std::unordered_map<std::string, UniformInfo> uniformsByName;
-
-  std::map<std::string, UniformValue> storedUniforms;
+  std::unordered_map<std::string, UniformInfo> uniformsByName;  // Every uniform reported by OpenGL, indexed by name
+  std::map<std::string, UniformValue> storedUniforms; // Uniforms coming from the shader (shader.unifroms)
 
   // File paths and modification times for hot reload
   std::string vertexPath;

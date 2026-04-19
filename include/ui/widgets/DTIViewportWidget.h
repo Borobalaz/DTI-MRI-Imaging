@@ -8,14 +8,17 @@
 #include <QOpenGLWidget>
 #include <QTimer>
 
+#include "ui/widgets/RenderStatistics.h"
+
 class DtiVolumeScene;
-class InspectQtAdapter;
+class QTSceneInspector;
 class QtInspectionMovement;
 class Scene;
 
 class DTIViewportWidget : public QOpenGLWidget
 {
   Q_OBJECT
+  Q_PROPERTY(RenderStatistics *renderStatistics READ renderStatistics NOTIFY renderStatisticsChanged)
 
 public:
   explicit DTIViewportWidget(QWidget *parent = nullptr);
@@ -24,7 +27,8 @@ public:
   QString dwiPath() const;
   QString bvalPath() const;
   QString bvecPath() const;
-  InspectQtAdapter &inspectAdapter() const;
+  RenderStatistics *renderStatistics() const;
+  QTSceneInspector &inspectAdapter() const;
 
   void setDwiPath(const QString &path);
   void setBvalPath(const QString &path);
@@ -34,6 +38,7 @@ signals:
   void dwiPathChanged();
   void bvalPathChanged();
   void bvecPathChanged();
+  void renderStatisticsChanged();
 
 protected:
   void initializeGL() override;
@@ -49,7 +54,6 @@ protected:
 
 private:
   void initializeScene();
-  void updateInspectProviders(Scene *scene);
 
   QString dwiPathValue;
   QString bvalPathValue;
@@ -57,7 +61,8 @@ private:
 
   std::unique_ptr<DtiVolumeScene> scene;
   QtInspectionMovement *movement = nullptr;
-  InspectQtAdapter *inspectAdapterObject = nullptr;
+  RenderStatistics *renderStatisticsObject = nullptr;
+  QTSceneInspector *inspectAdapterObject = nullptr;
 
   QTimer frameTimer;
   QElapsedTimer elapsedTimer;

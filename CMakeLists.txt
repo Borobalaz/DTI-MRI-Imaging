@@ -34,7 +34,10 @@ find_path(STB_INCLUDE_DIR
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 set(QT_MAIN "${CMAKE_CURRENT_SOURCE_DIR}/src/app/main.cpp")
-file(GLOB_RECURSE QT_HOST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/widgets/*.cpp")
+file(GLOB_RECURSE QT_HOST_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/widgets/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/windows/*.cpp"
+)
 list(REMOVE_ITEM SOURCES "${QT_MAIN}" ${QT_HOST_SOURCES})
 list(REMOVE_DUPLICATES SOURCES)
 
@@ -42,11 +45,14 @@ add_executable(app_qt
     ${SOURCES}
     ${QT_MAIN}
     ${QT_HOST_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/controllers/MainWindowShortcuts.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/DTIViewportWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/InspectorWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/RenderStatistics.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/RenderStatisctisWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/SceneObjectListWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/WidgetsMainWindow.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/qt-adapters/InspectQtAdapter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/windows/WidgetsMainWindow.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/qt-adapters/QTSceneInspector.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectField.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectBoolField.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/mediator/InspectNumericField.h

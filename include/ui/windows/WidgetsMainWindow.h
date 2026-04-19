@@ -1,10 +1,14 @@
 #pragma once
 
+#include <memory>
+
 #include <QMainWindow>
+
+#include "ui/controllers/MainWindowShortcuts.h"
 
 class DTIViewportWidget;
 class InspectorWidget;
-class InspectQtAdapter;
+class RenderStatisctisWidget;
 class SceneObjectListWidget;
 
 class WidgetsMainWindow : public QMainWindow
@@ -17,12 +21,18 @@ public:
 private:
   void setupLayout();
   void wireAdapterSignals();
+  void applyTheme();
+  void toggleTheme();
 
   void refreshObjectList();
   void syncObjectSelection();
 
+  bool useDarkTheme = true;
+  std::unique_ptr<MainWindowShortcuts> shortcuts;
+
   DTIViewportWidget *viewportWidget = nullptr;
   InspectorWidget *inspectorWidget = nullptr;
+  RenderStatisctisWidget *renderStatisticsWidget = nullptr;
 
   SceneObjectListWidget *sceneObjectListWidget = nullptr;
 };

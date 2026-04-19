@@ -6,6 +6,8 @@
 
 #include "Volume/VolumeTextureSet.h"
 #include "ui/mediator/InspectBoolField.h"
+#include "ui/mediator/InspectNumericField.h"
+#include "ui/mediator/InspectVec3Field.h"
 
 /**
  * @brief Construct a new Volume:: Volume object
@@ -109,13 +111,120 @@ std::string Volume::GetInspectDisplayName() const
 
 std::vector<std::shared_ptr<InspectField>> Volume::GetInspectFields()
 {
-  return {
-    std::make_shared<InspectBoolField>("visible",
-                                       "Visible",
-                                       "Rendering",
-                                       [this]() { return visible; },
-                                       [this](bool value) { visible = value; })
-  };
+  std::vector<std::shared_ptr<InspectField>> fields;
+  fields.push_back(std::make_shared<InspectBoolField>("visible",
+                                                      "Visible",
+                                                      "Rendering",
+                                                      [this]() { return visible; },
+                                                      [this](bool value) { visible = value; }));
+
+  if (!shader)
+  {
+    return fields;
+  }
+
+  const std::map<std::string, Shader::UniformValue>& uniforms = shader->GetStoredUniforms();
+  for (const auto& [uniformName, uniformValue] : uniforms)
+  {
+    std::string displayName = uniformName;
+    constexpr const char* shaderPrefix = "shader.";
+    if (displayName.rfind(shaderPrefix, 0) == 0)
+    {
+      displayName = displayName.substr(7);
+    }
+
+    const QString fieldId = QStringLiteral("uniform.") + QString::fromStdString(uniformName);
+    const QString fieldDisplayName = QString::fromStdString(displayName);
+
+    if (std::holds_alternative<bool>(uniformValue))
+    {
+      fields.push_back(std::make_shared<InspectBoolField>(
+          fieldId,
+          fieldDisplayName,
+          "Shader Uniforms",
+          [this, uniformName]()
+          {
+            const auto& values = shader->GetStoredUniforms();
+            const auto it = values.find(uniformName);
+            return it != values.end() && std::holds_alternative<bool>(it->second)
+              ? std::get<bool>(it->second)
+              : false;
+          },
+          [this, uniformName](bool value)
+          {
+            (*shader)[uniformName] = value;
+          }));
+      continue;
+    }
+
+    if (std::holds_alternative<int>(uniformValue))
+    {
+      fields.push_back(std::make_shared<InspectNumericField>(
+          fieldId,
+          fieldDisplayName,
+          "Shader Uniforms",
+          [this, uniformName]()
+          {
+            const auto& values = shader->GetStoredUniforms();
+            const auto it = values.find(uniformName);
+            return it != values.end() && std::holds_alternative<int>(it->second)
+              ? static_cast<double>(std::get<int>(it->second))
+              : 0.0;
+          },
+          [this, uniformName](double value)
+          {
+            (*shader)[uniformName] = static_cast<int>(value);
+          },
+          -1e9,
+          1e9));
+      continue;
+    }
+
+    if (std::holds_alternative<float>(uniformValue))
+    {
+      fields.push_back(std::make_shared<InspectNumericField>(
+          fieldId,
+          fieldDisplayName,
+          "Shader Uniforms",
+          [this, uniformName]()
+          {
+            const auto& values = shader->GetStoredUniforms();
+            const auto it = values.find(uniformName);
+            return it != values.end() && std::holds_alternative<float>(it->second)
+              ? static_cast<double>(std::get<float>(it->second))
+              : 0.0;
+          },
+          [this, uniformName](double value)
+          {
+            (*shader)[uniformName] = static_cast<float>(value);
+          },
+          -1e9,
+          1e9));
+      continue;
+    }
+
+    if (std::holds_alternative<glm::vec3>(uniformValue))
+    {
+      fields.push_back(std::make_shared<InspectVec3Field>(
+          fieldId,
+          fieldDisplayName,
+          "Shader Uniforms",
+          [this, uniformName]()
+          {
+            const auto& values = shader->GetStoredUniforms();
+            const auto it = values.find(uniformName);
+            return it != values.end() && std::holds_alternative<glm::vec3>(it->second)
+              ? std::get<glm::vec3>(it->second)
+              : glm::vec3(0.0f);
+          },
+          [this, uniformName](const glm::vec3& value)
+          {
+            (*shader)[uniformName] = value;
+          }));
+    }
+  }
+
+  return fields;
 }
 
 /**
