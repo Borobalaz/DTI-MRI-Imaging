@@ -1,9 +1,9 @@
-# DTI-MRI-Imaging
+# Connectomics-Imaging
 Author: Boroczky Balazs
 
 ## Developer Environment Setup
 
-This project is a C++17 OpenGL application built with CMake and dependencies managed through vcpkg.
+This project is a C++17 Qt 6 Widgets + OpenGL application built with CMake and dependencies managed through vcpkg.
 
 ### 1. Prerequisites
 
@@ -12,6 +12,7 @@ This project is a C++17 OpenGL application built with CMake and dependencies man
 - CMake: 3.20 or newer
 - Git
 - vcpkg
+- Qt 6 (MSVC 2022 64-bit kit, with Core/Gui/Widgets/OpenGL/OpenGLWidgets)
 
 You can verify tools from a terminal:
 
@@ -53,7 +54,7 @@ $env:QT_ROOT="C:/Qt/6.11.0/msvc2022_64"
 - `glm`
 - `glad`
 - `assimp`
-- `Qt6` (`Core`, `Gui`, `OpenGL`, `OpenGLWidgets`)
+- `Qt6` (`Core`, `Gui`, `Widgets`, `OpenGL`, `OpenGLWidgets`)
 - `stb_image.h` (provided by vcpkg package `stb`)
 - Optional: `ITK` for broad medical volume format support (NIfTI, NRRD, MetaImage, Analyze, DICOM series)
 
@@ -89,12 +90,20 @@ Build and run in one command:
 ./build-and-run.ps1
 ```
 
+Run only (after building):
+
+```powershell
+./debug.ps1 Release
+```
+
+`debug.ps1` also runs `windeployqt` (when found via `QT_ROOT` or known Qt install paths) so the Qt runtime plugins are copied next to `app_qt.exe`.
+
 ## Manual CMake Build (Alternative)
 
 If you prefer plain CMake commands:
 
 ```powershell
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_PREFIX_PATH="$env:QT_ROOT/lib/cmake" -DQt6_DIR="$env:QT_ROOT/lib/cmake/Qt6"
 cmake --build build --config Release
 ```
 
@@ -109,6 +118,13 @@ Expected executable path:
 ```text
 build/Release/app_qt.exe
 ```
+
+## Qt Application Structure
+
+- Entry point: `src/app/main.cpp` creates `QApplication`, configures OpenGL 3.3 core profile, and shows `WidgetsMainWindow`.
+- Host window: `src/ui/windows/WidgetsMainWindow.cpp` owns the Qt widget layout (viewport, object list, inspector, render stats).
+- OpenGL viewport: `src/ui/widgets/OpenGLViewportWidget.cpp` derives from `QOpenGLWidget`, drives repaint via `QTimer`, and runs `Scene::Update` + `Scene::Render` inside `paintGL()`.
+- DTI specialization: `src/ui/widgets/DTIViewportWidget.cpp` builds `DtiVolumeScene` and loads DWI/bval/bvec dataset inputs.
 
 ## Volume File Support
 
@@ -328,10 +344,10 @@ Volume o-- Geometry : volumeGeometry
 
 ### Qt Host
 
-The application is now hosted by a barebones Qt OpenGL window (`QOpenGLWindow`) that drives `Scene::Update` and `Scene::Render` directly.
+The application is hosted by a Qt Widgets main window (`WidgetsMainWindow`) with a `QOpenGLWidget`-based viewport (`OpenGLViewportWidget` / `DTIViewportWidget`) that drives `Scene::Update` and `Scene::Render`.
 
 Entry point: `src/app/main.cpp`
-Window/runtime integration: `src/ui/widgets/DTISceneWidget.cpp`
+Window/runtime integration: `src/ui/windows/WidgetsMainWindow.cpp` and `src/ui/widgets/OpenGLViewportWidget.cpp`
 
 ### Uniform Provider System
 
@@ -589,7 +605,7 @@ MriPreprocessingRunner ..> MriToDtiPreprocessor : uses in Run
 
 ### Application Frame Loop (Qt)
 
-The render loop is driven by Qt timer updates in `DTISceneWidget` and no longer relies on GLFW/ImGui frame orchestration.
+The render loop is driven by Qt timer updates in `OpenGLViewportWidget.
 
 ### Scene Render Sequence
 
