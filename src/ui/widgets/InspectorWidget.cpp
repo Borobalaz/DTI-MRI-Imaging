@@ -55,6 +55,11 @@ void InspectorWidget::setFields(const QObjectList &fieldObjects)
       continue;
     }
 
+    if (field->fieldId() == "visible" || field->fieldId() == "isVisible")
+    {
+      continue;
+    }
+
     if (field->groupName() != currentGroup)
     {
       currentGroup = field->groupName();

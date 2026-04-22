@@ -1,9 +1,11 @@
 #include "ui/widgets/SceneObjectListWidget.h"
 
 #include <QLabel>
-#include <QListWidget>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
+
+#include "ui/widgets/InspectProviderWidget.h"
 
 SceneObjectListWidget::SceneObjectListWidget(QWidget *parent)
   : QFrame(parent)
@@ -20,31 +22,84 @@ SceneObjectListWidget::SceneObjectListWidget(QWidget *parent)
   objectsTitle->setObjectName("panelTitle");
   objectsLayout->addWidget(objectsTitle);
 
-  objectList = new QListWidget(this);
-  objectList->setObjectName("objectList");
-  objectsLayout->addWidget(objectList, 1);
+  scrollArea = new QScrollArea(this);
+  scrollArea->setObjectName("objectsScrollArea");
+  scrollArea->setWidgetResizable(true);
+  scrollArea->setFrameShape(QFrame::NoFrame);
+  scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-  QObject::connect(objectList, &QListWidget::currentRowChanged, this, [this](int row)
-  {
-    emit currentRowChanged(row);
-  });
+  listContainer = new QWidget(scrollArea);
+  listLayout = new QVBoxLayout(listContainer);
+  listLayout->setContentsMargins(0, 0, 0, 0);
+  listLayout->setSpacing(4);
+  listLayout->addStretch(1);
+
+  scrollArea->setWidget(listContainer);
+  objectsLayout->addWidget(scrollArea, 1);
 }
 
-void SceneObjectListWidget::setObjectNames(const QStringList &names)
+/**
+ * @brief Set the list of scene objects to display in the widget, along with their visibility states.
+ * 
+ * @param providers 
+ */
+void SceneObjectListWidget::setObjects(std::vector<InspectProvider*> providers)
 {
-  const QSignalBlocker blocker(objectList);
-  objectList->clear();
-  objectList->addItems(names);
-}
+  const size_t itemCount = static_cast<size_t>(providers.size());
+  clearRows();
 
-void SceneObjectListWidget::setCurrentIndex(int index, bool emitSignal)
-{
-  if (emitSignal)
+  for(auto provider : providers)
   {
-    objectList->setCurrentRow(index);
-    return;
+    auto *itemWidget = new InspectProviderWidget(listContainer);
+    itemWidget->setProvider(std::shared_ptr<InspectProvider>(provider));
+
+    QObject::connect(itemWidget, &InspectProviderWidget::clicked, this, [this](std::string providerName)
+    {
+      currentSelectedProviderName = providerName;
+      emit currentRowChanged(providerName);
+    });
+
+    QObject::connect(itemWidget, &InspectProviderWidget::visibilityClicked, this, [this](std::string providerName)
+    {
+      emit visibilityIconClicked(providerName);
+    });
+
+    rows.push_back(itemWidget);
+    listLayout->insertWidget(listLayout->count() - 1, itemWidget);
   }
+  updateRowSelection();
+}
 
-  const QSignalBlocker blocker(objectList);
-  objectList->setCurrentRow(index);
+/**
+ * @brief Clear the list of InspectProviderWidgets. 
+ * 
+ */
+void SceneObjectListWidget::clearRows()
+{
+  for (InspectProviderWidget *row : rows)
+  {
+    if (row)
+    {
+      row->deleteLater();
+    }
+  }
+  rows.clear();
+}
+
+/**
+ * @brief If a provider is selected, update the corresponding row widget to show the selection state. 
+ *  Otherwise, clear selection from all rows.
+ * 
+ */
+void SceneObjectListWidget::updateRowSelection()
+{
+  for (size_t i = 0; i < rows.size(); ++i)
+  {
+    if (!rows[i])
+    {
+      continue;
+    }
+
+    rows[i]->setSelected(currentSelectedProviderName == rows[i]->getName());
+  }
 }

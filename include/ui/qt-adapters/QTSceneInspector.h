@@ -19,9 +19,8 @@ class QTSceneInspector : public QObject
 public:
   explicit QTSceneInspector(QObject* parent = nullptr);
 
-  QStringList objectNames() const;
-  int selectedObjectIndex() const;
-  void setSelectedObjectIndex(int index);
+  std::string selectedObjectName() const;
+  void setSelectedObjectName(const std::string& name);
 
   QObjectList fields() const;
   int fieldRevision() const;
@@ -32,13 +31,17 @@ public:
   QVariantMap fieldMeta(const QString& fieldId) const;
   QVariant fieldValue(const QString& fieldId) const;
   bool setFieldValue(const QString& fieldId, const QVariant& value);
+  bool hasVisibility(int index) const;
+  bool isVisible(int index) const;
+  bool setVisible(int index, bool visible);
 
 signals:
-  void objectNamesChanged();
-  void selectedObjectIndexChanged();
+  void providersChanged();
+  void selectedProviderIndexChanged();
   void fieldsChanged();
   void fieldRevisionChanged();
   void fieldValueChanged(const QString& fieldId, const QVariant& value);
+  void visibilityStateChanged();
 
 private:
   void RebuildFieldObjects();
@@ -46,8 +49,7 @@ private:
   std::shared_ptr<IInspectWidget> FindField(const QString& fieldId) const;
 
   std::vector<InspectProvider*> providers;  // references to the inspectable objects in scene
-  QStringList providerNames;
-  int selectedIndex = -1;
+  std::string selectedProviderName = "";
   int revision = 0;
   std::vector<std::shared_ptr<IInspectWidget>> currentFields; // fields of the currently selected object
   QObjectList fieldObjects;

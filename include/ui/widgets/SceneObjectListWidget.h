@@ -1,10 +1,16 @@
 #pragma once
 
+#include <vector>
+
 #include <QStringList>
 
 #include <QFrame>
 
-class QListWidget;
+#include "ui/widgets/inspect_fields/InspectProvider.h"
+
+class QScrollArea;
+class QVBoxLayout;
+class InspectProviderWidget;
 
 class SceneObjectListWidget : public QFrame
 {
@@ -13,12 +19,19 @@ class SceneObjectListWidget : public QFrame
 public:
   explicit SceneObjectListWidget(QWidget *parent = nullptr);
 
-  void setObjectNames(const QStringList &names);
-  void setCurrentIndex(int index, bool emitSignal = true);
+  void setObjects(std::vector<InspectProvider*> providers);
 
 signals:
-  void currentRowChanged(int row);
+  void currentRowChanged(std::string providerName);
+  void visibilityIconClicked(std::string providerName);
 
 private:
-  QListWidget *objectList = nullptr;
+  void clearRows();
+  void updateRowSelection();
+
+  QScrollArea *scrollArea = nullptr;
+  QWidget *listContainer = nullptr;
+  QVBoxLayout *listLayout = nullptr;
+  std::vector<InspectProviderWidget *> rows;
+  std::string currentSelectedProviderName;
 };

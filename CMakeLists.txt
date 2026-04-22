@@ -48,6 +48,7 @@ add_executable(app_qt
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/controllers/MainWindowShortcuts.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/OpenGLViewportWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/DTIViewportWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/InspectProviderWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/InspectorWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/state/RenderStatistics.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/RenderStatisticsWidget.h

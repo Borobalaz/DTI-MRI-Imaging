@@ -13,4 +13,6 @@ public:
 
   virtual std::string GetInspectDisplayName() const = 0;
   virtual std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() = 0;
+  bool HasVisibility() const { return false; }
+  bool IsVisible() const { return true; }
 };

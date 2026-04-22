@@ -12,6 +12,7 @@ QString LightThemeStyle::styleSheet() const
     "QLabel#panelTitle { color: #2a3b4f; font-weight: 700; font-size: 18px; }"
     "QScrollArea#inspectorScrollArea { background-color: #ffffff; border: none; }"
     "QScrollArea#inspectorScrollArea > QWidget > QWidget { background-color: #ffffff; }"
+    "QScrollArea#objectsScrollArea { background-color: #ffffff; border: none; }"
     "QWidget#inspectorContent { background-color: #ffffff; }"
     "QListWidget#objectList { background: transparent; color: #2a3b4f; border: none; }"
     "QListWidget#objectList::item { padding: 8px; border-radius: 6px; }"
