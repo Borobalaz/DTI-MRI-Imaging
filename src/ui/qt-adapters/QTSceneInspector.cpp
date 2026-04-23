@@ -107,7 +107,20 @@ void QTSceneInspector::Update(const std::vector<InspectProvider *> &newProviders
     return;
   }
 
-  std::vector<std::shared_ptr<IInspectWidget>> refreshedFields = providers[static_cast<size_t>(selectedIndex)]->GetInspectFields();
+  InspectProvider *selectedProvider = FindProviderByName(selectedProviderName);
+  if (!selectedProvider)
+  {
+    selectedProviderName.clear();
+    currentFields.clear();
+    RebuildFieldObjects();
+    emit selectedProviderIndexChanged();
+    emit fieldsChanged();
+    ++revision;
+    emit fieldRevisionChanged();
+    return;
+  }
+
+  std::vector<std::shared_ptr<IInspectWidget>> refreshedFields = selectedProvider->GetInspectFields();
   bool changed = refreshedFields.size() != currentFields.size();
   if (!changed)
   {
@@ -145,28 +158,36 @@ void QTSceneInspector::Update(const std::vector<InspectProvider *> &newProviders
  */
 void QTSceneInspector::SetProviders(const std::vector<InspectProvider *> &newProviders)
 {
+  const std::string previousSelection = selectedProviderName;
   providers = newProviders;
 
   emit providersChanged();
-  emit visibilityStateChanged();
 
   if (providers.empty())
   {
+    selectedProviderName.clear();
     currentFields.clear();
-  }
-  else if (selectedProviderName.empty())
-  {
-    selectedProviderName = providers.front()->GetInspectDisplayName();
-    currentFields = providers.front()->GetInspectFields();
   }
   else
   {
-    currentFields = providers[static_cast<size_t>(selectedIndex)]->GetInspectFields();
+    InspectProvider *selectedProvider = nullptr;
+    if (!selectedProviderName.empty())
+    {
+      selectedProvider = FindProviderByName(selectedProviderName);
+    }
+
+    if (!selectedProvider)
+    {
+      selectedProvider = providers.front();
+      selectedProviderName = selectedProvider ? selectedProvider->GetInspectDisplayName() : std::string();
+    }
+
+    currentFields = selectedProvider ? selectedProvider->GetInspectFields() : std::vector<std::shared_ptr<IInspectWidget>>{};
   }
 
   RebuildFieldObjects();
 
-  if (previousIndex != selectedIndex)
+  if (previousSelection != selectedProviderName)
   {
     emit selectedProviderIndexChanged();
   }
@@ -174,6 +195,7 @@ void QTSceneInspector::SetProviders(const std::vector<InspectProvider *> &newPro
   emit fieldsChanged();
   ++revision;
   emit fieldRevisionChanged();
+  emit visibilityStateChanged();
 }
 
 QVariantMap QTSceneInspector::fieldMeta(const QString &fieldId) const
@@ -215,58 +237,37 @@ bool QTSceneInspector::setFieldValue(const QString &fieldId, const QVariant &val
   return true;
 }
 
-bool QTSceneInspector::hasVisibility(int index) const
+bool QTSceneInspector::hasVisibility(const std::string &providerName) const
 {
-  if (index < 0 || index >= static_cast<int>(providers.size()))
-  {
-    return false;
-  }
-
-  if (static_cast<size_t>(index) < providerHasVisibility.size())
-  {
-    return providerHasVisibility[static_cast<size_t>(index)];
-  }
-
-  InspectProvider *provider = providers[static_cast<size_t>(index)];
+  InspectProvider *provider = FindProviderByName(providerName);
   if (!provider)
   {
     return false;
   }
 
-  return static_cast<bool>(FindVisibilityField(provider->GetInspectFields()));
+  return provider->HasVisibility();
 }
 
-bool QTSceneInspector::isVisible(int index) const
+bool QTSceneInspector::isVisible(const std::string &providerName) const
 {
-  if (index < 0 || index >= static_cast<int>(providers.size()))
-  {
-    return false;
-  }
-
-  if (static_cast<size_t>(index) < providerVisibility.size())
-  {
-    return providerVisibility[static_cast<size_t>(index)];
-  }
-
-  InspectProvider *provider = providers[static_cast<size_t>(index)];
+  InspectProvider *provider = FindProviderByName(providerName);
   if (!provider)
   {
     return false;
   }
 
-  const std::shared_ptr<IInspectWidget> field = FindVisibilityField(provider->GetInspectFields());
-  return field ? field->GetValue().toBool() : false;
+  return provider->IsVisible();
 }
 
-bool QTSceneInspector::setVisible(int index, bool visible)
+bool QTSceneInspector::setVisible(const std::string &providerName, bool visible)
 {
-  if (index < 0 || index >= static_cast<int>(providers.size()))
+  InspectProvider *provider = FindProviderByName(providerName);
+  if (!provider)
   {
     return false;
   }
 
-  InspectProvider *provider = providers[static_cast<size_t>(index)];
-  if (!provider)
+  if (!provider->HasVisibility())
   {
     return false;
   }
@@ -290,7 +291,7 @@ bool QTSceneInspector::setVisible(int index, bool visible)
 
   visibilityField->SetValue(visible);
 
-  if (selectedIndex == index)
+  if (selectedProviderName == providerName)
   {
     const std::shared_ptr<IInspectWidget> selectedField = FindField(visibilityField->fieldId());
     if (selectedField)
@@ -357,6 +358,36 @@ std::shared_ptr<IInspectWidget> QTSceneInspector::FindField(const QString &field
   for (const std::shared_ptr<IInspectWidget> &field : currentFields)
   {
     if (field && field->fieldId() == fieldId)
+    {
+      return field;
+    }
+  }
+  return nullptr;
+}
+
+InspectProvider *QTSceneInspector::FindProviderByName(const std::string &name) const
+{
+  for (InspectProvider *provider : providers)
+  {
+    if (provider && provider->GetInspectDisplayName() == name)
+    {
+      return provider;
+    }
+  }
+  return nullptr;
+}
+
+std::shared_ptr<IInspectWidget> QTSceneInspector::FindVisibilityField(const std::vector<std::shared_ptr<IInspectWidget>> &fields) const
+{
+  for (const std::shared_ptr<IInspectWidget> &field : fields)
+  {
+    if (!field)
+    {
+      continue;
+    }
+
+    const QString id = field->fieldId();
+    if (id == "visible" || id == "isVisible")
     {
       return field;
     }

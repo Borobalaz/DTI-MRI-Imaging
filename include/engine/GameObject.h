@@ -31,6 +31,8 @@ public:
   const glm::vec3& GetRotation() const { return rotation; }
   const glm::vec3& GetScale() const { return scale; }
   std::string GetInspectDisplayName() const override;
+  bool HasVisibility() const override { return true; }
+  bool IsVisible() const override { return visible; }
   const std::string& GetId() const { return id; }
 
   std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;

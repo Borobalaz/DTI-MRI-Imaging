@@ -45,17 +45,17 @@ SceneObjectListWidget::SceneObjectListWidget(QWidget *parent)
  */
 void SceneObjectListWidget::setObjects(std::vector<InspectProvider*> providers)
 {
-  const size_t itemCount = static_cast<size_t>(providers.size());
   clearRows();
 
   for(auto provider : providers)
   {
     auto *itemWidget = new InspectProviderWidget(listContainer);
-    itemWidget->setProvider(std::shared_ptr<InspectProvider>(provider));
+    itemWidget->setProvider(provider);
 
     QObject::connect(itemWidget, &InspectProviderWidget::clicked, this, [this](std::string providerName)
     {
       currentSelectedProviderName = providerName;
+      updateRowSelection();
       emit currentRowChanged(providerName);
     });
 
@@ -68,6 +68,22 @@ void SceneObjectListWidget::setObjects(std::vector<InspectProvider*> providers)
     listLayout->insertWidget(listLayout->count() - 1, itemWidget);
   }
   updateRowSelection();
+}
+
+void SceneObjectListWidget::setCurrentProviderName(const std::string &providerName, bool emitSignal)
+{
+  if (providerName == currentSelectedProviderName)
+  {
+    return;
+  }
+
+  currentSelectedProviderName = providerName;
+  updateRowSelection();
+
+  if (emitSignal)
+  {
+    emit currentRowChanged(providerName);
+  }
 }
 
 /**

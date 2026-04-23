@@ -125,22 +125,22 @@ void WidgetsMainWindow::wireAdapterSignals()
 {
   QTSceneInspector *const adapter = &viewportWidget->inspectAdapter();
 
-  // When the selected object changes in the scene object list, update the adapter's selected index
-  QObject::connect(sceneObjectListWidget, &SceneObjectListWidget::currentRowChanged, this, [this](int row)
+  // When the selected object changes in the scene object list, update the adapter selection.
+  QObject::connect(sceneObjectListWidget, &SceneObjectListWidget::currentRowChanged, this, [this](const std::string &providerName)
   {
-    viewportWidget->inspectAdapter().setSelectedObjectIndex(row);
+    viewportWidget->inspectAdapter().setSelectedObjectName(providerName);
   });
 
-  QObject::connect(sceneObjectListWidget, &SceneObjectListWidget::visibilityIconClicked, this, [this](int row)
+  QObject::connect(sceneObjectListWidget, &SceneObjectListWidget::visibilityIconClicked, this, [this](const std::string &providerName)
   {
     QTSceneInspector &adapter = viewportWidget->inspectAdapter();
-    if (!adapter.hasVisibility(row))
+    if (!adapter.hasVisibility(providerName))
     {
       return;
     }
 
-    const bool currentVisibility = adapter.isVisible(row);
-    if (adapter.setVisible(row, !currentVisibility))
+    const bool currentVisibility = adapter.isVisible(providerName);
+    if (adapter.setVisible(providerName, !currentVisibility))
     {
       refreshObjectList();
       syncObjectSelection();
@@ -189,19 +189,8 @@ void WidgetsMainWindow::wireAdapterSignals()
 void WidgetsMainWindow::refreshObjectList()
 {
   QTSceneInspector &adapter = viewportWidget->inspectAdapter();
-  const QStringList names = adapter.objectNames();
-
-  std::vector<bool> hasVisibility(static_cast<size_t>(names.size()), false);
-  std::vector<bool> visibility(static_cast<size_t>(names.size()), false);
-  for (int i = 0; i < names.size(); ++i)
-  {
-    const size_t row = static_cast<size_t>(i);
-    hasVisibility[row] = adapter.hasVisibility(i);
-    visibility[row] = adapter.isVisible(i);
-  }
-
-  sceneObjectListWidget->setObjects(names, hasVisibility, visibility);
-  sceneObjectListWidget->setCurrentIndex(adapter.selectedObjectIndex(), false);
+  sceneObjectListWidget->setObjects(adapter.getProviders());
+  sceneObjectListWidget->setCurrentProviderName(adapter.selectedObjectName(), false);
 }
 
 /**
@@ -209,6 +198,5 @@ void WidgetsMainWindow::refreshObjectList()
  */
 void WidgetsMainWindow::syncObjectSelection()
 {
-  const int index = viewportWidget->inspectAdapter().selectedObjectIndex();
-  sceneObjectListWidget->setCurrentIndex(index, false);
+  sceneObjectListWidget->setCurrentProviderName(viewportWidget->inspectAdapter().selectedObjectName(), false);
 }

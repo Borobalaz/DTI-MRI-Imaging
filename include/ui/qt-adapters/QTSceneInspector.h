@@ -27,13 +27,14 @@ public:
 
   void Update(const std::vector<InspectProvider*>& providers);
   void SetProviders(const std::vector<InspectProvider*>& providers);
+  const std::vector<InspectProvider*>& getProviders() const { return providers; }
 
   QVariantMap fieldMeta(const QString& fieldId) const;
   QVariant fieldValue(const QString& fieldId) const;
   bool setFieldValue(const QString& fieldId, const QVariant& value);
-  bool hasVisibility(int index) const;
-  bool isVisible(int index) const;
-  bool setVisible(int index, bool visible);
+  bool hasVisibility(const std::string& providerName) const;
+  bool isVisible(const std::string& providerName) const;
+  bool setVisible(const std::string& providerName, bool visible);
 
 signals:
   void providersChanged();
@@ -47,6 +48,8 @@ private:
   void RebuildFieldObjects();
   void SyncSnapshots();
   std::shared_ptr<IInspectWidget> FindField(const QString& fieldId) const;
+  InspectProvider* FindProviderByName(const std::string& name) const;
+  std::shared_ptr<IInspectWidget> FindVisibilityField(const std::vector<std::shared_ptr<IInspectWidget>>& fields) const;
 
   std::vector<InspectProvider*> providers;  // references to the inspectable objects in scene
   std::string selectedProviderName = "";

@@ -20,6 +20,7 @@ public:
   explicit SceneObjectListWidget(QWidget *parent = nullptr);
 
   void setObjects(std::vector<InspectProvider*> providers);
+  void setCurrentProviderName(const std::string &providerName, bool emitSignal = false);
 
 signals:
   void currentRowChanged(std::string providerName);

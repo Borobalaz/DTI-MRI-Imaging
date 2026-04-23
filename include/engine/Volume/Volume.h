@@ -35,7 +35,8 @@ public:
   void SetPosition(const glm::vec3 &newPosition) { position = newPosition; }
   void SetRotation(const glm::vec3 &newRotation) { rotation = newRotation; }
   void SetScale(const glm::vec3 &newScale) { scale = newScale; }
-  bool IsVisible() const { return visible; }
+  bool HasVisibility() const override { return true; }
+  bool IsVisible() const override { return visible; }
   void SetVisible(bool newVisible) { visible = newVisible; }
   const std::string &GetId() const { return id; }
 

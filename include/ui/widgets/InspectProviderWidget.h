@@ -13,7 +13,8 @@ class InspectProviderWidget : public QFrame
 public:
   explicit InspectProviderWidget(QWidget *parent = nullptr);
 
-  void setProvider(std::shared_ptr<InspectProvider> provider);
+  void setProvider(InspectProvider *provider);
+  void refreshFromProvider();
   void setSelected(bool selected);
   std::string getName() const { return provider ? provider->GetInspectDisplayName() : ""; }
 
@@ -30,7 +31,7 @@ private:
 
   bool selected = false;
 
-  std::shared_ptr<InspectProvider> provider;
+  InspectProvider *provider = nullptr;
   QLabel *nameLabel = nullptr;
   QToolButton *visibilityButton = nullptr;
 };
