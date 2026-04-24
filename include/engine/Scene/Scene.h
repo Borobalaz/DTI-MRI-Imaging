@@ -28,14 +28,14 @@ class Skybox;
 class TextureCube;
 class Volume;
 
-class Scene : public UniformProvider
+class Scene : public UniformProvider, InspectProvider
 {
 public:
   Scene();
   ~Scene();
   
   void Init();
-  void Update(float deltaTime);
+  virtual void Update(float deltaTime);
   void Render();
   void Destroy();
   void Apply(Shader& shader) const override;
@@ -64,6 +64,7 @@ public:
   void ClearVolumes() { volumes.clear(); }
 
   void AddInspectProvider(std::shared_ptr<InspectProvider> provider) { inspectProviders.push_back(provider.get()); }
+  void AddInspectProvider(InspectProvider* provider) { inspectProviders.push_back(provider); }
 
   // Shader management
   void RegisterShader(const std::string& name, std::shared_ptr<Shader> shader);
@@ -74,6 +75,17 @@ public:
   // Inspection provider discovery
   std::vector<InspectProvider*> GetInspectProviders() const { return inspectProviders; }
   std::vector<std::string> GetInspectProviderNames() const;
+
+  // Inspect provider implementation
+  std::string GetInspectDisplayName() const override { return "Scene"; }
+  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
+  bool HasVisibility() const { return false; }
+  bool IsVisible() const { return true; }
+  std::optional<float> CastRay(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const
+  {
+    return std::nullopt; // Scene itself is not selectable by ray
+  }
+
 
 private:
   void RebuildInspectProviders();

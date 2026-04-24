@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <glm/glm.hpp>
@@ -21,8 +22,6 @@ public:
   void Apply(Shader &shader) const override;
   void Draw(const UniformProvider &frameUniforms) const override;
   bool IsValid() const;
-  std::string GetInspectDisplayName() const override;
-  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
 
   const std::shared_ptr<Shader> &getShader() const { return shader; }
   const VolumeTextureSet &GetTextureSet() const { return textureSet; }
@@ -35,10 +34,15 @@ public:
   void SetPosition(const glm::vec3 &newPosition) { position = newPosition; }
   void SetRotation(const glm::vec3 &newRotation) { rotation = newRotation; }
   void SetScale(const glm::vec3 &newScale) { scale = newScale; }
+  const std::string &GetId() const { return id; }
+
+  // InspectProvider implementation
   bool HasVisibility() const override { return true; }
   bool IsVisible() const override { return visible; }
+  std::optional<float> CastRay(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection) const override;
   void SetVisible(bool newVisible) { visible = newVisible; }
-  const std::string &GetId() const { return id; }
+  std::string GetInspectDisplayName() const override;
+  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
 
 private:
   const std::string id;

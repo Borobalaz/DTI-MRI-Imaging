@@ -3,6 +3,8 @@
 #include <memory>
 #include <vector>
 
+#include <glm/glm.hpp>
+
 #include <QObject>
 #include <QHash>
 #include <QStringList>
@@ -21,6 +23,7 @@ public:
 
   std::string selectedObjectName() const;
   void setSelectedObjectName(const std::string& name);
+  bool selectObjectByRay(const glm::vec3& rayOrigin, const glm::vec3& rayDirection);
 
   QObjectList fields() const;
   int fieldRevision() const;

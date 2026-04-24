@@ -1,6 +1,8 @@
 #include "Volume/Volume.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -242,5 +244,72 @@ glm::mat4 Volume::BuildModelMatrix() const
   model = glm::rotate(model, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
   model = glm::scale(model, scale);
   return model;
+}
+
+/**
+ * @brief Cast a ray against the volume and return the distance to the intersection point.
+ *        Use a bounding box for intersection test, with the box defined from (-0.5, -0.5, -0.5) to (0.5, 0.5, 0.5) in local space.
+ * 
+ * @param rayOrigin 
+ * @param rayDirection 
+ * @return std::optional<float> 
+ */
+std::optional<float> Volume::CastRay(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection) const
+{
+  if (!visible)
+  {
+    return std::nullopt;
+  }
+
+  const glm::mat4 inverseModel = glm::inverse(BuildModelMatrix());
+  const glm::vec3 localOrigin = glm::vec3(inverseModel * glm::vec4(rayOrigin, 1.0f));
+  const glm::vec3 localDirection = glm::normalize(glm::vec3(inverseModel * glm::vec4(rayDirection, 0.0f)));
+
+  constexpr glm::vec3 boxMin(-0.5f, -0.5f, -0.5f);
+  constexpr glm::vec3 boxMax(0.5f, 0.5f, 0.5f);
+
+  float tMin = 0.0f;
+  float tMax = std::numeric_limits<float>::max();
+
+  for (int axis = 0; axis < 3; ++axis)
+  {
+    const float originComponent = localOrigin[axis];
+    const float directionComponent = localDirection[axis];
+
+    if (std::abs(directionComponent) < 1e-6f)
+    {
+      if (originComponent < boxMin[axis] || originComponent > boxMax[axis])
+      {
+        return std::nullopt;
+      }
+      continue;
+    }
+
+    const float inverseDirection = 1.0f / directionComponent;
+    float t1 = (boxMin[axis] - originComponent) * inverseDirection;
+    float t2 = (boxMax[axis] - originComponent) * inverseDirection;
+    if (t1 > t2)
+    {
+      std::swap(t1, t2);
+    }
+
+    tMin = std::max(tMin, t1);
+    tMax = std::min(tMax, t2);
+
+    if (tMin > tMax)
+    {
+      return std::nullopt;
+    }
+  }
+
+  if (tMax < 0.0f)
+  {
+    return std::nullopt;
+  }
+
+  const float localHit = tMin >= 0.0f ? tMin : tMax;
+  const glm::vec3 localHitPoint = localOrigin + localDirection * localHit;
+  const glm::vec3 worldHitPoint = glm::vec3(BuildModelMatrix() * glm::vec4(localHitPoint, 1.0f));
+  return glm::length(worldHitPoint - rayOrigin);
 }
 

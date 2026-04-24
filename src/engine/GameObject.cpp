@@ -1,8 +1,11 @@
 #include "GameObject.h"
 
+#include <algorithm>
 #include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
+
+#include <cmath>
 
 #include "Uniform/CompositeUniformProvider.h"
 #include "ui/widgets/inspect_fields/InspectCheckboxFieldWidget.h"
@@ -160,6 +163,51 @@ std::vector<std::shared_ptr<IInspectWidget>> GameObject::GetInspectFields()
   };
 
   return {positionField, rotationField, scaleField, visibleField};
+}
+
+/**
+ * @brief Cast a ray against the gameObject and return the distance to the intersection point.
+ *        Use a bounding sphere for intersection test, with the radius being the maximum scale component.
+ * 
+ * @param rayOrigin 
+ * @param rayDirection 
+ * @return std::optional<float> 
+ */
+std::optional<float> GameObject::CastRay(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection) const
+{
+  if (!visible)
+  {
+    return std::nullopt;
+  }
+
+  const float radius = std::max({std::abs(scale.x), std::abs(scale.y), std::abs(scale.z), 0.1f});
+  const glm::vec3 toCenter = rayOrigin - position;
+
+  const float a = glm::dot(rayDirection, rayDirection);
+  const float b = 2.0f * glm::dot(toCenter, rayDirection);
+  const float c = glm::dot(toCenter, toCenter) - radius * radius;
+  const float discriminant = b * b - 4.0f * a * c;
+
+  if (discriminant < 0.0f)
+  {
+    return std::nullopt;
+  }
+
+  const float sqrtDiscriminant = std::sqrt(discriminant);
+  const float t0 = (-b - sqrtDiscriminant) / (2.0f * a);
+  const float t1 = (-b + sqrtDiscriminant) / (2.0f * a);
+
+  if (t0 >= 0.0f)
+  {
+    return t0;
+  }
+
+  if (t1 >= 0.0f)
+  {
+    return t1;
+  }
+
+  return std::nullopt;
 }
 
 

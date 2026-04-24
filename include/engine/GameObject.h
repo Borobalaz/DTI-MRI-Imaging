@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <glm/glm.hpp>
@@ -30,12 +31,14 @@ public:
   const glm::vec3& GetPosition() const { return position; }
   const glm::vec3& GetRotation() const { return rotation; }
   const glm::vec3& GetScale() const { return scale; }
-  std::string GetInspectDisplayName() const override;
-  bool HasVisibility() const override { return true; }
-  bool IsVisible() const override { return visible; }
   const std::string& GetId() const { return id; }
 
+  // InspectProvider implementation
   std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
+  std::optional<float> CastRay(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const override;
+  bool HasVisibility() const override { return true; }
+  bool IsVisible() const override { return visible; }
+  std::string GetInspectDisplayName() const override;
 
 private:
   glm::vec3 position;

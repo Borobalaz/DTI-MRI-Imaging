@@ -105,15 +105,6 @@ void InspectProviderWidget::updateSelectionStyle()
   style()->unpolish(this);
   style()->polish(this);
   update();
-
-  if (selected)
-  {
-    setStyleSheet("QFrame#inspectProviderItem { background-color: rgba(95, 140, 255, 0.25); border-radius: 4px; }");
-  }
-  else
-  {
-    setStyleSheet("QFrame#inspectProviderItem { background-color: transparent; border-radius: 4px; }");
-  }
 }
 
 void InspectProviderWidget::updateVisibilityIcon()

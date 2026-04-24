@@ -68,8 +68,17 @@ public:
    */
   std::string GetLastLoadError() const { return lastLoadError; }
 
+  void Update(float deltaTime) override;
+
+  std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
+  
 private:
   std::shared_ptr<DTIVolume> dtiVolume;
+  std::shared_ptr<GameObject> brainSurfaceObject;
+  std::shared_ptr<GameObject> streamlineObject;
   MriToDtiPreprocessor preprocessor;
   std::string lastLoadError;
+
+  bool rotationEnabled = true;
+  float rotationSpeed = 0.5f;
 };

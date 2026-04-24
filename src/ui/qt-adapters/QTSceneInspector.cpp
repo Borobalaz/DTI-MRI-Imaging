@@ -1,5 +1,6 @@
 #include "ui/qt-adapters/QTSceneInspector.h"
 
+#include <limits>
 #include <sstream>
 
 #include <QCoreApplication>
@@ -304,6 +305,63 @@ bool QTSceneInspector::setVisible(const std::string &providerName, bool visible)
   ++revision;
   emit fieldRevisionChanged();
   emit visibilityStateChanged();
+  return true;
+}
+
+/**
+ * @brief Select an object in the scene by casting a ray from the given origin in the given direction. 
+ *        The closest intersecting object will be selected. Objects are intersected based on their CastRay implementation, 
+ *          which typically uses bounding volumes for hit testing.
+ * 
+ * @param rayOrigin 
+ * @param rayDirection 
+ * @return true 
+ * @return false 
+ */
+bool QTSceneInspector::selectObjectByRay(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection)
+{
+  const float directionLength = glm::length(rayDirection);
+  if (directionLength <= 1e-6f)
+  {
+    return false;
+  }
+
+  const glm::vec3 normalizedDirection = rayDirection / directionLength;
+  float closestDistance = std::numeric_limits<float>::max();
+  std::string closestProviderName;
+
+  for (InspectProvider *provider : providers)
+  {
+    if (!provider)
+    {
+      continue;
+    }
+
+    const std::optional<float> hitDistance = provider->CastRay(rayOrigin, normalizedDirection);
+    if (!hitDistance.has_value())
+    {
+      continue;
+    }
+
+    const float distance = hitDistance.value();
+    if (distance < 0.0f)
+    {
+      continue;
+    }
+
+    if (distance < closestDistance)
+    {
+      closestDistance = distance;
+      closestProviderName = provider->GetInspectDisplayName();
+    }
+  }
+
+  if (closestProviderName.empty())
+  {
+    return false;
+  }
+
+  setSelectedObjectName(closestProviderName);
   return true;
 }
 

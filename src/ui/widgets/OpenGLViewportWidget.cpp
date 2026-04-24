@@ -3,11 +3,16 @@
 #include <iostream>
 #include <memory>
 
+#include <algorithm>
+#include <cmath>
+
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QOpenGLContext>
 #include <QWheelEvent>
 #include <QtGlobal>
+
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include "engine/Scene/Scene.h"
 #include "Camera/InspectionCameraMovement.h"
@@ -190,9 +195,56 @@ void OpenGLViewportWidget::keyReleaseEvent(QKeyEvent *event)
   event->accept();
 }
 
+/**
+ * @brief Handles mouse press events. 
+ *        On left button press, cast a ray into the scene to select an object under the cursor.
+ *        Also updates the pending input state with the new mouse button state and position. 
+ * 
+ * @param event 
+ */
 void OpenGLViewportWidget::mousePressEvent(QMouseEvent *event)
 {
   setFocus();
+
+  // if Ctrl is pressed
+  if (pendingInputState.IsKeyDown(Qt::Key_Control) && 
+    event && 
+    event->button() == Qt::LeftButton && 
+    scene)
+  {
+    if (std::shared_ptr<Camera> camera = scene->GetCamera())
+    {
+      const float viewportWidth = static_cast<float>(std::max(1, width()));
+      const float viewportHeight = static_cast<float>(std::max(1, height()));
+      const float mouseX = static_cast<float>(event->position().x());
+      const float mouseY = static_cast<float>(event->position().y());
+
+      const float ndcX = (2.0f * mouseX / viewportWidth) - 1.0f;
+      const float ndcY = 1.0f - (2.0f * mouseY / viewportHeight);
+
+      const glm::mat4 viewMatrix = camera->GetViewMatrix();
+      const glm::mat4 projectionMatrix = camera->GetProjectionMatrix();
+      const glm::mat4 inverseViewProjection = glm::inverse(projectionMatrix * viewMatrix);
+
+      const glm::vec4 nearClip(ndcX, ndcY, -1.0f, 1.0f);
+      const glm::vec4 farClip(ndcX, ndcY, 1.0f, 1.0f);
+
+      glm::vec4 nearWorld = inverseViewProjection * nearClip;
+      glm::vec4 farWorld = inverseViewProjection * farClip;
+      if (std::abs(nearWorld.w) > 1e-6f)
+      {
+        nearWorld /= nearWorld.w;
+      }
+      if (std::abs(farWorld.w) > 1e-6f)
+      {
+        farWorld /= farWorld.w;
+      }
+
+      const glm::vec3 rayOrigin = camera->GetPosition();
+      const glm::vec3 rayDirection = glm::normalize(glm::vec3(farWorld - nearWorld));
+      inspectAdapterObject->selectObjectByRay(rayOrigin, rayDirection);
+    }
+  }
 
   pendingInputState.SetMouseButtonDown(static_cast<int>(event->button()), true);
   pendingInputState.SetMousePosition(glm::vec2(static_cast<float>(event->position().x()),

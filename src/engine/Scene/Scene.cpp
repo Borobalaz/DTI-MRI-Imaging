@@ -15,6 +15,8 @@
 
 #include <glm/gtc/constants.hpp>
 
+#include "ui/widgets/inspect_fields/InspectColorFieldWidget.h"
+
 namespace
 {
   constexpr int kMaxLights = 16;
@@ -46,6 +48,7 @@ Scene::Scene()
   : clearColor{1.0f, 1.0f, 1.0f, 1.0f},
     camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.1f, 100.0f))
 {
+  AddInspectProvider(this);
   AddInspectProvider(camera);
 
   // ------------- SHADERS -------------
@@ -343,4 +346,25 @@ void Scene::Destroy()
  */
 Scene::~Scene()
 {
+}
+
+std::vector<std::shared_ptr<IInspectWidget>> Scene::GetInspectFields()
+{
+  std::vector<std::shared_ptr<IInspectWidget>> fields;
+
+  auto clearColorField = std::make_shared<InspectColorFieldWidget>("clearColor", "Clear Color", "Color");
+  clearColorField->SetValue(QVariantList{clearColor[0], clearColor[1], clearColor[2]});
+  clearColorField->valueChangedCallback = [this](const QVariant &value)
+  {
+    const QVariantList list = value.toList();
+    if (list.size() >= 3)
+    {
+      clearColor[0] = static_cast<float>(list[0].toDouble());
+      clearColor[1] = static_cast<float>(list[1].toDouble());
+      clearColor[2] = static_cast<float>(list[2].toDouble());
+    }
+  };
+  fields.push_back(clearColorField);
+
+  return fields;
 }

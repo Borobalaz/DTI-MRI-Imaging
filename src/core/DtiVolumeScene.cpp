@@ -11,23 +11,26 @@
 #include <iostream>
 #include <glm/glm.hpp>
 
+#include "ui/widgets/inspect_fields/InspectNumberFieldWidget.h"
+#include "ui/widgets/inspect_fields/InspectCheckboxFieldWidget.h"
+
 DtiVolumeScene::DtiVolumeScene()
-  : dtiVolume(nullptr)
+    : dtiVolume(nullptr)
 {
 }
 
 /**
  * @brief Load a DTI dataset and initialize the scene for visualization
- * 
+ *
  * @param dwiVolumePath The path to the DWI volume
  * @param bvalPath The path to the b-values file
  * @param bvecPath The path to the b-vectors file
  * @return true if the dataset was loaded successfully, false otherwise
  */
 bool DtiVolumeScene::LoadDataset(
-  const std::string& dwiVolumePath,
-  const std::string& bvalPath,
-  const std::string& bvecPath)
+    const std::string &dwiVolumePath,
+    const std::string &bvalPath,
+    const std::string &bvecPath)
 {
   lastLoadError.clear();
 
@@ -52,7 +55,7 @@ bool DtiVolumeScene::LoadDataset(
     // Print preprocessing report
     std::cout << "Loaded: " << result.report.sourceVolumePath << std::endl;
     std::cout << "Executed stages:\n";
-    for (const auto& stage : result.report.executedStages)
+    for (const auto &stage : result.report.executedStages)
     {
       std::cout << "    - " << stage << "\n";
     }
@@ -60,7 +63,7 @@ bool DtiVolumeScene::LoadDataset(
     if (!result.report.warnings.empty())
     {
       std::cout << "  Warnings:\n";
-      for (const auto& warning : result.report.warnings)
+      for (const auto &warning : result.report.warnings)
       {
         std::cout << "    [!] " << warning << "\n";
       }
@@ -70,11 +73,10 @@ bool DtiVolumeScene::LoadDataset(
     std::shared_ptr<Shader> volumeShader = std::make_shared<Shader>(
         "dti_volume_main_shader",
         "shaders/volume_vertex.glsl",
-        "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl"
-      );
+        "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl");
     (*volumeShader)["shader.sliceZ"] = 0.5f;
     (*volumeShader)["shader.density"] = 1.0f;
-    
+
     dtiVolume = std::make_shared<DTIVolume>("dti_volume_main", result.channels, volumeShader);
     dtiVolume->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
 
@@ -99,7 +101,7 @@ bool DtiVolumeScene::LoadDataset(
       meshMaterial->SetShininess(18.0f);
 
       result.surfaceMesh->SetMaterial(meshMaterial);
-      std::shared_ptr<GameObject> brainSurfaceObject = std::make_shared<GameObject>("dti_brain_surface");
+      brainSurfaceObject = std::make_shared<GameObject>("dti_brain_surface");
       brainSurfaceObject->AddMesh(result.surfaceMesh);
       brainSurfaceObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
       AddGameObject(brainSurfaceObject);
@@ -124,7 +126,7 @@ bool DtiVolumeScene::LoadDataset(
       streamlineMaterial->SetShininess(1.0f);
 
       result.streamlineMesh->SetMaterial(streamlineMaterial);
-      std::shared_ptr<GameObject> streamlineObject = std::make_shared<GameObject>("dti_streamlines");
+      streamlineObject = std::make_shared<GameObject>("dti_streamlines");
       streamlineObject->AddMesh(result.streamlineMesh);
       streamlineObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
       AddGameObject(streamlineObject);
@@ -137,7 +139,7 @@ bool DtiVolumeScene::LoadDataset(
 
     return true;
   }
-  catch (const std::exception& ex)
+  catch (const std::exception &ex)
   {
     lastLoadError = std::string("Exception during preprocessing: ") + ex.what();
     std::cerr << lastLoadError << std::endl;
@@ -149,4 +151,45 @@ bool DtiVolumeScene::LoadDataset(
     std::cerr << lastLoadError << std::endl;
     return false;
   }
+}
+
+void DtiVolumeScene::Update(float deltaTime)
+{
+  Scene::Update(deltaTime);
+
+  if (rotationEnabled)
+  {
+    streamlineObject->SetRotation(streamlineObject->GetRotation() + glm::vec3(0.0f, 0.0f, deltaTime * rotationSpeed));
+    brainSurfaceObject->SetRotation(brainSurfaceObject->GetRotation() + glm::vec3(0.0f, 0.0f, deltaTime * rotationSpeed));
+    dtiVolume->SetRotation(dtiVolume->GetRotation() + glm::vec3(0.0f, 0.0f, deltaTime * rotationSpeed));
+  }
+}
+
+std::vector<std::shared_ptr<IInspectWidget>> DtiVolumeScene::GetInspectFields()
+{
+  std::vector<std::shared_ptr<IInspectWidget>> fields = Scene::GetInspectFields(); // Get base scene fields
+
+  auto rotationEnabledField = std::make_shared<InspectCheckboxFieldWidget>(
+      "rotationEnabled",
+      "Enabled",
+      "Rotation");
+  rotationEnabledField->SetValue(QVariant(rotationEnabled));
+  rotationEnabledField->valueChangedCallback = [this](const QVariant &value)
+  {
+    rotationEnabled = value.toBool();
+  };
+  fields.push_back(rotationEnabledField);
+
+  auto rotationSpeedField = std::make_shared<InspectNumberFieldWidget>(
+      "rotationSpeed",
+      "Speed",
+      "Rotation",
+      [this]()
+      { return (double)rotationSpeed; },
+      [this](double newValue)
+      { rotationSpeed = newValue; },
+      0.0, 5.0);
+  fields.push_back(rotationSpeedField);
+
+  return fields;
 }
