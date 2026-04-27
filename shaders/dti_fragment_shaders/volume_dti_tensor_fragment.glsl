@@ -112,7 +112,6 @@ void main()
   {
     discard;
   }
-  float sliceZ = sin(0.2*shader.time) * 0.5 + 0.5; // Animate sliceZ for demonstration; replace with shader.sliceZ for static control.
 
   vec3 rayOriginObject = vec3(volumeObject.inverseModelMatrix * vec4(camera.viewPosition, 1.0));
   vec3 rayDirectionObject = normalize(fragObjectPosition - rayOriginObject);
@@ -131,7 +130,8 @@ void main()
     discard;
   }
 
-  float sliceObjectZ = clamp(sliceZ, 0.0, 1.0) - 0.5;
+  float sliceObjectZ = sin(0.2*shader.time) * 0.5;
+  //float sliceObjectZ = clamp(shader.sliceZ, 0.0, 1.0) - 0.5;
   if (abs(rayDirectionObject.z) < 1e-7)
   {
     discard;
@@ -157,9 +157,14 @@ void main()
 
   float gain = max(shader.density, 1e-4);
   vec3 color = vec3(value);
-  float alpha = 1.0;
+
+  vec3 ev = texture(volumeTextures[2], textureCoord).rgb;
+  bool asd = abs(ev.r - ev.g) > 5e-5;
+  asd = asd && abs(ev.r - ev.b) > 5e-5;
+  asd = asd && abs(ev.g - ev.b) > 5e-5;
+  float alpha = asd ? 1.0 : 0.0;
 
   gl_FragDepth = ComputeDepth(samplePositionWorld);
 
-  FragColor = vec4(color, color.r+0.5);
+  FragColor = vec4(color, alpha);
 }

@@ -53,6 +53,18 @@ bool IntersectBox(vec3 rayOrigin, vec3 rayDirection, out float tMin, out float t
   return tMax >= max(tMin, 0.0);
 }
 
+float ComputeDepth(vec3 worldPosition)
+{
+  vec4 clipPosition = camera.projectionMatrix * camera.viewMatrix * vec4(worldPosition, 1.0);
+  if (abs(clipPosition.w) < 1e-7)
+  {
+    return 1.0;
+  }
+
+  float ndcDepth = clipPosition.z / clipPosition.w;
+  return clamp(ndcDepth * 0.5 + 0.5, 0.0, 1.0);
+}
+
 void main()
 {
   if (volume.textureCount < 5)
@@ -86,6 +98,7 @@ void main()
 
   vec3 samplePositionObject = rayOriginObject + rayDirectionObject * tSlice;
   vec3 textureCoord = samplePositionObject + vec3(0.5);
+  vec3 samplePositionWorld = vec3(volumeObject.modelMatrix * vec4(samplePositionObject, 1.0));
 
   if (any(lessThan(textureCoord, vec3(0.0))) || any(greaterThan(textureCoord, vec3(1.0))))
   {
@@ -101,6 +114,8 @@ void main()
   {
     discard;
   }
+
+  gl_FragDepth = ComputeDepth(samplePositionWorld);
 
   FragColor = vec4(clamp(color, 0.0, 1.0), alpha);
 }
