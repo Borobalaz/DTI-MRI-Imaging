@@ -10,21 +10,25 @@
 
 #include "Mesh.h"
 #include "Preprocessing/MriPreprocessingStages.h"
-#include "Geometry/StreamlineGeometry.h"
+#include "Geometry/TubeGeometry.h"
 #include "Volume/VolumeData.h"
 
 namespace
 {
   struct TractographySettings
   {
-    float faSeedThreshold = 0.35f;
-    float faStopThreshold = 0.2f;
+    float faSeedThreshold = 0.4f;
+    float faStopThreshold = 0.3f;
     float l1StopThreshold = 1e-6f;
-    float stepSizeVoxels = 0.75f;
-    int maxStepsPerStreamline = 192;
-    int seedStride = 2;
-    size_t maxSeeds = 2500;
-    size_t minPointsPerStreamline = 6;
+    float stepSizeVoxels = 0.3f;
+    int maxStepsPerStreamline = 250;
+    int seedStride = 1;
+    size_t maxSeeds = 3000;
+    size_t minPointsPerStreamline = 15;
+
+    // Geometry settings
+    float tubeRadius = 0.001f;
+    unsigned int tubeRadialSegments = 3;
   };
 
   /**
@@ -376,7 +380,7 @@ namespace
         indices.push_back(startIndex + static_cast<unsigned int>(i));
       }
 
-      indices.push_back(StreamlineGeometry::kRestartIndex);
+      indices.push_back(std::numeric_limits<unsigned int>::max());
     }
 
     // Validation
@@ -385,15 +389,18 @@ namespace
       return nullptr;
     }
 
-    if (indices.back() == StreamlineGeometry::kRestartIndex)
+    if (indices.back() == std::numeric_limits<unsigned int>::max())
     {
       indices.pop_back();
     }
 
     // Construct mesh
-    std::shared_ptr<Geometry> geometry = std::make_shared<StreamlineGeometry>(
+    std::shared_ptr<Geometry> geometry = std::make_shared<TubeGeometry>(
         std::move(vertices),
-        std::move(indices));
+        std::move(indices),
+        settings.tubeRadius,
+        settings.tubeRadialSegments
+        );
 
     // Material is assigned by the scene to keep preprocessing render-policy agnostic.
     return std::make_shared<Mesh>(geometry, nullptr);

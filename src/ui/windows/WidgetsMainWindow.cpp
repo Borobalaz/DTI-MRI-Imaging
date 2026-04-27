@@ -31,9 +31,14 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
   // Build the main window layout
   setupLayout();
 
-  viewportWidget->setDwiPath("assets/volumes/dwi/HARDI150_hdbet_masked4d.nii.gz");
-  viewportWidget->setBvalPath("assets/volumes/dwi/HARDI150.bval");
-  viewportWidget->setBvecPath("assets/volumes/dwi/HARDI150.bvec");
+  //viewportWidget->setDwiPath("assets/volumes/dwi/HARDI150_hdbet_masked4d.nii.gz");
+  //viewportWidget->setBvalPath("assets/volumes/dwi/HARDI150.bval");
+  //viewportWidget->setBvecPath("assets/volumes/dwi/HARDI150.bvec");
+
+  viewportWidget->setDwiPath("assets/volumes/dwi/macaque/sub-01_run-01_dwi_hdbet_masked4d.nii.gz");
+  viewportWidget->setBvalPath("assets/volumes/dwi/macaque/sub-01_run-01_dwi.bval");
+  viewportWidget->setBvecPath("assets/volumes/dwi/macaque/sub-01_run-01_dwi.bvec");
+
 
   // Wire signals between the QTSceneInspector, the scene object list 
   //  and inspector widgets, to synchronize state between them

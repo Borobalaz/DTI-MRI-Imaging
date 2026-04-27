@@ -2,16 +2,11 @@
 
 in vec3 fragWorldPosition;
 in vec3 fragWorldDirection;
+in vec3 fragColor;
 
 struct MaterialUniforms {
-  sampler2D diffuseTexture;
-  sampler2D specularTexture;
-  vec3 ambientColor;
-  vec3 diffuseColor;
   vec3 specularColor;
   float shininess;
-  bool hasDiffuseTexture;
-  bool hasSpecularTexture;
 };
 
 struct CameraUniforms {
@@ -29,15 +24,23 @@ out vec4 FragColor;
 
 void main()
 {
-  vec3 axisColor = abs(normalize(fragWorldDirection));
-  vec3 orientedColor = axisColor * material.diffuseColor;
+    vec3 N = normalize(fragWorldDirection);
+    vec3 V = normalize(camera.viewPosition - fragWorldPosition);
 
-  float cameraDistance = length(camera.viewPosition - fragWorldPosition);
-  float distanceDarkening = clamp(1.0 - 0.18 * cameraDistance, 0.35, 1.0);
+    // simple lighting
+    vec3 lightDir = normalize(vec3(0.3, 0.8, 0.5));
 
-  float focalDistance = length(camera.focalPoint - fragWorldPosition);
-  float focalRange = max(camera.focalSize, 0.01);
-  float focalAlphaWeight = clamp(1.0 / (1.0 + (focalDistance / focalRange)), 0.12, 1.0);
+    float diff = max(dot(N, lightDir), 0.0);
 
-  FragColor = vec4(orientedColor * distanceDarkening, focalAlphaWeight);
+    vec3 baseColor = fragColor; // 👈 orientation-based color
+
+    // specular highlight (tube feel)
+    vec3 R = reflect(-lightDir, N);
+    float spec = pow(max(dot(V, R), 0.0), material.shininess);
+
+    vec3 color =
+        baseColor * (0.3 + 0.7 * diff) +
+        material.specularColor * spec * 0.5;
+
+    FragColor = vec4(color, 1.0);
 }

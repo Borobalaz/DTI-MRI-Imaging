@@ -20,12 +20,23 @@ uniform GameObjectUniforms gameObject;
 
 out vec3 fragWorldPosition;
 out vec3 fragWorldDirection;
+out vec3 fragColor;
 
 void main()
 {
-  vec4 worldPosition = gameObject.modelMatrix * vec4(aPos, 1.0);
-  mat3 directionMatrix = mat3(gameObject.modelMatrix);
-  fragWorldPosition = vec3(worldPosition);
-  fragWorldDirection = normalize(directionMatrix * aDirection);
-  gl_Position = camera.projectionMatrix * camera.viewMatrix * worldPosition;
+    vec4 worldPos = gameObject.modelMatrix * vec4(aPos, 1.0);
+    fragWorldPosition = worldPos.xyz;
+
+    mat3 normalMatrix = mat3(gameObject.modelMatrix);
+    vec3 tangent = normalize(normalMatrix * aDirection);
+
+    fragWorldDirection = tangent;
+
+    // Convert direction -> color (abs removes sign ambiguity)
+    fragColor = abs(tangent);
+
+    gl_Position =
+        camera.projectionMatrix *
+        camera.viewMatrix *
+        worldPos;
 }
