@@ -22,50 +22,11 @@ class DtiVolumeScene : public Scene
 {
 public:
   DtiVolumeScene();
-
-  /**
-   * @brief Load and process DTI inputs into tensor channels for rendering.
-   */
+  
   bool LoadDataset(
     const std::string& dwiVolumePathOverride,
     const std::string& bvalPathOverride,
     const std::string& bvecPathOverride);
-
-  /**
-   * @brief Set the active DTI metric to display.
-   * 
-   * @param metric The metric to display (0=FA, 1=MD, 2=AD, 3=RD)
-   */
-  void SetActiveMetric(int metricIndex);
-
-  /**
-   * @brief Set the threshold for volume rendering.
-   * 
-   * Voxels with metric values below this threshold are hidden.
-   * 
-   * @param threshold Threshold value (0.0 to 1.0)
-   */
-  void SetThreshold(float threshold);
-
-  /**
-   * @brief Set the opacity of the volume.
-   * 
-   * @param opacity Opacity value (0.0 = transparent, 1.0 = opaque)
-   */
-  void SetOpacity(float opacity);
-
-  /**
-   * @brief Get the currently loaded DTI volume.
-   * 
-   * @return Shared pointer to the DTI volume, or nullptr if not loaded
-   */
-  std::shared_ptr<DTIVolume> GetDtiVolume() const;
-
-  /**
-   * @brief Get the last error message from preprocessing.
-   * 
-   * @return Error message, or empty string if no error
-   */
   std::string GetLastLoadError() const { return lastLoadError; }
 
   void Update(float deltaTime) override;
@@ -80,5 +41,5 @@ private:
   std::string lastLoadError;
 
   bool rotationEnabled = true;
-  float rotationSpeed = 0.5f;
+  float rotationSpeed = 0.2f;
 };

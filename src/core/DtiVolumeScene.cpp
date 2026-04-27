@@ -14,6 +14,10 @@
 #include "ui/widgets/inspect_fields/InspectNumberFieldWidget.h"
 #include "ui/widgets/inspect_fields/InspectCheckboxFieldWidget.h"
 
+/**
+ * @brief Construct a new Dti Volume Scene:: Dti Volume Scene object
+ * 
+ */
 DtiVolumeScene::DtiVolumeScene()
     : dtiVolume(nullptr)
 {
@@ -153,6 +157,12 @@ bool DtiVolumeScene::LoadDataset(
   }
 }
 
+/**
+ * @brief Update the scene, 
+ *  applying a slow rotation to the brain surface and streamlines for better visualization of the 3D structure.
+ * 
+ * @param deltaTime 
+ */
 void DtiVolumeScene::Update(float deltaTime)
 {
   Scene::Update(deltaTime);
@@ -165,6 +175,11 @@ void DtiVolumeScene::Update(float deltaTime)
   }
 }
 
+/**
+ * @brief Create inspect widgets for controlling scene parameters such as rotation.
+ * 
+ * @return std::vector<std::shared_ptr<IInspectWidget>> 
+ */
 std::vector<std::shared_ptr<IInspectWidget>> DtiVolumeScene::GetInspectFields()
 {
   std::vector<std::shared_ptr<IInspectWidget>> fields = Scene::GetInspectFields(); // Get base scene fields
