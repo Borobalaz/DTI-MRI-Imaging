@@ -29,6 +29,7 @@ struct ShaderUniforms {
   float density;
   float sliceZ;
   int selectedChannel;
+  float time;
 };
 
 uniform CameraUniforms camera;
@@ -93,12 +94,25 @@ vec3 EncodeChannelColor(int channel, float value, float gain)
   return vec3(mapped);
 }
 
+float ComputeDepth(vec3 worldPosition)
+{
+  vec4 clipPosition = camera.projectionMatrix * camera.viewMatrix * vec4(worldPosition, 1.0);
+  if (abs(clipPosition.w) < 1e-7)
+  {
+    return 1.0;
+  }
+
+  float ndcDepth = clipPosition.z / clipPosition.w;
+  return clamp(ndcDepth * 0.5 + 0.5, 0.0, 1.0);
+}
+
 void main()
 {
   if (volume.textureCount < 5)
   {
     discard;
   }
+  float sliceZ = sin(0.2*shader.time) * 0.5 + 0.5; // Animate sliceZ for demonstration; replace with shader.sliceZ for static control.
 
   vec3 rayOriginObject = vec3(volumeObject.inverseModelMatrix * vec4(camera.viewPosition, 1.0));
   vec3 rayDirectionObject = normalize(fragObjectPosition - rayOriginObject);
@@ -117,7 +131,7 @@ void main()
     discard;
   }
 
-  float sliceObjectZ = clamp(shader.sliceZ, 0.0, 1.0) - 0.5;
+  float sliceObjectZ = clamp(sliceZ, 0.0, 1.0) - 0.5;
   if (abs(rayDirectionObject.z) < 1e-7)
   {
     discard;
@@ -131,6 +145,7 @@ void main()
 
   vec3 samplePositionObject = rayOriginObject + rayDirectionObject * tSlice;
   vec3 textureCoord = samplePositionObject + vec3(0.5);
+  vec3 samplePositionWorld = vec3(volumeObject.modelMatrix * vec4(samplePositionObject, 1.0));
 
   if (any(lessThan(textureCoord, vec3(0.0))) || any(greaterThan(textureCoord, vec3(1.0))))
   {
@@ -144,5 +159,7 @@ void main()
   vec3 color = vec3(value);
   float alpha = 1.0;
 
-  FragColor = vec4(color, color);
+  gl_FragDepth = ComputeDepth(samplePositionWorld);
+
+  FragColor = vec4(color, color.r+0.5);
 }

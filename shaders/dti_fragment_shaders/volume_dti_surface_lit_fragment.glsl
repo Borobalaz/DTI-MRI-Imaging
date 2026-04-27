@@ -177,6 +177,18 @@ vec3 ComputeLighting(vec3 worldPosition,
   return color;
 }
 
+float ComputeDepth(vec3 worldPosition)
+{
+  vec4 clipPosition = camera.projectionMatrix * camera.viewMatrix * vec4(worldPosition, 1.0);
+  if (abs(clipPosition.w) < 1e-7)
+  {
+    return 1.0;
+  }
+
+  float ndcDepth = clipPosition.z / clipPosition.w;
+  return clamp(ndcDepth * 0.5 + 0.5, 0.0, 1.0);
+}
+
 void main()
 {
   if (volume.textureCount < 5)
@@ -270,6 +282,8 @@ void main()
   // Add a soft rim term to preserve contour readability without introducing chroma.
   float rim = pow(1.0 - max(dot(normalWorld, viewDirection), 0.0), 2.5);
   litColor += vec3(rim * 0.08);
+
+  gl_FragDepth = ComputeDepth(worldPosition);
 
   FragColor = vec4(clamp(litColor, 0.0, 1.0), 1.0);
 }
