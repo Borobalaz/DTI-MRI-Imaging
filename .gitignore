@@ -4,3 +4,9 @@ build
 # Large DWI volume files (use external data loading or Git LFS)
 assets/volumes/dwi/*.nii.gz
 assets/volumes/dwi/*.nii
+assets/volumes/dwi/macaque/sub-01_run-01_dwi_hdbet_masked4d.nii.gz
+assets/volumes/dwi/macaque/sub-01_run-01_dwi_s0_for_hdbet_bet.nii.gz
+assets/volumes/dwi/macaque/sub-01_run-01_dwi_s0_for_hdbet.nii.gz
+assets/volumes/dwi/macaque/sub-01_run-01_dwi.bval
+assets/volumes/dwi/macaque/sub-01_run-01_dwi.bvec
+assets/volumes/dwi/macaque/sub-01_run-01_dwi.nii
