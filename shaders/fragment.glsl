@@ -74,7 +74,7 @@ vec3 ComputeLight(LightUniforms light,
   vec3 lightDirection = normalize(-light.direction);
   float attenuation = 1.0;
 
-  if (light.type == 0)
+  if (light.type == 0) // Directional
   {
     vec3 lightToFragment = light.position - fragmentPosition;
     float distanceToLight = length(lightToFragment);
@@ -109,5 +109,4 @@ void main()
   }
 
   FragColor = vec4(color, 1.0);
-  //FragColor = vec4(1.0, 1.0, 1.0 ,1.0);
 }

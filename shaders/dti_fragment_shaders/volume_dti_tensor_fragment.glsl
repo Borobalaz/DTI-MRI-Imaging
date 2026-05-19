@@ -113,6 +113,7 @@ void main()
     discard;
   }
 
+  // ray origin is camera position in object space, ray direction is from ray origin to fragment position in object space
   vec3 rayOriginObject = vec3(volumeObject.inverseModelMatrix * vec4(camera.viewPosition, 1.0));
   vec3 rayDirectionObject = normalize(fragObjectPosition - rayOriginObject);
 
@@ -130,19 +131,20 @@ void main()
     discard;
   }
 
-  //float sliceObjectZ = sin(0.2*shader.time) * 0.5;
   float sliceObjectZ = clamp(shader.sliceZ, 0.0, 1.0) - 0.5;
   if (abs(rayDirectionObject.z) < 1e-7)
   {
     discard;
   }
 
+  // tSlice is the t value along the ray where it intersects the slicing plane at sliceObjectZ.
   float tSlice = (sliceObjectZ - rayOriginObject.z) / rayDirectionObject.z;
   if (tSlice < rayStart || tSlice > rayEnd)
   {
     discard;
   }
 
+  // Compute world position and texture coordinate of the sample point
   vec3 samplePositionObject = rayOriginObject + rayDirectionObject * tSlice;
   vec3 textureCoord = samplePositionObject + vec3(0.5);
   vec3 samplePositionWorld = vec3(volumeObject.modelMatrix * vec4(samplePositionObject, 1.0));
@@ -152,6 +154,7 @@ void main()
     discard;
   }
 
+  // Sample the selected texture
   int selected = clamp(shader.selectedChannel, 0, 15);
   float value = SampleSelectedChannel(textureCoord, selected);
 

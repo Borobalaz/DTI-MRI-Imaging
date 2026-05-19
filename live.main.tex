@@ -13,4 +13,54 @@ Another emerging direction is the development of immersive visualization environ
 Furthermore, integrative visualization approaches are gaining importance. By combining DTI data with other imaging modalities, such as functional MRI (fMRI) and structural MRI, researchers can investigate the relationship between brain structure and function more comprehensively. Multimodal visualization frameworks support advanced analyses and contribute to a deeper understanding of neurological disorders.
 
 Despite these advances, several challenges remain. These include the need for standardized evaluation methodologies, improved handling of noise and imaging artifacts, and more effective communication of uncertainty to users. Nevertheless, current trends indicate a shift toward more robust, interpretable, and user-centered visualization techniques, underscoring the growing importance of DTI MR visualization in neuroscience and clinical practice.
+
+\subsection{DTI Preprocessor Pipeline}
+The preprocessor is organized as a sequence of stages that progressively transform raw diffusion-weighted measurements into tractography-ready geometric and scalar products. The main design goal is to keep the processing flow explicit: each stage has a clear scientific role, produces intermediate results that are meaningful on their own, and passes forward only the information required by the later visualization steps. In practice, this means the pipeline is not just a numerical conversion chain, but a staged interpretation of the diffusion signal that moves from validation to tensor estimation, from tensor estimates to anatomical descriptors, and finally from descriptors to rendered fiber geometry.
+
+\paragraph{Stage 1: Input validation and tensor preparation.}
+The pipeline begins by checking the diffusion series, gradient table, and mask for consistency. This step ensures that the measurements can be interpreted as a coherent diffusion experiment before any modeling is attempted, since tensor estimation is only meaningful when the acquisition geometry and image dimensions agree. Given a voxel-wise diffusion signal $S(\mathbf{g}, b)$ acquired with gradient direction $\mathbf{g}$ and $b$-value $b$, the diffusion tensor model is written as
+\begin{equation}
+S(\mathbf{g}, b) = S_0 \exp\!\left(-b\, \mathbf{g}^\top \mathbf{D} \mathbf{g}\right),
+\end{equation}
+where $S_0$ is the non-diffusion-weighted signal and $\mathbf{D}$ is the symmetric diffusion tensor. Tensor fitting provides the basis for all subsequent scalar and orientation measurements.
+
+\paragraph{Stage 2: Tensor decomposition and scalar synthesis.}
+After fitting, each tensor is decomposed as
+\begin{equation}
+\mathbf{D} = \mathbf{V} \boldsymbol{\Lambda} \mathbf{V}^\top,
+\end{equation}
+with eigenvectors $\mathbf{V} = [\mathbf{e}_1, \mathbf{e}_2, \mathbf{e}_3]$ and eigenvalues $\boldsymbol{\Lambda} = \mathrm{diag}(\lambda_1, \lambda_2, \lambda_3)$ ordered such that $\lambda_1 \ge \lambda_2 \ge \lambda_3$. From these quantities the preprocessor synthesizes commonly used scalar maps, including mean diffusivity and fractional anisotropy:
+\begin{equation}
+\mathrm{MD} = \frac{\lambda_1 + \lambda_2 + \lambda_3}{3},
+\end{equation}
+\begin{equation}
+\mathrm{FA} = \sqrt{\frac{3}{2}}\,
+\frac{\sqrt{(\lambda_1-\mathrm{MD})^2 + (\lambda_2-\mathrm{MD})^2 + (\lambda_3-\mathrm{MD})^2}}
+	{\sqrt{\lambda_1^2 + \lambda_2^2 + \lambda_3^2}}.
+\end{equation}
+These scalar fields provide quality control and anatomical context for the fiber result. In particular, MD summarizes the overall magnitude of diffusion, while FA captures how strongly the diffusion profile departs from isotropy. Together, they provide an interpretable scalar foundation for evaluating whether a region is suitable for tractography and for comparing the processed data across subjects or reruns.
+
+\paragraph{Stage 3: Principal direction synthesis.}
+The dominant eigenvector $\mathbf{e}_1$ defines the local fiber orientation. A color-encoded orientation map is produced by mapping the direction components to RGB space, typically using the absolute value to remove sign ambiguity:
+\begin{equation}
+\mathbf{c}_{\mathrm{dir}} = \left|\mathbf{e}_1\right|.
+\end{equation}
+This stage produces the directional volume used both for display and for the tractography seed/tracing logic. The result is a compact representation of local fiber geometry that can be inspected directly as a color map and also queried numerically during streamline growth, making it an important bridge between the scalar tensor fit and the geometric tractography output.
+
+\paragraph{Stage 4: Tractography seeding and streamline integration.}
+Seed points are selected from voxels that satisfy the admissibility criteria, typically an anisotropy threshold and mask membership. This restricts streamline growth to regions where the tensor model is reliable enough to support a meaningful path estimate. Streamlines are then traced by advancing along the locally interpolated principal direction. With step size $s$, the streamline position is updated as
+\begin{equation}
+\mathbf{p}_{k+1} = \mathbf{p}_k + s\, \hat{\mathbf{d}}(\mathbf{p}_k),
+\end{equation}
+where $\hat{\mathbf{d}}(\mathbf{p}_k)$ is the trilinearly interpolated unit direction field at the current position. Trilinear interpolation is used so that both scalar thresholds and direction estimates vary smoothly across voxel boundaries rather than changing abruptly at voxel centers. This makes the traced streamlines less sensitive to voxel discretization and produces trajectories that are visually smoother and more anatomically plausible.
+
+\paragraph{Stage 5: Streamline geometry construction.}
+Each traced streamline is converted into a tube-like surface made of radial rings around the polyline samples. This geometric expansion is important because a polyline alone is often too thin and visually unstable in dense scenes, whereas a tube gives the tract a clearer presence in three-dimensional space and supports lighting cues that help the eye read depth and curvature. The tube radius controls the apparent thickness, while the radial segment count controls the roundness of the cross section. For visualization, the ring normal is treated as the radial surface normal and the tangent direction is carried forward so that all vertices on a ring share the same orientation color. This yields a coherent visual encoding in which direction is represented by hue and the cylindrical silhouette is preserved by lighting.
+
+\paragraph{Stage 6: Visualization normalization and scene output.}
+Before rendering, the derived volumes and meshes are normalized into display-ready ranges so that the viewer presents a stable appearance across different datasets and reruns. Scalar maps are clamped to a fixed window,
+\begin{equation}
+\tilde{x} = \mathrm{clamp}\!\left(\frac{x - x_{\min}}{x_{\max} - x_{\min}},\, 0,\, 1\right),
+\end{equation}
+so that tissue contrast remains stable across reruns. The final output of the preprocessor is therefore a consistent set of scalar volumes, orientation fields, and streamline meshes that can be regenerated from the same request while preserving the scene state used by the viewer. In this sense, the preprocessor serves both as a numerical reconstruction pipeline and as the source of all geometric content used by the interactive DTI scene.
 undefined
