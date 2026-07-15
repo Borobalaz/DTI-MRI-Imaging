@@ -1,10 +1,11 @@
 #pragma once
 
 #include <algorithm>
-#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <QString>
 
 #include "ui/widgets/inspect_fields/InspectProvider.h"
 
@@ -39,6 +40,8 @@ public:
   std::vector<std::shared_ptr<IInspectWidget>> GetInspectFields() override;
 
 private:
+  void ApplyPreset(const QString &presetName);
+
   float faSeedThresholdValue = 0.4f;
   float faStopThresholdValue = 0.3f;
   float l1StopThresholdValue = 1e-6f;
