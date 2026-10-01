@@ -2,29 +2,27 @@
 # Usage: .\build.ps1 [Debug|Release]
 
 param(
-    [string]$Config = "Release"
+    [string]$Config
 )
 
 $ErrorActionPreference = "Stop"
 
-$Target = "app_qt"
+$ProjectRoot = $PSScriptRoot
+$Settings = Get-Content (Join-Path $ProjectRoot "settings.json") -Raw | ConvertFrom-Json
+$Config = if ($Config) { $Config } else { $Settings.project.defaultConfiguration }
+$Target = $Settings.project.target
+$BuildDirectory = Join-Path $ProjectRoot $Settings.project.buildDirectory
 
-$QtRoot = ""
+
+if ($Settings.qt.bypassQtLicenseCheck) {
+    $env:QTFRAMEWORK_BYPASS_LICENSE_CHECK = "1"
+}
+
+$QtRoot = $Settings.qt.root
 if ($env:QT_ROOT -and (Test-Path $env:QT_ROOT)) {
     $QtRoot = $env:QT_ROOT
 } else {
-    $QtCandidates = @(
-        "C:/Qt/6.11.0/msvc2022_64",
-        "C:/Qt/6.10.0/msvc2022_64",
-        "C:/Qt/6.9.0/msvc2022_64",
-        "C:/Qt/6.8.0/msvc2022_64",
-        "C:/Qt/6.7.3/msvc2022_64",
-        "C:/Qt/6.7.2/msvc2022_64",
-        "C:/Qt/6.7.1/msvc2022_64",
-        "C:/Qt/6.7.0/msvc2022_64"
-    )
-
-    foreach ($Candidate in $QtCandidates) {
+    foreach ($Candidate in $Settings.qt.candidates) {
         if (Test-Path (Join-Path $Candidate "lib/cmake/Qt6/Qt6Config.cmake")) {
             $QtRoot = $Candidate
             break
@@ -39,18 +37,32 @@ if (-not $QtRoot) {
 }
 
 Write-Host "=== Configuring CMake ===" -ForegroundColor Green
+$CacheFile = Join-Path $BuildDirectory "CMakeCache.txt"
+$CachedSourceLine = if (Test-Path $CacheFile) {
+    Select-String -Path $CacheFile -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=' | Select-Object -First 1
+}
+$ExpectedSource = [System.IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\', '/')
+$CachedSource = if ($CachedSourceLine) {
+    $CachedSourceLine.Line.Substring($CachedSourceLine.Line.IndexOf('=') + 1).Replace('/', '\').TrimEnd('\')
+}
+$RefreshCache = $CachedSource -and ($CachedSource -ine $ExpectedSource)
+
 $cmakeArgs = @(
-    "-S", ".",
-    "-B", "build",
-    "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "-S", $ProjectRoot,
+    "-B", $BuildDirectory,
+    "-DCMAKE_TOOLCHAIN_FILE=$($Settings.toolchain.cmakeToolchainFile)",
     "-DCMAKE_BUILD_TYPE=$Config"
 )
 
-$QtCmakeDir = (Join-Path $QtRoot "lib/cmake") -replace "\\", "/"
-$Qt6Dir = (Join-Path $QtRoot "lib/cmake/Qt6") -replace "\\", "/"
+$QtCmakeDir = (Join-Path $QtRoot $Settings.qt.cmakeDirectory) -replace "\\", "/"
+$Qt6Dir = (Join-Path $QtRoot $Settings.qt.configDirectory) -replace "\\", "/"
 $cmakeArgs += "-DCMAKE_PREFIX_PATH=$QtCmakeDir"
 $cmakeArgs += "-DQt6_DIR=$Qt6Dir"
 Write-Host "Using Qt from: $QtRoot" -ForegroundColor Cyan
+if ($RefreshCache) {
+    Write-Host "Refreshing CMake cache from a different source directory: $CachedSource" -ForegroundColor Yellow
+    $cmakeArgs = @("--fresh") + $cmakeArgs
+}
 
 & cmake @cmakeArgs
 
@@ -60,7 +72,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n=== Building the project ===" -ForegroundColor Green
-cmake --build build --config $Config --target $Target
+cmake --build $BuildDirectory --config $Config --target $Target
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed!" -ForegroundColor Red
@@ -68,4 +80,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n=== Build completed successfully ===" -ForegroundColor Green
-Write-Host "Executable: build\$Config\$Target.exe" -ForegroundColor Cyan
+if (-not (Test-Path (Join-Path $BuildDirectory "$Config\$($Settings.project.engineLibrary)"))) {
+    Write-Host "Engine DLL was not produced: $(Join-Path $BuildDirectory "$Config\$($Settings.project.engineLibrary)")" -ForegroundColor Red
+    exit 1
+}
+Write-Host "Executable: $(Join-Path $BuildDirectory "$Config\$($Settings.project.executable)")" -ForegroundColor Cyan
+Write-Host "Engine DLL: $(Join-Path $BuildDirectory "$Config\$($Settings.project.engineLibrary)")" -ForegroundColor Cyan

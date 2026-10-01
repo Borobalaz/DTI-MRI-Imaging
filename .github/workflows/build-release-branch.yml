@@ -58,12 +58,12 @@ jobs:
           }
           New-Item -ItemType Directory -Path $staging | Out-Null
 
-          $appPath = "build/Release/app.exe"
+          $appPath = "build/Release/app_qt.exe"
           if (!(Test-Path $appPath)) {
             throw "Built artifact not found at $appPath"
           }
 
-          Copy-Item $appPath (Join-Path $staging "app.exe") -Force
+          Copy-Item $appPath (Join-Path $staging "app_qt.exe") -Force
 
           # Copy project output DLLs produced by the build.
           if (Test-Path "build/Release") {
@@ -72,7 +72,7 @@ jobs:
             }
           }
 
-          # Copy runtime DLLs from vcpkg so app.exe can run standalone on release branch.
+          # Copy runtime DLLs from vcpkg so app_qt.exe can run standalone on release branch.
           $vcpkgBin = "C:/vcpkg/installed/x64-windows/bin"
           if (Test-Path $vcpkgBin) {
             Get-ChildItem $vcpkgBin -Filter "*.dll" -File | ForEach-Object {

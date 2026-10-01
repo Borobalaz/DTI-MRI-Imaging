@@ -1,0 +1,36 @@
+flowchart TD
+    subgraph UI[Qt UI executable]
+        Context[QOpenGLWidget context]
+        Adapter[QTSceneInspector]
+    end
+
+    subgraph Engine[engine DLL]
+        Init[InitializeEngineOpenGL]
+        Scene[Scene]
+        Input[InputState and camera movement]
+        Snapshot[SceneSnapshot: typed render commands]
+        Passes[ExtractionRegistry and insertion-ordered Renderer pass vector]
+        Builder[RenderFrameBuilder]
+        Frame[RenderFrame and RenderDataStore]
+        Renderer[Renderer / ForwardRenderer]
+        Resources[Shader, Material, Texture, Model, Volume resources]
+        Inspect[InspectProvider and InspectField]
+    end
+
+    Context --> Init
+    Context --> Scene
+    UI -. input events .-> Input
+    Input --> Scene
+    Scene --> Resources
+    Scene --> Inspect
+    Scene --> Snapshot
+    Snapshot --> Builder
+    Passes --> Builder
+    Builder --> Frame
+    Passes --> Renderer
+    Frame --> Renderer
+    Renderer --> Context
+    Inspect --> Adapter
+    Adapter -. field edits .-> Inspect
+
+    Assets[(engine/assets and engine/shaders)] --> Resources

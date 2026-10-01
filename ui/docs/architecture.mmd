@@ -1,0 +1,39 @@
+flowchart TD
+    subgraph App[app_qt executable]
+        Main[ui/src/app/main.cpp]
+        Window[WidgetsMainWindow]
+        Viewport[OpenGLViewportWidget]
+        Inspector[InspectorWidget]
+        ObjectList[SceneObjectListWidget]
+        Adapter[QTSceneInspector]
+        Fields[Qt inspect field widgets]
+        Stats[RenderStatisticsWidget]
+        Styles[Theme styles]
+    end
+
+    subgraph Engine[engine DLL]
+        Scene[Scene]
+        Input[InputState]
+        Render[Typed commands, RenderFrameBuilder, ForwardRenderer]
+        Contracts[InspectProvider and InspectField]
+    end
+
+    Main --> Window
+    Window --> Viewport
+    Window --> Inspector
+    Window --> ObjectList
+    Window --> Stats
+    Window --> Styles
+    Viewport --> Adapter
+    Viewport --> Scene
+    Viewport --> Render
+    Viewport --> Input
+    Adapter --> Contracts
+    Adapter --> Fields
+    ObjectList --> Adapter
+    Inspector --> Fields
+    Fields -. edit callbacks .-> Adapter
+    Adapter -. field setters .-> Contracts
+    Viewport -. input translation .-> Input
+    Scene --> Contracts
+    Scene --> Render

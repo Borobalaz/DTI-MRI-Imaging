@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
-if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
     set(CMAKE_TOOLCHAIN_FILE
-        "C:/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+    "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 endif()
 
 project(Connectomics-Imaging)
@@ -16,7 +16,6 @@ find_package(OpenGL REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Core Gui OpenGL OpenGLWidgets Widgets)
 find_package(ITK CONFIG QUIET COMPONENTS
     ITKCommon
     ITKIOImageBase
@@ -25,62 +24,102 @@ find_package(ITK CONFIG QUIET COMPONENTS
     ITKIOMeta
     ITKIOGDCM
 )
+find_package(Qt6 REQUIRED COMPONENTS Core Gui OpenGL OpenGLWidgets Widgets Svg)
 
 find_path(STB_INCLUDE_DIR
     NAMES stb_image.h
     REQUIRED
 )
 
-file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-
-set(QT_MAIN "${CMAKE_CURRENT_SOURCE_DIR}/src/app/main.cpp")
-file(GLOB_RECURSE QT_HOST_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/widgets/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/windows/*.cpp"
-)
-list(REMOVE_ITEM SOURCES "${QT_MAIN}" ${QT_HOST_SOURCES})
-list(REMOVE_DUPLICATES SOURCES)
-
-add_executable(app_qt
-    ${SOURCES}
-    ${QT_MAIN}
-    ${QT_HOST_SOURCES}
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/controllers/MainWindowShortcuts.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/OpenGLViewportWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/DTIViewportWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/InspectProviderWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/InspectorWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/state/RenderStatistics.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/RenderStatisticsWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/SceneObjectListWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/widgets/inspect_fields/InspectNumberFieldWidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/windows/WidgetsMainWindow.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ui/qt-adapters/QTSceneInspector.h
+file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/core/src/*.cpp"
 )
 
-target_include_directories(app_qt PRIVATE
-    include
-    include/app
-    include/core
-    include/engine
-    include/ui
+file(GLOB_RECURSE UI_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/widgets/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/windows/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/controllers/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/qt-adapters/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/styles/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/state/*.cpp"
+)
+add_library(engine SHARED ${ENGINE_SOURCES})
+set_target_properties(engine PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+target_include_directories(engine PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
+)
+
+target_include_directories(engine PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/include
     ${STB_INCLUDE_DIR}
 )
 
-target_link_libraries(app_qt PRIVATE
+target_compile_definitions(engine PRIVATE
+    "CONNECTOMICS_SHADER_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/engine\""
+)
+
+target_link_libraries(engine PUBLIC
     OpenGL::GL
     glm::glm
     glad::glad
     assimp::assimp
+)
+
+if (ITK_FOUND)
+    target_link_libraries(engine PRIVATE ${ITK_LIBRARIES})
+    target_compile_definitions(engine PRIVATE CONNECTOMICS_ENABLE_ITK_IO=1)
+endif()
+
+add_executable(app_qt
+    ${UI_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/resources.qrc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/src/app/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/controllers/MainWindowShortcuts.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/OpenGLViewportWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/MainToolBar.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/InspectProviderWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/InspectorWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/state/RenderStatistics.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/RenderStatisticsWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/SceneObjectListWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/inspect_fields/InspectNumberFieldWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/windows/WidgetsMainWindow.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/qt-adapters/QTSceneInspector.h
+)
+
+target_include_directories(app_qt PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include
+)
+
+target_link_libraries(app_qt PRIVATE
+    engine
     Qt6::Core
     Qt6::Gui
     Qt6::OpenGL
     Qt6::OpenGLWidgets
     Qt6::Widgets
+    Qt6::Svg
 )
 
-if (ITK_FOUND)
-    target_link_libraries(app_qt PRIVATE ${ITK_LIBRARIES})
-    target_compile_definitions(app_qt PRIVATE CONNECTOMICS_ENABLE_ITK_IO=1)
+if (WIN32)
+    target_link_libraries(app_qt PRIVATE dwmapi)
 endif()
 
+# Copy shader files to build output directory (same location as executable)
+add_custom_command(TARGET app_qt POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/engine/shaders"
+            "$<TARGET_FILE_DIR:app_qt>/shaders"
+    COMMENT "Copying shaders to build output..."
+)
+
+# Also copy assets (models, textures, volumes)
+add_custom_command(TARGET app_qt POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/engine/assets"
+            "$<TARGET_FILE_DIR:app_qt>/assets"
+    COMMENT "Copying assets to build output..."
+)

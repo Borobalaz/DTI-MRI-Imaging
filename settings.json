@@ -1,0 +1,45 @@
+{
+    "project": {
+        "root": "C:/Projects/Connectomics-Imaging",
+        "buildDirectory": "build",
+        "defaultConfiguration": "Release",
+        "target": "app_qt",
+        "executable": "app_qt.exe",
+        "engineLibrary": "engine.dll"
+    },
+    "toolchain": {
+        "cmakeToolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "vcpkgRoot": "C:/vcpkg",
+        "vcpkgTriplet": "x64-windows",
+        "vcpkgBinaryDirectory": "C:/vcpkg/installed/x64-windows/bin",
+        "compilerPath": "D:/Program Files/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/cl.exe"
+    },
+    "qt": {
+        "root": "D:/DevTools/Qt/6.11.2/msvc2022_64",
+        "candidates": [
+            "C:/Qt/6.11.0/msvc2022_64",
+            "C:/Qt/6.10.0/msvc2022_64",
+            "C:/Qt/6.9.0/msvc2022_64",
+            "C:/Qt/6.8.0/msvc2022_64",
+            "C:/Qt/6.7.3/msvc2022_64",
+            "C:/Qt/6.7.2/msvc2022_64",
+            "C:/Qt/6.7.1/msvc2022_64",
+            "C:/Qt/6.7.0/msvc2022_64"
+        ],
+        "cmakeDirectory": "lib/cmake",
+        "configDirectory": "lib/cmake/Qt6",
+        "deployTool": "bin/windeployqt.exe",
+        "bypassQtLicenseCheck": true
+    },
+    "cmake": {
+        "minimumVersion": "3.20",
+        "cppStandard": "17",
+        "prefixPath": "lib/cmake",
+        "deployQtTranslations": false,
+        "deployQtOpenGLSoftwareRendering": false
+    },
+    "runtime": {
+        "shaderDirectory": "engine/shaders",
+        "assetDirectory": "engine/assets"
+    }
+}
