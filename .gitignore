@@ -2,6 +2,8 @@ build
 build-qt
 .dist
 
+settings.json
+
 # Large DWI volume files (use external data loading or Git LFS)
 engine/assets/volumes/dwi/*.nii.gz
 engine/assets/volumes/dwi/*.nii

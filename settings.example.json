@@ -1,6 +1,6 @@
 {
     "project": {
-        "root": "C:/Projects/Connectomics-Imaging",
+        "root": "D:/Projects/Connectomics-Imaging",
         "buildDirectory": "build",
         "defaultConfiguration": "Release",
         "target": "app_qt",
@@ -8,10 +8,10 @@
         "engineLibrary": "engine.dll"
     },
     "toolchain": {
-        "cmakeToolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "vcpkgRoot": "C:/vcpkg",
+        "cmakeToolchainFile": "D:/DevTools/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "vcpkgRoot": "D:/DevTools/vcpkg",
         "vcpkgTriplet": "x64-windows",
-        "vcpkgBinaryDirectory": "C:/vcpkg/installed/x64-windows/bin",
+        "vcpkgBinaryDirectory": "D:/DevTools/vcpkg/installed/x64-windows/bin",
         "compilerPath": "D:/Program Files/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/cl.exe"
     },
     "qt": {
