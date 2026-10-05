@@ -25,6 +25,14 @@ const RendererDescriptor& ForwardRenderer::GetDescriptor() const
 void ForwardRenderer::Draw(const RenderFrame& frame)
 {
   RenderExecutionContext executionContext(GetDescriptor());
+  // Qt/driver may change state between frames; reset what the clear and passes rely on.
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glDepthMask(GL_TRUE);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glDisable(GL_SCISSOR_TEST);
+  glDisable(GL_STENCIL_TEST);
+  glDisable(GL_BLEND);
   glClearColor(fillColor.r, fillColor.g, fillColor.b, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
