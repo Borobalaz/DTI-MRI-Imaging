@@ -13,3 +13,6 @@ engine/assets/volumes/dwi/macaque/sub-01_run-01_dwi_s0_for_hdbet.nii.gz
 engine/assets/volumes/dwi/macaque/sub-01_run-01_dwi.bval
 engine/assets/volumes/dwi/macaque/sub-01_run-01_dwi.bvec
 engine/assets/volumes/dwi/macaque/sub-01_run-01_dwi.nii
+
+.vscode/c_cpp_properties.json
+.vscode/mcp.json
