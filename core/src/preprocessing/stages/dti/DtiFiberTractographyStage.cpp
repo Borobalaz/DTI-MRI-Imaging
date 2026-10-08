@@ -505,7 +505,7 @@ std::shared_ptr<Mesh> DtiFiberTractographyStage::BuildStreamlineMesh(const MriPr
  */
 const char *DtiFiberTractographyStage::Name() const
 {
-  return "DWI fiber tractography";
+  return "DTI fiber tractography";
 }
 
 /**

@@ -33,7 +33,7 @@ namespace
  */
 const char *DtiTensorSynthesisStage::Name() const
 {
-  return "DWI tensor OLS fit";
+  return "DTI tensor OLS fit";
 }
 
 /**

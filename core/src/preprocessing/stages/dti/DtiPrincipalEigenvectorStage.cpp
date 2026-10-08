@@ -104,7 +104,7 @@ namespace
  */
 const char* DtiPrincipalEigenvectorStage::Name() const
 {
-  return "DWI principal eigenvector synthesis";
+  return "DTI principal eigenvector synthesis";
 }
 
 /**

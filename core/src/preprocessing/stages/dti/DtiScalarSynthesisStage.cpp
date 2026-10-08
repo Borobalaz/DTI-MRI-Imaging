@@ -109,7 +109,7 @@ namespace
  */
 const char *DtiScalarSynthesisStage::Name() const
 {
-  return "DWI scalar synthesis";
+  return "DTI scalar synthesis";
 }
 
 /**
