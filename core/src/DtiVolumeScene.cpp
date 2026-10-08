@@ -7,7 +7,12 @@
 #include "Material.h"
 #include "Mesh.h"
 #include "GameObject.h"
+#include "Preprocessing/io/PreprocessingDatasetFormats.h"
+#include "Preprocessing/io/PreprocessingDatasetMetadataIO.h"
+#include "Preprocessing/io/dti/DtiPreprocessingParameters.h"
 
+#include <any>
+#include <filesystem>
 #include <iostream>
 #include <glm/glm.hpp>
 
@@ -65,12 +70,7 @@ bool DtiVolumeScene::ReloadDataset()
       return false;
     }
 
-    if (!ApplyPreprocessingResult(result))
-    {
-      return false;
-    }
-
-    // Print preprocessing report
+    // Print preprocessing report (before the result is moved into ApplyPreprocessingResult)
     std::cout << "Loaded: " << result.report.sourceVolumePath << std::endl;
     std::cout << "Executed stages:\n";
     for (const auto &stage : result.report.executedStages)
@@ -85,6 +85,11 @@ bool DtiVolumeScene::ReloadDataset()
       {
         std::cout << "    [!] " << warning << "\n";
       }
+    }
+
+    if (!ApplyPreprocessingResult(std::move(result)))
+    {
+      return false;
     }
 
     return true;
@@ -112,10 +117,16 @@ void DtiVolumeScene::ClearProcessedScene()
   ClearVolumes();
 }
 
-bool DtiVolumeScene::ApplyPreprocessingResult(const MriPreprocessingResult &result)
+bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
 {
   const int previousRenderMode = dtiVolume ? dtiVolume->GetSelectedRenderModeIndex() : 0;
   const int previousChannel = dtiVolume ? dtiVolume->GetSelectedChannelIndex() : 0;
+
+  // Cache the result (moved, not copied) so "Save current dataset" can persist it later
+  // without re-running preprocessing. DTIVolume below is then built from the cached copy,
+  // keeping the total number of DTIVolumeChannels copies the same as before this cache existed.
+  lastPreprocessingResult = std::move(result);
+  hasLastPreprocessingResult = true;
 
   ClearProcessedScene();
   RebuildInspectProviders();
@@ -128,7 +139,7 @@ bool DtiVolumeScene::ApplyPreprocessingResult(const MriPreprocessingResult &resu
   (*volumeShader)["shader.sliceZ"] = 0.5f;
   (*volumeShader)["shader.density"] = 1.0f;
 
-  dtiVolume = std::make_shared<DTIVolume>("dti_volume_main", result.dtiChannels, volumeShader);
+  dtiVolume = std::make_shared<DTIVolume>("dti_volume_main", lastPreprocessingResult.dtiChannels, volumeShader);
   dtiVolume->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
   dtiVolume->SetSelectedRenderModeIndex(previousRenderMode);
   dtiVolume->SetSelectedChannelIndex(previousChannel);
@@ -139,7 +150,7 @@ bool DtiVolumeScene::ApplyPreprocessingResult(const MriPreprocessingResult &resu
   dtiVolume->RegisterShadersWithScene(this);
 
   // FA surface mesh
-  if (result.surfaceMesh)
+  if (lastPreprocessingResult.surfaceMesh)
   {
     std::shared_ptr<Shader> meshShader = std::make_shared<Shader>(
         "dti_brain_surface_shader",
@@ -152,14 +163,14 @@ bool DtiVolumeScene::ApplyPreprocessingResult(const MriPreprocessingResult &resu
     meshMaterial->SetRoughness(0.32f);
     meshMaterial->SetMetallic(0.0f);
 
-    result.surfaceMesh->SetMaterial(meshMaterial);
+    lastPreprocessingResult.surfaceMesh->SetMaterial(meshMaterial);
     brainSurfaceObject = std::make_shared<GameObject>("dti_brain_surface");
-    brainSurfaceObject->AddMesh(result.surfaceMesh);
+    brainSurfaceObject->AddMesh(lastPreprocessingResult.surfaceMesh);
     brainSurfaceObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
     AddGameObject(brainSurfaceObject);
   }
 
-  if (result.streamlineMesh)
+  if (lastPreprocessingResult.streamlineMesh)
   {
     std::shared_ptr<Shader> streamlineShader = std::make_shared<Shader>(
         "dti_streamline_shader",
@@ -167,18 +178,137 @@ bool DtiVolumeScene::ApplyPreprocessingResult(const MriPreprocessingResult &resu
       "shaders/streamlines/streamline_fragment.glsl");
 
     this->RegisterShader("dti_streamline_shader", streamlineShader);
-    
+
     std::shared_ptr<Material> streamlineMaterial = std::make_shared<Material>(streamlineShader);
 
-    result.streamlineMesh->SetMaterial(streamlineMaterial);
+    lastPreprocessingResult.streamlineMesh->SetMaterial(streamlineMaterial);
     streamlineObject = std::make_shared<GameObject>("dti_streamlines");
-    streamlineObject->AddMesh(result.streamlineMesh);
+    streamlineObject->AddMesh(lastPreprocessingResult.streamlineMesh);
     streamlineObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
     AddGameObject(streamlineObject);
   }
 
   RebuildInspectProviders();
   return true;
+}
+
+/**
+ * @brief Persist the most recently applied preprocessing result (lastPreprocessingResult) to
+ *        disk as a saved DTI dataset (metadata.json + channel/mesh payload files), without
+ *        re-running the preprocessing pipeline.
+ */
+bool DtiVolumeScene::SaveCurrentDataset(const std::string &outputDirectory)
+{
+  lastSaveError.clear();
+
+  if (!hasLastPreprocessingResult)
+  {
+    lastSaveError = "No preprocessed dataset is loaded yet.";
+    return false;
+  }
+
+  if (outputDirectory.empty())
+  {
+    lastSaveError = "Save output folder is empty.";
+    return false;
+  }
+
+  try
+  {
+    const std::string matchedPresetName = tractographySettingsInspectable
+        ? tractographySettingsInspectable->GetMatchedPresetName()
+        : std::string("Custom");
+    const std::string parametersJson = BuildDtiPreprocessingParametersJson(
+        currentRequest,
+        tractographySettingsInspectable ? *tractographySettingsInspectable : MriTractographySettings{},
+        matchedPresetName);
+
+    const std::shared_ptr<IPreprocessingDatasetWriter> writer =
+        GetDefaultPreprocessingDatasetFormatRegistry().FindWriter("dti");
+    if (!writer)
+    {
+      lastSaveError = "No dataset writer registered for preprocessor type 'dti'.";
+      return false;
+    }
+
+    writer->Write(std::any(lastPreprocessingResult), outputDirectory, /*outputBasename=*/"", parametersJson);
+    return true;
+  }
+  catch (const std::exception &ex)
+  {
+    lastSaveError = std::string("Exception while saving dataset: ") + ex.what();
+    std::cerr << lastSaveError << std::endl;
+    return false;
+  }
+  catch (...)
+  {
+    lastSaveError = "Unknown error while saving dataset";
+    std::cerr << lastSaveError << std::endl;
+    return false;
+  }
+}
+
+/**
+ * @brief Load a previously saved dataset from disk and apply it through the same
+ *        ApplyPreprocessingResult used by a live preprocessing run, guaranteeing identical
+ *        scene output.
+ */
+bool DtiVolumeScene::LoadSavedDataset(const std::string &metadataJsonPath)
+{
+  lastLoadError.clear();
+
+  if (metadataJsonPath.empty())
+  {
+    lastLoadError = "No saved dataset manifest was selected.";
+    return false;
+  }
+
+  try
+  {
+    const std::optional<PreprocessingDatasetMetadata> metadata =
+        PreprocessingDatasetMetadataIO::LoadFromFile(metadataJsonPath);
+    if (!metadata.has_value())
+    {
+      lastLoadError = "Failed to read dataset manifest: " + metadataJsonPath;
+      return false;
+    }
+
+    const std::shared_ptr<IPreprocessingDatasetReader> reader =
+        GetDefaultPreprocessingDatasetFormatRegistry().FindReader(metadata->preprocessorType);
+    if (!reader)
+    {
+      lastLoadError = "No dataset reader registered for preprocessor type '" + metadata->preprocessorType + "'.";
+      return false;
+    }
+
+    const std::string datasetDirectory = std::filesystem::path(metadataJsonPath).parent_path().string();
+    std::any resultAny = reader->Read(*metadata, datasetDirectory);
+    MriPreprocessingResult *result = std::any_cast<MriPreprocessingResult>(&resultAny);
+    if (!result)
+    {
+      lastLoadError = "Saved dataset's reader returned an unexpected result type.";
+      return false;
+    }
+
+    if (tractographySettingsInspectable)
+    {
+      ApplyDtiPreprocessingParametersJson(metadata->parametersJson, currentRequest, *tractographySettingsInspectable);
+    }
+
+    return ApplyPreprocessingResult(std::move(*result));
+  }
+  catch (const std::exception &ex)
+  {
+    lastLoadError = std::string("Exception while loading saved dataset: ") + ex.what();
+    std::cerr << lastLoadError << std::endl;
+    return false;
+  }
+  catch (...)
+  {
+    lastLoadError = "Unknown error while loading saved dataset";
+    std::cerr << lastLoadError << std::endl;
+    return false;
+  }
 }
 
 /**
@@ -196,6 +326,27 @@ void DtiVolumeScene::Update(float deltaTime)
     if (!reloaded)
     {
       std::cout << "DTI dataset reload failed: " << lastLoadError << "\n";
+    }
+  }
+
+  // Deferred to this Update() tick (rather than run synchronously from the Action field's
+  // setter) because loading ends in ApplyPreprocessingResult, which creates GL textures/buffers
+  // and therefore needs a current OpenGL context - guaranteed here, same as dataset reload above.
+  if (datasetSaveRequested)
+  {
+    datasetSaveRequested = false;
+    if (!SaveCurrentDataset(pendingSaveOutputDirectory))
+    {
+      std::cout << "DTI dataset save failed: " << lastSaveError << "\n";
+    }
+  }
+
+  if (datasetLoadRequested)
+  {
+    datasetLoadRequested = false;
+    if (!LoadSavedDataset(pendingLoadMetadataPath))
+    {
+      std::cout << "DTI dataset load failed: " << lastLoadError << "\n";
     }
   }
 
@@ -248,9 +399,30 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetInspectFields()
   fields.insert(fields.end(), tractographyFields.begin(), tractographyFields.end());
 
   fields.push_back(MakeInspectField(
-      "rerunPreprocessing", dtiVolume ? "Rerun preprocessing" : "Load DTI dataset", "Preprocessing", InspectFieldType::Action,
+      "rerunPreprocessing", dtiVolume ? "Rerun preprocessing" : "Run Preprocessing", "Preprocessing", InspectFieldType::Action,
       std::monostate{}, {},
       [this](const InspectValue&) { datasetReloadRequested = true; }));
+
+  fields.push_back(MakeInspectField(
+      "saveOutputDirectory", "Save Output Folder", "Preprocessing", InspectFieldType::Directory,
+      pendingSaveOutputDirectory,
+      [this]() -> InspectValue { return pendingSaveOutputDirectory; },
+      [this](const InspectValue& value)
+      {
+        if (const auto* path = std::get_if<std::string>(&value)) pendingSaveOutputDirectory = *path;
+      }));
+
+  fields.push_back(MakeInspectField(
+      "saveCurrentDataset", "Save current dataset...", "Preprocessing", InspectFieldType::Action,
+      std::monostate{}, {},
+      [this](const InspectValue&) { datasetSaveRequested = true; }));
+
+  addFileField("loadDatasetMetadataPath", "Load Saved Dataset (metadata.json)", &pendingLoadMetadataPath);
+
+  fields.push_back(MakeInspectField(
+      "loadSavedDataset", "Load dataset", "Preprocessing", InspectFieldType::Action,
+      std::monostate{}, {},
+      [this](const InspectValue&) { datasetLoadRequested = true; }));
 
   // Rotation controls
   fields.push_back(MakeInspectField(

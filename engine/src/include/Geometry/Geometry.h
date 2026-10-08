@@ -30,6 +30,9 @@ public:
   // Geometry processing
   void ComputeNormals();
 
+  const std::vector<Vertex>& GetVertices() const { return vertices; }
+  const std::vector<unsigned int>& GetIndices() const { return indices; }
+
 protected:
   std::vector<Vertex> vertices;
   std::vector<unsigned int> indices;

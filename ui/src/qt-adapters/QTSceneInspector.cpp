@@ -91,6 +91,13 @@ public:
         widget = std::move(file);
         break;
       }
+      case InspectFieldType::Directory:
+      {
+        auto directory = std::make_shared<InspectFilePickerWidget>(id, name, group, QStringLiteral("Select folder"), QString(), field->readOnly, nullptr, /*pickDirectory=*/true);
+        directory->valueChangedCallback = [this](const QVariant& value) { field->SetValue(ToInspectValue(value, field->type)); };
+        widget = std::move(directory);
+        break;
+      }
       case InspectFieldType::Action:
       {
         auto action = std::make_shared<InspectActionFieldWidget>(id, name, group);

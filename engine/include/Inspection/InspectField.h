@@ -14,6 +14,7 @@ enum class InspectFieldType
   Action,
   Boolean,
   Color,
+  Directory,
   Dropdown,
   File,
   Number,

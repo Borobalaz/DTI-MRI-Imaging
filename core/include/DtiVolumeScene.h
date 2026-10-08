@@ -46,7 +46,9 @@ public:
   
 private:
   void ClearProcessedScene();
-  bool ApplyPreprocessingResult(const MriPreprocessingResult& result);
+  bool ApplyPreprocessingResult(MriPreprocessingResult result);
+  bool SaveCurrentDataset(const std::string& outputDirectory);
+  bool LoadSavedDataset(const std::string& metadataJsonPath);
 
   MriPreprocessingRequest currentRequest;
   std::shared_ptr<MriTractographySettings> tractographySettingsInspectable;
@@ -57,6 +59,16 @@ private:
   MriToDtiPreprocessor preprocessor;
   std::string lastLoadError;
   bool datasetReloadRequested = false;
+
+  // Cache of the most recently applied preprocessing result, so "Save current dataset" can
+  // persist it without re-running the (potentially slow) preprocessing pipeline.
+  MriPreprocessingResult lastPreprocessingResult;
+  bool hasLastPreprocessingResult = false;
+  std::string pendingSaveOutputDirectory;
+  std::string pendingLoadMetadataPath;
+  bool datasetSaveRequested = false;
+  bool datasetLoadRequested = false;
+  std::string lastSaveError;
 
   bool rotationEnabled = true;
   float rotationSpeed = 0.2f;

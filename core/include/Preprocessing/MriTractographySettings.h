@@ -37,6 +37,10 @@ public:
   std::string GetInspectDisplayName() const override;
   std::vector<InspectFieldPtr> GetInspectFields() override;
 
+  // Name of the built-in preset whose values currently match this object's settings, or
+  // "Custom" if none match.
+  std::string GetMatchedPresetName() const;
+
 private:
   void ApplyPreset(const std::string &presetName);
 

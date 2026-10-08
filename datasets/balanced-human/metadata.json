@@ -1,0 +1,132 @@
+{
+  "createdAtUtc": "2026-10-08T19:56:52Z",
+  "executedStages": [
+    "DWI input validation",
+    "DWI gradient normalization",
+    "DTI tensor OLS fit",
+    "DTI principal eigenvector synthesis",
+    "DTI scalar synthesis",
+    "DWI brain surface mesh",
+    "DTI fiber tractography",
+    "DWI visualization normalization"
+  ],
+  "files": [
+    {
+      "key": "channel.Dxx",
+      "kind": "volume",
+      "relativePath": "channels/Dxx.vxa"
+    },
+    {
+      "key": "channel.Dyy",
+      "kind": "volume",
+      "relativePath": "channels/Dyy.vxa"
+    },
+    {
+      "key": "channel.Dzz",
+      "kind": "volume",
+      "relativePath": "channels/Dzz.vxa"
+    },
+    {
+      "key": "channel.Dxy",
+      "kind": "volume",
+      "relativePath": "channels/Dxy.vxa"
+    },
+    {
+      "key": "channel.Dxz",
+      "kind": "volume",
+      "relativePath": "channels/Dxz.vxa"
+    },
+    {
+      "key": "channel.Dyz",
+      "kind": "volume",
+      "relativePath": "channels/Dyz.vxa"
+    },
+    {
+      "key": "channel.EVx",
+      "kind": "volume",
+      "relativePath": "channels/EVx.vxa"
+    },
+    {
+      "key": "channel.EVy",
+      "kind": "volume",
+      "relativePath": "channels/EVy.vxa"
+    },
+    {
+      "key": "channel.EVz",
+      "kind": "volume",
+      "relativePath": "channels/EVz.vxa"
+    },
+    {
+      "key": "channel.L1",
+      "kind": "volume",
+      "relativePath": "channels/L1.vxa"
+    },
+    {
+      "key": "channel.L2",
+      "kind": "volume",
+      "relativePath": "channels/L2.vxa"
+    },
+    {
+      "key": "channel.L3",
+      "kind": "volume",
+      "relativePath": "channels/L3.vxa"
+    },
+    {
+      "key": "channel.FA",
+      "kind": "volume",
+      "relativePath": "channels/FA.vxa"
+    },
+    {
+      "key": "channel.MD",
+      "kind": "volume",
+      "relativePath": "channels/MD.vxa"
+    },
+    {
+      "key": "channel.AD",
+      "kind": "volume",
+      "relativePath": "channels/AD.vxa"
+    },
+    {
+      "key": "channel.RD",
+      "kind": "volume",
+      "relativePath": "channels/RD.vxa"
+    },
+    {
+      "key": "channel.Mask",
+      "kind": "volume",
+      "relativePath": "channels/Mask.vxa"
+    },
+    {
+      "key": "mesh.surface",
+      "kind": "mesh",
+      "relativePath": "meshes/surface.meshb"
+    },
+    {
+      "key": "mesh.streamlines",
+      "kind": "mesh",
+      "relativePath": "meshes/streamlines.meshb"
+    }
+  ],
+  "formatVersion": 1,
+  "parameters": {
+    "bvalPath": "assets/volumes/dwi/human/HARDI150.bval",
+    "bvecPath": "assets/volumes/dwi/human/HARDI150.bvec",
+    "dwiVolumePath": "assets/volumes/dwi/human/HARDI150_hdbet_masked4d.nii.gz",
+    "tractography": {
+      "faSeedThreshold": 0.4000000059604645,
+      "faStopThreshold": 0.30000001192092896,
+      "l1StopThreshold": 9.999999974752427e-07,
+      "maxSeeds": 3000,
+      "maxStepsPerStreamline": 250,
+      "minPointsPerStreamline": 15,
+      "preset": "Balanced",
+      "seedStride": 1,
+      "stepSizeVoxels": 0.30000001192092896,
+      "tubeRadialSegments": 3,
+      "tubeRadius": 0.0010000000474974513
+    }
+  },
+  "preprocessorType": "dti",
+  "sourceVolumePath": "assets/volumes/dwi/human/HARDI150_hdbet_masked4d.nii.gz",
+  "warnings": []
+}

@@ -150,6 +150,11 @@ std::string MriTractographySettings::GetInspectDisplayName() const
   return "Tractography Settings";
 }
 
+std::string MriTractographySettings::GetMatchedPresetName() const
+{
+  return CurrentPresetName(*this);
+}
+
 std::vector<InspectFieldPtr> MriTractographySettings::GetInspectFields()
 {
   std::vector<InspectFieldPtr> fields;

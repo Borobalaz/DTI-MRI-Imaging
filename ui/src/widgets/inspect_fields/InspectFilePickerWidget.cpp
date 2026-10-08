@@ -19,9 +19,13 @@ InspectFilePickerWidget::InspectFilePickerWidget(QWidget *parent)
   });
   QObject::connect(browseButton, &QPushButton::clicked, this, [this]()
   {
-    const QString selectedPath = QFileDialog::getOpenFileName(
-        this, dialogTitleValue.isEmpty() ? QStringLiteral("Select file") : dialogTitleValue,
-        currentDirectory(), fileFilterValue);
+    const QString selectedPath = pickDirectoryValue
+        ? QFileDialog::getExistingDirectory(
+              this, dialogTitleValue.isEmpty() ? QStringLiteral("Select folder") : dialogTitleValue,
+              currentDirectory())
+        : QFileDialog::getOpenFileName(
+              this, dialogTitleValue.isEmpty() ? QStringLiteral("Select file") : dialogTitleValue,
+              currentDirectory(), fileFilterValue);
     if (selectedPath.isEmpty()) return;
     SetValue(selectedPath);
     if (valueChangedCallback) valueChangedCallback(GetValue());
@@ -30,7 +34,8 @@ InspectFilePickerWidget::InspectFilePickerWidget(QWidget *parent)
 
 InspectFilePickerWidget::InspectFilePickerWidget(QString fieldId, QString displayName,
                                                  QString groupName, QString dialogTitle,
-                                                 QString fileFilter, bool readOnly, QWidget *parent)
+                                                 QString fileFilter, bool readOnly, QWidget *parent,
+                                                 bool pickDirectory)
   : InspectFilePickerWidget(parent)
 {
   fieldIdValue = std::move(fieldId);
@@ -39,6 +44,7 @@ InspectFilePickerWidget::InspectFilePickerWidget(QString fieldId, QString displa
   dialogTitleValue = std::move(dialogTitle);
   fileFilterValue = std::move(fileFilter);
   readOnlyValue = readOnly;
+  pickDirectoryValue = pickDirectory;
   pathEdit->setReadOnly(readOnlyValue);
   browseButton->setEnabled(!readOnlyValue);
 }
@@ -62,5 +68,7 @@ QString InspectFilePickerWidget::currentDirectory() const
   const QString text = pathEdit->text().trimmed();
   if (text.isEmpty()) return QString();
   const QFileInfo info(text);
-  return info.exists() ? info.absolutePath() : QString();
+  if (!info.exists()) return QString();
+  if (pickDirectoryValue) return info.isDir() ? info.absoluteFilePath() : info.absolutePath();
+  return info.absolutePath();
 }

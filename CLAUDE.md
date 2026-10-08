@@ -33,7 +33,7 @@ cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.
 cmake --build build --config Release
 ```
 
-Required dependencies (`vcpkg install ... glm glad assimp stb`, plus Qt6 Core/Gui/Widgets/OpenGL/OpenGLWidgets/Svg): see `CMakeLists.txt`'s `find_package` calls. ITK (`ITKCommon`, `ITKIOImageBase`, `ITKIONIFTI`, `ITKIONRRD`, `ITKIOMeta`, `ITKIOGDCM`) is a `QUIET` optional dependency gated by `CONNECTOMICS_ENABLE_ITK_IO`; code that needs ITK I/O must guard with that macro since it may not be present.
+Required dependencies (`vcpkg install ... glm glad assimp stb nlohmann-json`, plus Qt6 Core/Gui/Widgets/OpenGL/OpenGLWidgets/Svg): see `CMakeLists.txt`'s `find_package` calls. ITK (`ITKCommon`, `ITKIOImageBase`, `ITKIONIFTI`, `ITKIONRRD`, `ITKIOMeta`, `ITKIOGDCM`) is a `QUIET` optional dependency gated by `CONNECTOMICS_ENABLE_ITK_IO`; code that needs ITK I/O must guard with that macro since it may not be present.
 
 There is no automated test suite in this repo (no test target, no test framework dependency).
 
@@ -71,6 +71,8 @@ Stage order (see `docs/DTI_PREPROCESSOR_CLASSDIAGRAM.md` for full sequence/field
 Tractography parameters live in `MriTractographySettings` (FA seed/stop thresholds, step size in voxels, max steps, seed stride/max seeds, tube radius/segments) and it implements `InspectProvider` so its fields are editable through the same inspection mechanism as scene objects.
 
 To add a stage: implement `IMriPreprocessingStage`, add a factory function (in the generic or model-specific factory header as appropriate), and register it via `AddStage()` in the relevant preprocessor's constructor (e.g. `MriToDtiPreprocessor`).
+
+Saved preprocessing datasets (payload files + a `metadata.json` provenance/parameters manifest) are read/written through `core/include/Preprocessing/io/` — a registry (`PreprocessingDatasetFormatRegistry`) dispatches `IPreprocessingDatasetWriter`/`IPreprocessingDatasetReader` implementations by a `preprocessorType` string, so each reconstruction model's save/load format is independent. DTI's implementation lives under `io/dti/` (`DtiPreprocessingDatasetWriter`/`Reader`, plus `DtiPreprocessingParameters` for provenance JSON); to add a new preprocessor's saved-dataset support (e.g. a future fODF model), implement the two interfaces for it and register both inside `GetDefaultPreprocessingDatasetFormatRegistry()` (`core/src/preprocessing/io/PreprocessingDatasetFormats.cpp`) — no other file under `Preprocessing/io` needs to change. `DtiVolumeScene` exposes "Save current dataset..."/"Load dataset" actions through the same inspection contract as its other controls.
 
 `DtiVolumeScene` (`core/include/DtiVolumeScene.h`) is the concrete DTI scene builder; it depends on engine-private `Scene`/`GameObject` types, a pre-existing exception to `core`'s engine-independence.
 

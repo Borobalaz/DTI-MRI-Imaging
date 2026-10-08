@@ -1,34 +1,21 @@
 #include "Preprocessing/MriPreprocessingRunner.h"
 
+#include <any>
 #include <filesystem>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 
+#include "Preprocessing/MriTractographySettings.h"
+#include "Preprocessing/io/PreprocessingDatasetFormats.h"
+#include "Preprocessing/io/dti/DtiPreprocessingParameters.h"
 #include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
-#include "Volume/VolumeFileLoader.h"
-
-namespace
-{
-  std::string BuildOutputPath(const std::filesystem::path &outputDirectory,
-                              const std::string &outputBasename,
-                              const std::string &channelSuffix)
-  {
-    return (outputDirectory / (outputBasename + "_" + channelSuffix + ".vxa")).string();
-  }
-
-  void SaveOrThrow(const std::string &outputPath, const VolumeData &volume)
-  {
-    if (!VolumeFileLoader::Save(outputPath, volume))
-    {
-      throw std::runtime_error("Failed to save preprocessed channel: " + outputPath);
-    }
-  }
-}
 
 MriPreprocessingRunner::MriPreprocessingRunner() = default;
 
 /**
- * @brief Run the MRI preprocessing pipeline with the given request.
+ * @brief Run the MRI preprocessing pipeline with the given request and persist its output
+ *        (volume channels, meshes, and provenance metadata) to disk.
  *
  * @param request
  * @return MriPreprocessingRunnerResult
@@ -61,14 +48,35 @@ MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingR
   MriPreprocessingRunnerResult runnerResult;
   runnerResult.preprocessingResult = preprocessor.Process(request.preprocessingRequest);
 
-  const DTIVolumeChannels &channels = runnerResult.preprocessingResult.dtiChannels;
+  // Save volume channels, meshes, and provenance metadata to disk
+  static const MriTractographySettings defaultTractographySettings;
+  const MriTractographySettings &tractographySettings = request.preprocessingRequest.tractographySettings
+      ? *request.preprocessingRequest.tractographySettings
+      : defaultTractographySettings;
 
-  // Save volume channels to disk 
+  const std::string parametersJson = BuildDtiPreprocessingParametersJson(
+      request.preprocessingRequest, tractographySettings, tractographySettings.GetMatchedPresetName());
 
-  
+  const std::shared_ptr<IPreprocessingDatasetWriter> writer =
+      GetDefaultPreprocessingDatasetFormatRegistry().FindWriter("dti");
+  if (!writer)
+  {
+    throw std::runtime_error("No dataset writer registered for preprocessor type 'dti'.");
+  }
+
+  const PreprocessingDatasetMetadata metadata = writer->Write(
+      std::any(runnerResult.preprocessingResult), outputDirectoryPath.string(), outputBaseName, parametersJson);
+
+  const std::filesystem::path datasetDirectory = outputDirectoryPath / outputBaseName;
+  runnerResult.writtenFiles.push_back((datasetDirectory / "metadata.json").string());
+  for (const PreprocessingDatasetFileEntry &entry : metadata.files)
+  {
+    runnerResult.writtenFiles.push_back((datasetDirectory / entry.relativePath).string());
+  }
+
   // Mark as successful if we reached this point without exceptions
   runnerResult.success = true;
-  runnerResult.message = "Preprocessing completed and channels were written to " + outputDirectoryPath.string();
+  runnerResult.message = "Preprocessing completed and channels were written to " + datasetDirectory.string();
   return runnerResult;
 }
 

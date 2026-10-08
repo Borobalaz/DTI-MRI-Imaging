@@ -16,6 +16,7 @@ find_package(OpenGL REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_package(ITK CONFIG QUIET COMPONENTS
     ITKCommon
     ITKIOImageBase
@@ -66,6 +67,10 @@ target_link_libraries(engine PUBLIC
     glm::glm
     glad::glad
     assimp::assimp
+)
+
+target_link_libraries(engine PRIVATE
+    nlohmann_json::nlohmann_json
 )
 
 if (ITK_FOUND)

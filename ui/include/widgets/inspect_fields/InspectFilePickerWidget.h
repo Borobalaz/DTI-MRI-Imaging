@@ -22,7 +22,8 @@ public:
   InspectFilePickerWidget(QString fieldId, QString displayName, QString groupName,
                           QString dialogTitle = QString(),
                           QString fileFilter = QStringLiteral("All files (*.*)"),
-                          bool readOnly = false, QWidget *parent = nullptr);
+                          bool readOnly = false, QWidget *parent = nullptr,
+                          bool pickDirectory = false);
   IInspectWidget *addToLayout(QHBoxLayout *layout) override;
   QString fieldId() const override;
   QString displayName() const override;
@@ -42,6 +43,7 @@ private:
   QString dialogTitleValue;
   QString fileFilterValue;
   bool readOnlyValue = false;
+  bool pickDirectoryValue = false;
   QLineEdit *pathEdit = nullptr;
   QPushButton *browseButton = nullptr;
 };

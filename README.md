@@ -59,7 +59,7 @@ cd D:/DevTools/vcpkg
 Install the required libraries for the configured `x64-windows` triplet:
 
 ```powershell
-.\vcpkg.exe install glm:x64-windows glad:x64-windows assimp:x64-windows stb:x64-windows
+.\vcpkg.exe install glm:x64-windows glad:x64-windows assimp:x64-windows stb:x64-windows nlohmann-json:x64-windows
 ```
 
 Install Qt 6 (MSVC 2022 64-bit) through the Qt Online Installer. 
@@ -83,6 +83,7 @@ The scripts use `QT_ROOT` first, then the Qt root and candidate paths in `settin
 - `assimp`
 - `Qt6` (`Core`, `Gui`, `Widgets`, `OpenGL`, `OpenGLWidgets`)
 - `stb_image.h` (provided by vcpkg package `stb`)
+- `nlohmann-json` (saved preprocessed-dataset `metadata.json` serialization)
 
 The normal build command supplies these equivalent CMake options from `settings.json`:
 
