@@ -1,6 +1,5 @@
 #include "widgets/SceneObjectListWidget.h"
 
-#include <QLabel>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
@@ -10,17 +9,11 @@
 SceneObjectListWidget::SceneObjectListWidget(QWidget *parent)
   : QFrame(parent)
 {
-  setObjectName("objectsPanel");
-  setMinimumWidth(280);
-  setMaximumWidth(280);
+  setMinimumWidth(220);
 
   auto *objectsLayout = new QVBoxLayout(this);
   objectsLayout->setContentsMargins(12, 12, 12, 12);
   objectsLayout->setSpacing(8);
-
-  auto *objectsTitle = new QLabel("Objects", this);
-  objectsTitle->setObjectName("panelTitle");
-  objectsLayout->addWidget(objectsTitle);
 
   scrollArea = new QScrollArea(this);
   scrollArea->setObjectName("objectsScrollArea");

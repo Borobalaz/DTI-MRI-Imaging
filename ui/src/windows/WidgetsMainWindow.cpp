@@ -1,8 +1,12 @@
 #include "windows/WidgetsMainWindow.h"
 
+#include <QCloseEvent>
+#include <QDockWidget>
 #include <QFrame>
-#include <QGridLayout>
+#include <QGuiApplication>
 #include <QIcon>
+#include <QScreen>
+#include <QSettings>
 #include <QVBoxLayout>
 
 #if defined(Q_OS_WIN)
@@ -41,7 +45,7 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
   // Build the toolbar
   setupToolBar();
 
-  // Wire signals between the QTSceneInspector, the scene object list 
+  // Wire signals between the QTSceneInspector, the scene object list
   //  and inspector widgets, to synchronize state between them
   wireAdapterSignals();
 
@@ -52,31 +56,76 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
   resize(1600, 900);
   setWindowTitle("3D Engine");
   setWindowIcon(QIcon(":/icons/app-icon.svg"));
+
+  // Restore the user's last dock/geometry arrangement, if any
+  restoreLayoutState();
+}
+
+void WidgetsMainWindow::closeEvent(QCloseEvent *event)
+{
+  saveLayoutState();
+  QMainWindow::closeEvent(event);
+}
+
+void WidgetsMainWindow::saveLayoutState()
+{
+  QSettings settings;
+  settings.setValue("mainWindow/geometry", saveGeometry());
+  settings.setValue("mainWindow/state", saveState());
+}
+
+void WidgetsMainWindow::restoreLayoutState()
+{
+  const QSettings settings;
+
+  const QVariant geometry = settings.value("mainWindow/geometry");
+  if (geometry.isValid())
+  {
+    restoreGeometry(geometry.toByteArray());
+  }
+
+  // Guard against a stale/corrupt saved geometry leaving the window minimized, zero-sized,
+  //  or positioned off every connected screen (invisible, with no on-screen way to recover it).
+  bool onScreen = false;
+  for (const QScreen *screen : QGuiApplication::screens())
+  {
+    if (screen->availableGeometry().intersects(frameGeometry()))
+    {
+      onScreen = true;
+      break;
+    }
+  }
+
+  if (isMinimized() || frameGeometry().width() < 200 || frameGeometry().height() < 150 || !onScreen)
+  {
+    setWindowState(windowState() & ~Qt::WindowMinimized);
+    resize(1600, 900);
+    if (const QScreen *primaryScreen = QGuiApplication::primaryScreen())
+    {
+      move(primaryScreen->availableGeometry().center() - rect().center());
+    }
+  }
+
+  const QVariant state = settings.value("mainWindow/state");
+  if (state.isValid())
+  {
+    restoreState(state.toByteArray());
+  }
 }
 
 /**
- * @brief Build the main window ui layout. 
- *  This is a GridLayout with 3 columns and 2 rows. 
- *  The left column has the scene object list and render statistics widgets, 
- *  the middle column has the viewport, and the right column has the inspector.
- * 
+ * @brief Build the main window ui layout.
+ *  The viewport is the central widget; the scene object list, render statistics,
+ *  and inspector panels are dockable QDockWidgets that can be freely moved, resized,
+ *  floated, or tabbed by the user.
+ *
  */
 void WidgetsMainWindow::setupLayout()
 {
-  // Root widget
-  auto *root = new QWidget(this);
-  auto *rootLayout = new QGridLayout(root);
-  rootLayout->setContentsMargins(12, 12, 12, 12);
-  rootLayout->setSpacing(12);
+  setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
 
-  // Left panel: scene object list
-  sceneObjectListWidget = new SceneObjectListWidget(root);
-
-  // Left-bottom panel: render statistics
-  renderStatisticsWidget = new RenderStatisticsWidget(root);
-
-  // Scene viewport
-  auto *viewportPanel = new QFrame(root);
+  // Scene viewport (central widget)
+  auto *viewportPanel = new QFrame(this);
   viewportPanel->setObjectName("viewportPanel");
   auto *viewportLayout = new QVBoxLayout(viewportPanel);
   viewportLayout->setContentsMargins(1, 1, 1, 1);
@@ -84,23 +133,32 @@ void WidgetsMainWindow::setupLayout()
   viewportWidget = new OpenGLViewportWidget(viewportPanel);
   viewportLayout->addWidget(viewportWidget, 1);
 
-  // Right panel: inspector
-  inspectorWidget = new InspectorWidget(root);
+  setCentralWidget(viewportPanel);
+
+  // Left dock: scene object list
+  sceneObjectListWidget = new SceneObjectListWidget(this);
+  objectsDock = new QDockWidget(tr("Objects"), this);
+  objectsDock->setObjectName("objectsDock");
+  objectsDock->setWidget(sceneObjectListWidget);
+
+  // Left dock (stacked below objects): render statistics
+  renderStatisticsWidget = new RenderStatisticsWidget(this);
+  statsDock = new QDockWidget(tr("Render Statistics"), this);
+  statsDock->setObjectName("renderStatsDock");
+  statsDock->setWidget(renderStatisticsWidget);
+
+  // Right dock: inspector
+  inspectorWidget = new InspectorWidget(this);
+  inspectorDock = new QDockWidget(tr("Inspector"), this);
+  inspectorDock->setObjectName("inspectorDock");
+  inspectorDock->setWidget(inspectorWidget);
 
   renderStatisticsWidget->setRenderStatistics(viewportWidget->renderStatistics());
 
-  // Assemble root layout
-  rootLayout->addWidget(sceneObjectListWidget, 0, 0);
-  rootLayout->addWidget(renderStatisticsWidget, 1, 0);
-  rootLayout->addWidget(viewportPanel, 0, 1, 2, 1);
-  rootLayout->addWidget(inspectorWidget, 0, 2, 2, 1);
-  rootLayout->setRowStretch(0, 1);
-  rootLayout->setRowStretch(1, 0);
-  rootLayout->setColumnStretch(0, 0);
-  rootLayout->setColumnStretch(1, 1);
-  rootLayout->setColumnStretch(2, 0);
-
-  setCentralWidget(root);
+  // Assemble the default dock arrangement
+  addDockWidget(Qt::LeftDockWidgetArea, objectsDock);
+  splitDockWidget(objectsDock, statsDock, Qt::Vertical);
+  addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
 }
 
 void WidgetsMainWindow::setupToolBar()
@@ -111,9 +169,7 @@ void WidgetsMainWindow::setupToolBar()
   {
     toggleTheme();
   });
-  QObject::connect(toolBar, &MainToolBar::objectListVisibilityToggled, sceneObjectListWidget, &QWidget::setVisible);
-  QObject::connect(toolBar, &MainToolBar::statsVisibilityToggled, renderStatisticsWidget, &QWidget::setVisible);
-  QObject::connect(toolBar, &MainToolBar::inspectorVisibilityToggled, inspectorWidget, &QWidget::setVisible);
+  toolBar->setViewActions({objectsDock->toggleViewAction(), statsDock->toggleViewAction(), inspectorDock->toggleViewAction()});
 
   addToolBar(Qt::TopToolBarArea, toolBar);
 }

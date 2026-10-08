@@ -23,22 +23,7 @@ MainToolBar::MainToolBar(QWidget *parent)
   addWidget(fileButton);
 
   // View dropdown
-  auto *viewMenu = new QMenu(tr("View"), this);
-
-  auto *toggleObjectListAction = viewMenu->addAction(tr("Objects"));
-  toggleObjectListAction->setCheckable(true);
-  toggleObjectListAction->setChecked(true);
-  QObject::connect(toggleObjectListAction, &QAction::toggled, this, &MainToolBar::objectListVisibilityToggled);
-
-  auto *toggleStatsAction = viewMenu->addAction(tr("Stats"));
-  toggleStatsAction->setCheckable(true);
-  toggleStatsAction->setChecked(true);
-  QObject::connect(toggleStatsAction, &QAction::toggled, this, &MainToolBar::statsVisibilityToggled);
-
-  auto *toggleInspectorAction = viewMenu->addAction(tr("Inspector"));
-  toggleInspectorAction->setCheckable(true);
-  toggleInspectorAction->setChecked(true);
-  QObject::connect(toggleInspectorAction, &QAction::toggled, this, &MainToolBar::inspectorVisibilityToggled);
+  viewMenu = new QMenu(tr("View"), this);
 
   auto *viewButton = new QToolButton(this);
   viewButton->setText(tr("View"));
@@ -51,4 +36,12 @@ MainToolBar::MainToolBar(QWidget *parent)
   auto *toggleThemeAction = addAction(tr("Toggle Theme"));
   toggleThemeAction->setToolTip(tr("Switch between dark and light theme (Ctrl+Shift+T)"));
   QObject::connect(toggleThemeAction, &QAction::triggered, this, &MainToolBar::toggleThemeRequested);
+}
+
+void MainToolBar::setViewActions(const QList<QAction *> &actions)
+{
+  for (QAction *action : actions)
+  {
+    viewMenu->addAction(action);
+  }
 }

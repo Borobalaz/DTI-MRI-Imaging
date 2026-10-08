@@ -11,7 +11,7 @@ Primary build evidence: `CMakeLists.txt` (`add_executable(app_qt ...)`). The app
 | Module | Role | Main inputs | Main outputs | Ownership |
 |---|---|---|---|---|
 | Application entry | Configures Qt and the default OpenGL surface format | Process arguments and Qt runtime | `QApplication`, `WidgetsMainWindow`, event loop | Qt owns the application loop; `main` owns the top-level window |
-| Main window | Composes the main layout and coordinates UI signals | Viewport, inspector, object list, stats widgets | Window layout and cross-widget synchronization | Window owns its child widgets through Qt parent ownership/raw child pointers |
+| Main window | Composes the main layout and coordinates UI signals | Viewport, inspector, object list, stats widgets | Window layout (viewport as central widget; object list, stats, and inspector as movable/resizable/floatable `QDockWidget`s) and cross-widget synchronization | Window owns its child widgets through Qt parent ownership/raw child pointers |
 | OpenGL viewport | Bridges Qt's `QOpenGLWidget` lifecycle to the engine frame loop | Qt input events, OpenGL context, timer ticks | Engine scene updates/renders and render statistics | Viewport owns the scene, renderer helpers, inspector adapter, and timers |
 | Scene inspector adapter | Converts engine inspection providers and fields into Qt objects/signals | Engine `InspectProvider`, `InspectField`, ray-selection requests | `QObjectList`, QVariant metadata/values, Qt signals | Adapter owns Qt field wrappers and snapshots; engine owns provider state |
 | Inspector widgets | Presents editable fields and sends user edits back through callbacks | Qt field objects and QVariant values | Qt controls and field mutation callbacks | Qt parent/widget ownership controls visual lifetime |
@@ -21,7 +21,7 @@ Primary build evidence: `CMakeLists.txt` (`add_executable(app_qt ...)`). The app
 ## Runtime Flow
 
 1. `ui/src/app/main.cpp` configures a 3.3 core OpenGL surface and creates `QApplication`.
-2. `WidgetsMainWindow` creates and lays out the viewport, inspector, object list, and statistics widgets.
+2. `WidgetsMainWindow` creates the viewport as the central widget and docks the inspector, object list, and statistics widgets as dockable panels the user can rearrange, resize, or float; the arrangement is persisted across sessions via `QSettings`.
 3. `OpenGLViewportWidget::initializeGL` receives the current Qt context and calls the engine's `InitializeEngineOpenGL` entry point.
 4. The viewport constructs and initializes an engine `Scene`, registers render extractors, attaches camera movement, and gives the scene's providers to `QTSceneInspector`.
 5. On each `paintGL`, the viewport synchronizes inspector providers, updates camera/scene state, builds a render frame from typed render commands, invokes its renderer, and publishes frame statistics.

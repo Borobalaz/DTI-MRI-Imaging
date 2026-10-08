@@ -5,6 +5,9 @@
 
 int main(int argc, char *argv[])
 {
+  QCoreApplication::setOrganizationName("DTI-MRI-Imaging");
+  QCoreApplication::setApplicationName("Engine");
+
   QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 
   // Set up the default OpenGL surface format for the application.

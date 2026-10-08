@@ -12,17 +12,11 @@
 InspectorWidget::InspectorWidget(QWidget *parent)
   : QFrame(parent)
 {
-  setObjectName("inspectorPanel");
-  setMinimumWidth(320);
-  setMaximumWidth(320);
+  setMinimumWidth(260);
 
   auto *inspectorPanelLayout = new QVBoxLayout(this);
   inspectorPanelLayout->setContentsMargins(12, 12, 12, 12);
   inspectorPanelLayout->setSpacing(8);
-
-  auto *inspectorTitle = new QLabel("Inspector", this);
-  inspectorTitle->setObjectName("panelTitle");
-  inspectorPanelLayout->addWidget(inspectorTitle);
 
   auto *scrollArea = new QScrollArea(this);
   scrollArea->setObjectName("inspectorScrollArea");

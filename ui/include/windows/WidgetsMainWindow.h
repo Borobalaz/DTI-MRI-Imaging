@@ -6,6 +6,9 @@
 
 #include "controllers/MainWindowShortcuts.h"
 
+class QDockWidget;
+class QCloseEvent;
+
 class OpenGLViewportWidget;
 class InspectorWidget;
 class RenderStatisticsWidget;
@@ -19,6 +22,9 @@ class WidgetsMainWindow : public QMainWindow
 public:
   explicit WidgetsMainWindow(QWidget *parent = nullptr);
 
+protected:
+  void closeEvent(QCloseEvent *event) override;
+
 private:
   void setupLayout();
   void setupToolBar();
@@ -26,6 +32,9 @@ private:
   void applyTheme();
   void toggleTheme();
   void applyTitleBarTheme();
+
+  void saveLayoutState();
+  void restoreLayoutState();
 
   void refreshObjectList();
   void syncObjectSelection();
@@ -38,6 +47,10 @@ private:
   RenderStatisticsWidget *renderStatisticsWidget = nullptr;
 
   SceneObjectListWidget *sceneObjectListWidget = nullptr;
+
+  QDockWidget *objectsDock = nullptr;
+  QDockWidget *statsDock = nullptr;
+  QDockWidget *inspectorDock = nullptr;
 
   MainToolBar *toolBar = nullptr;
 };

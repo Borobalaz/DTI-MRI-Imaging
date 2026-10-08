@@ -8,18 +8,12 @@
 RenderStatisticsWidget::RenderStatisticsWidget(QWidget *parent)
   : QFrame(parent)
 {
-  setObjectName("renderStatsPanel");
-  setMinimumWidth(280);
-  setMaximumWidth(280);
+  setMinimumWidth(220);
 
   auto *layout = new QFormLayout(this);
   layout->setContentsMargins(12, 12, 12, 12);
   layout->setHorizontalSpacing(12);
   layout->setVerticalSpacing(6);
-
-  auto *titleLabel = new QLabel("Render Statistics", this);
-  titleLabel->setObjectName("panelTitle");
-  layout->addRow(titleLabel);
 
   fpsValueLabel = new QLabel("0.00", this);
   averageFpsValueLabel = new QLabel("0.00", this);
