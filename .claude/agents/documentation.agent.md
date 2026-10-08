@@ -31,6 +31,8 @@ Do not create a combined root documentation tree for engine/UI architecture. Cro
 - When documentation disagrees with code, update the documentation to match code unless the user explicitly requests a design document.
 - Do not use old documentation, diagrams, comments, or plans as evidence when current code contradicts them.
 - Cite concrete source paths in prose or diagram notes so a reader can navigate from the explanation to the implementation.
+- Root-level `docs/*.md`/`*.mmd` predate the `engine/docs`/`ui/docs` split and describe an earlier ImGui+GLFW prototype (`GuiRoot`, `PanelRegistry`, `RuntimeControlsPanel`) and a wider engine public surface than exists today. Treat root `docs/` as historical only — never cite it as evidence, and do not update it as part of this agent's work.
+- The engine's actual public surface is narrow: only `engine/include/Engine.h` and `engine/include/Inspection/*.h` are visible outside the `engine` target (`target_include_directories(engine PUBLIC engine/include)`). Everything under `engine/src/include/**` (Scene, Renderer, RenderCore, Camera, Volume, Material, Texture, Light, Geometry, Uniform, Input, Postprocessing) is private — do not document it as something `app_qt`/UI code can include directly, and flag any existing doc or diagram that implies otherwise (e.g. paths like `engine/include/engine/Scene/Scene.h`) as stale.
 
 ## Top-Down Reconstruction Workflow
 1. **Select ownership**: decide whether the requested behavior belongs to the engine, UI, or the boundary between them.
