@@ -2,7 +2,7 @@
 
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
-class DWIScalarSynthesisStage final : public IMriPreprocessingStage
+class DWINormalizationStage final : public IMriPreprocessingStage
 {
 public:
   const char *Name() const override;

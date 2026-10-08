@@ -9,7 +9,7 @@ struct MriPreprocessingRunnerRequest
 {
   MriPreprocessingRequest preprocessingRequest;
   std::string outputDirectory;
-  std::string outputBasename = "dti_proxy";
+  std::string outputBasename = "mri_proxy";
 };
 
 struct MriPreprocessingRunnerResult

@@ -7,7 +7,7 @@
 
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
-class DWITensorSynthesisStage final : public IMriPreprocessingStage
+class DtiTensorSynthesisStage final : public IMriPreprocessingStage
 {
 public:
   const char* Name() const override;

@@ -1,4 +1,4 @@
-#include "Preprocessing/stages/DWITensorSynthesisStage.h"
+#include "Preprocessing/stages/dti/DtiTensorSynthesisStage.h"
 
 #include <algorithm>
 #include <array>
@@ -13,7 +13,7 @@
 #include <vector>
 #include <iostream>
 
-#include "Preprocessing/MriPreprocessingStages.h"
+#include "Preprocessing/stages/dti/DtiPreprocessingStages.h"
 #include "Volume/VolumeData.h"
 #include "Volume/VolumeFileLoader.h"
 
@@ -31,7 +31,7 @@ namespace
  *
  * @return const char*
  */
-const char *DWITensorSynthesisStage::Name() const
+const char *DtiTensorSynthesisStage::Name() const
 {
   return "DWI tensor OLS fit";
 }
@@ -41,7 +41,7 @@ const char *DWITensorSynthesisStage::Name() const
  *
  * @param context
  */
-void DWITensorSynthesisStage::Execute(MriPreprocessingContext &context) const
+void DtiTensorSynthesisStage::Execute(MriPreprocessingContext &context) const
 {
   const auto dwiSeries = VolumeFileLoader::LoadSeries(context.selectedDwiVolumePath).value();
   const int frameCount = dwiSeries.GetFrameCount();
@@ -108,12 +108,12 @@ void DWITensorSynthesisStage::Execute(MriPreprocessingContext &context) const
     }
   }
 
-  context.outputChannels.Dxx = std::move(Dxx);
-  context.outputChannels.Dyy = std::move(Dyy);
-  context.outputChannels.Dzz = std::move(Dzz);
-  context.outputChannels.Dxy = std::move(Dxy);
-  context.outputChannels.Dxz = std::move(Dxz);
-  context.outputChannels.Dyz = std::move(Dyz);
+  context.outputDtiChannels.Dxx = std::move(Dxx);
+  context.outputDtiChannels.Dyy = std::move(Dyy);
+  context.outputDtiChannels.Dzz = std::move(Dzz);
+  context.outputDtiChannels.Dxy = std::move(Dxy);
+  context.outputDtiChannels.Dxz = std::move(Dxz);
+  context.outputDtiChannels.Dyz = std::move(Dyz);
 }
 
 /**
@@ -124,7 +124,7 @@ void DWITensorSynthesisStage::Execute(MriPreprocessingContext &context) const
  * @param gradients
  * @return std::array<float, 6>
  */
-std::array<float, 6> DWITensorSynthesisStage::EstimateTensorFromSignal(
+std::array<float, 6> DtiTensorSynthesisStage::EstimateTensorFromSignal(
     const std::vector<float> &dwiSignal,
     const std::vector<float> &bValues,
     const std::vector<glm::vec3> &gradients) const
@@ -208,7 +208,7 @@ std::array<float, 6> DWITensorSynthesisStage::EstimateTensorFromSignal(
  * @param g The gradient direction.
  * @return std::array<float, 6> The design row.
  */
-std::array<float, 6> DWITensorSynthesisStage::BuildDesignRow(float b, const glm::vec3 &g)
+std::array<float, 6> DtiTensorSynthesisStage::BuildDesignRow(float b, const glm::vec3 &g)
 {
   return {
       -b * g.x * g.x,
@@ -226,7 +226,7 @@ std::array<float, 6> DWITensorSynthesisStage::BuildDesignRow(float b, const glm:
  * @param rhs The right-hand side vector.
  * @return std::array<float, 6> The solution vector.
  */
-std::array<float, 6> DWITensorSynthesisStage::SolveSymmetricSystem6x6(
+std::array<float, 6> DtiTensorSynthesisStage::SolveSymmetricSystem6x6(
     std::array<std::array<float, 6>, 6> normalMatrix,
     std::array<float, 6> rhs)
 {
@@ -287,11 +287,11 @@ std::array<float, 6> DWITensorSynthesisStage::SolveSymmetricSystem6x6(
 }
 
 /**
- * @brief Create a DWI tensor fitting stage object.
+ * @brief Create a Dti Tensor Synthesis Stage object.
  *
  * @return std::unique_ptr<IMriPreprocessingStage>
  */
-std::unique_ptr<IMriPreprocessingStage> CreateDwiTensorSynthesisStage()
+std::unique_ptr<IMriPreprocessingStage> CreateDtiTensorSynthesisStage()
 {
-  return std::make_unique<DWITensorSynthesisStage>();
+  return std::make_unique<DtiTensorSynthesisStage>();
 }

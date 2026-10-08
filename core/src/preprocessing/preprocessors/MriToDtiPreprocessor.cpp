@@ -1,19 +1,20 @@
-#include "Preprocessing/MriToDtiPreprocessor.h"
+#include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
 
 #include <memory>
 
-#include "Preprocessing/MriPreprocessingStages.h"
+#include "Preprocessing/stages/CommonPreprocessingStages.h"
+#include "Preprocessing/stages/dti/DtiPreprocessingStages.h"
 
 MriToDtiPreprocessor::MriToDtiPreprocessor()
 {
   pipeline
     .AddStage(CreateDwiInputValidationStage())
     .AddStage(CreateDwiGradientNormalizationStage())
-    .AddStage(CreateDwiTensorSynthesisStage())
-    .AddStage(CreateDwiPrincipalEigenvectorStage())
-    .AddStage(CreateDwiScalarSynthesisStage())
+    .AddStage(CreateDtiTensorSynthesisStage())
+    .AddStage(CreateDtiPrincipalEigenvectorStage())
+    .AddStage(CreateDtiScalarSynthesisStage())
     .AddStage(CreateDwiBrainSurfaceMeshStage())
-    .AddStage(CreateDwiFiberTractographyStage())
+    .AddStage(CreateDtiFiberTractographyStage())
     .AddStage(CreateDwiNormalizationStage());
 }
 

@@ -128,7 +128,7 @@ bool DtiVolumeScene::ApplyPreprocessingResult(const MriPreprocessingResult &resu
   (*volumeShader)["shader.sliceZ"] = 0.5f;
   (*volumeShader)["shader.density"] = 1.0f;
 
-  dtiVolume = std::make_shared<DTIVolume>("dti_volume_main", result.channels, volumeShader);
+  dtiVolume = std::make_shared<DTIVolume>("dti_volume_main", result.dtiChannels, volumeShader);
   dtiVolume->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
   dtiVolume->SetSelectedRenderModeIndex(previousRenderMode);
   dtiVolume->SetSelectedChannelIndex(previousChannel);

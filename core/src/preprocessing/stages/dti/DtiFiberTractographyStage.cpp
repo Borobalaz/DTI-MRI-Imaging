@@ -1,4 +1,4 @@
-#include "Preprocessing/stages/DWIFiberTractographyStage.h"
+#include "Preprocessing/stages/dti/DtiFiberTractographyStage.h"
 
 #include <algorithm>
 #include <cmath>
@@ -10,11 +10,10 @@
 
 #include "Mesh.h"
 #include "Preprocessing/MriTractographySettings.h"
-#include "Preprocessing/MriPreprocessingStages.h"
 #include "Geometry/TubeGeometry.h"
 #include "Volume/VolumeData.h"
 
-struct DWIFiberTractographyStage::TractographySettings
+struct DtiFiberTractographyStage::TractographySettings
 {
   float faSeedThreshold = 0.4f;
   float faStopThreshold = 0.3f;
@@ -36,7 +35,7 @@ struct DWIFiberTractographyStage::TractographySettings
  * @param context Preprocessing context containing the request.
  * @return Tractography settings copied from the inspectable request object.
  */
-DWIFiberTractographyStage::TractographySettings DWIFiberTractographyStage::BuildTractographySettings(
+DtiFiberTractographyStage::TractographySettings DtiFiberTractographyStage::BuildTractographySettings(
     const MriPreprocessingContext &context)
 {
   TractographySettings settings;
@@ -66,7 +65,7 @@ DWIFiberTractographyStage::TractographySettings DWIFiberTractographyStage::Build
  * @param t Interpolation factor in the range [0, 1].
  * @return Interpolated value.
  */
-float DWIFiberTractographyStage::Lerp(float a, float b, float t)
+float DtiFiberTractographyStage::Lerp(float a, float b, float t)
 {
   return a + (b - a) * t;
 }
@@ -79,7 +78,7 @@ float DWIFiberTractographyStage::Lerp(float a, float b, float t)
  * @param dims Volume dimensions.
  * @return Interpolated scalar value.
  */
-float DWIFiberTractographyStage::SampleTrilinear(const std::vector<float> &voxels,
+float DtiFiberTractographyStage::SampleTrilinear(const std::vector<float> &voxels,
                                                  const glm::vec3 &point,
                                                  const glm::ivec3 &dims)
 {
@@ -133,7 +132,7 @@ float DWIFiberTractographyStage::SampleTrilinear(const std::vector<float> &voxel
  * @param dims Volume dimensions.
  * @return true if the point lies inside the volume bounds, false otherwise.
  */
-bool DWIFiberTractographyStage::IsVoxelSpacePointInBounds(const glm::vec3 &point, const glm::ivec3 &dims)
+bool DtiFiberTractographyStage::IsVoxelSpacePointInBounds(const glm::vec3 &point, const glm::ivec3 &dims)
 {
   return point.x >= 0.0f && point.y >= 0.0f && point.z >= 0.0f &&
          point.x <= static_cast<float>(dims.x - 1) &&
@@ -149,7 +148,7 @@ bool DWIFiberTractographyStage::IsVoxelSpacePointInBounds(const glm::vec3 &point
  * @param spacing Voxel spacing.
  * @return Corresponding object-space position.
  */
-glm::vec3 DWIFiberTractographyStage::VoxelToObjectSpace(const glm::vec3 &voxelPosition,
+glm::vec3 DtiFiberTractographyStage::VoxelToObjectSpace(const glm::vec3 &voxelPosition,
                                                         const glm::ivec3 &dims,
                                                         const glm::vec3 &spacing)
 {
@@ -178,7 +177,7 @@ glm::vec3 DWIFiberTractographyStage::VoxelToObjectSpace(const glm::vec3 &voxelPo
  * @param evz Z component channel.
  * @return Interpolated principal direction vector.
  */
-glm::vec3 DWIFiberTractographyStage::SampleTrilinearDirection(const glm::vec3 &voxelPosition,
+glm::vec3 DtiFiberTractographyStage::SampleTrilinearDirection(const glm::vec3 &voxelPosition,
                                                              const glm::ivec3 &dims,
                                                              const std::vector<float> &evx,
                                                              const std::vector<float> &evy,
@@ -198,7 +197,7 @@ glm::vec3 DWIFiberTractographyStage::SampleTrilinearDirection(const glm::vec3 &v
  * @param settings Tractography settings.
  * @return Seed positions in voxel coordinates.
  */
-std::vector<glm::vec3> DWIFiberTractographyStage::SelectSeedPoints(const VolumeData &faVolume,
+std::vector<glm::vec3> DtiFiberTractographyStage::SelectSeedPoints(const VolumeData &faVolume,
                                                                     const VolumeData &l1Volume,
                                                                     const TractographySettings &settings)
 {
@@ -254,7 +253,7 @@ std::vector<glm::vec3> DWIFiberTractographyStage::SelectSeedPoints(const VolumeD
  * @param previousDirection Previous direction used to preserve orientation continuity.
  * @return Normalized object-space direction vector.
  */
-glm::vec3 DWIFiberTractographyStage::SamplePrincipalDirection(const glm::vec3 &voxelPosition,
+glm::vec3 DtiFiberTractographyStage::SamplePrincipalDirection(const glm::vec3 &voxelPosition,
                                                              const glm::ivec3 &dims,
                                                              const glm::vec3 &spacing,
                                                              const std::vector<float> &evx,
@@ -312,7 +311,7 @@ glm::vec3 DWIFiberTractographyStage::SamplePrincipalDirection(const glm::vec3 &v
  * @param settings Tractography settings.
  * @return Streamline points in object space coordinates.
  */
-std::vector<glm::vec3> DWIFiberTractographyStage::TraceStreamlineFromSeed(const glm::vec3 &seedVoxel,
+std::vector<glm::vec3> DtiFiberTractographyStage::TraceStreamlineFromSeed(const glm::vec3 &seedVoxel,
                                                                           const glm::ivec3 &dims,
                                                                           const glm::vec3 &spacing,
                                                                           const std::vector<float> &faVoxels,
@@ -385,14 +384,14 @@ std::vector<glm::vec3> DWIFiberTractographyStage::TraceStreamlineFromSeed(const 
  * @param settings Tractography settings.
  * @return Streamline mesh, or nullptr if tracing produced no valid streamlines.
  */
-std::shared_ptr<Mesh> DWIFiberTractographyStage::BuildStreamlineMesh(const MriPreprocessingContext &context,
+std::shared_ptr<Mesh> DtiFiberTractographyStage::BuildStreamlineMesh(const MriPreprocessingContext &context,
                                                                      const TractographySettings &settings)
 {
-  const VolumeData &faVolume = context.outputChannels.FA;
-  const VolumeData &l1Volume = context.outputChannels.L1;
-  const VolumeData &evxVolume = context.outputChannels.EVx;
-  const VolumeData &evyVolume = context.outputChannels.EVy;
-  const VolumeData &evzVolume = context.outputChannels.EVz;
+  const VolumeData &faVolume = context.outputDtiChannels.FA;
+  const VolumeData &l1Volume = context.outputDtiChannels.L1;
+  const VolumeData &evxVolume = context.outputDtiChannels.EVx;
+  const VolumeData &evyVolume = context.outputDtiChannels.EVy;
+  const VolumeData &evzVolume = context.outputDtiChannels.EVz;
 
   const VolumeMetadata &metadata = faVolume.GetMetadata();
   const glm::ivec3 dims = metadata.dimensions;
@@ -504,7 +503,7 @@ std::shared_ptr<Mesh> DWIFiberTractographyStage::BuildStreamlineMesh(const MriPr
  * 
  * @return const char* 
  */
-const char *DWIFiberTractographyStage::Name() const
+const char *DtiFiberTractographyStage::Name() const
 {
   return "DWI fiber tractography";
 }
@@ -514,13 +513,13 @@ const char *DWIFiberTractographyStage::Name() const
  * 
  * @param context 
  */
-void DWIFiberTractographyStage::Execute(MriPreprocessingContext &context) const
+void DtiFiberTractographyStage::Execute(MriPreprocessingContext &context) const
 {
-  const size_t faVoxelCount = context.outputChannels.FA.GetVoxelCount();
-  const size_t l1VoxelCount = context.outputChannels.L1.GetVoxelCount();
-  const size_t evxVoxelCount = context.outputChannels.EVx.GetVoxelCount();
-  const size_t evyVoxelCount = context.outputChannels.EVy.GetVoxelCount();
-  const size_t evzVoxelCount = context.outputChannels.EVz.GetVoxelCount();
+  const size_t faVoxelCount = context.outputDtiChannels.FA.GetVoxelCount();
+  const size_t l1VoxelCount = context.outputDtiChannels.L1.GetVoxelCount();
+  const size_t evxVoxelCount = context.outputDtiChannels.EVx.GetVoxelCount();
+  const size_t evyVoxelCount = context.outputDtiChannels.EVy.GetVoxelCount();
+  const size_t evzVoxelCount = context.outputDtiChannels.EVz.GetVoxelCount();
 
   if (faVoxelCount == 0 || l1VoxelCount == 0 || evxVoxelCount == 0 ||
       evyVoxelCount == 0 || evzVoxelCount == 0)
@@ -551,11 +550,11 @@ void DWIFiberTractographyStage::Execute(MriPreprocessingContext &context) const
 }
 
 /**
- * @brief Create a Dwi Fiber Tractography Stage object
- * 
- * @return std::unique_ptr<IMriPreprocessingStage> 
+ * @brief Create a Dti Fiber Tractography Stage object
+ *
+ * @return std::unique_ptr<IMriPreprocessingStage>
  */
-std::unique_ptr<IMriPreprocessingStage> CreateDwiFiberTractographyStage()
+std::unique_ptr<IMriPreprocessingStage> CreateDtiFiberTractographyStage()
 {
-  return std::make_unique<DWIFiberTractographyStage>();
+  return std::make_unique<DtiFiberTractographyStage>();
 }

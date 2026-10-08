@@ -476,9 +476,9 @@ void DWIBrainSurfaceMeshStage::Execute(MriPreprocessingContext &context) const
   float isoValue = 0.15f; // 
 
   // Validation
-  if (context.outputChannels.FA.GetVoxelCount() > 0)
+  if (context.outputDtiChannels.FA.GetVoxelCount() > 0)
   {
-    sourceVolume = &context.outputChannels.FA;
+    sourceVolume = &context.outputDtiChannels.FA;
   }
 
   if (!sourceVolume)

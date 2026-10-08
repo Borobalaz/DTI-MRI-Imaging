@@ -3,7 +3,7 @@
 #include "Scene/Scene.h"
 #include "Preprocessing/MriTractographySettings.h"
 #include "Volume/DTIVolume.h"
-#include "Preprocessing/MriToDtiPreprocessor.h"
+#include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
 
 #include <functional>
 #include <memory>
@@ -11,14 +11,19 @@
 
 /**
  * @brief A specialized scene for viewing DTI (Diffusion Tensor Imaging) volumes.
- * 
+ *
  * This scene loads MRI data from a neuroimaging dataset, processes it into DTI metrics
  * (FA, MD, AD, RD), and renders the selected metric as a 3D volume texture.
- * 
+ *
  * Provides interactive controls for:
  * - Metric selection (FA, MD, AD, RD)
  * - Threshold adjustment
  * - Opacity control
+ *
+ * `DtiVolumeScene` is the concrete DTI-specific scene builder on top of the generic
+ * `core/` preprocessing pipeline (`MriPreprocessingPipeline`). It intentionally depends on
+ * engine-private `Scene`/`GameObject` types - a pre-existing exception to `core/`'s general
+ * engine-independence, not addressed by this change.
  */
 class DtiVolumeScene : public Scene
 {

@@ -29,16 +29,19 @@ struct MriPreprocessingReport
 
 struct MriPreprocessingResult
 {
-  DTIVolumeChannels channels;
+  // Today's DTI (D-tensor) output; a future reconstruction model (e.g. fODF) would need
+  // its own output shape alongside this one.
+  DTIVolumeChannels dtiChannels;
   std::shared_ptr<Mesh> surfaceMesh;
   std::shared_ptr<Mesh> streamlineMesh;
   MriPreprocessingReport report;
 };
 
 /**
- * @brief DTO object of the processor pipeline. 
- *        It carries the request, report, result and intermediate data. 
- * 
+ * @brief DTO carried through the staged MRI preprocessing pipeline; carries the request,
+ *        report, intermediate computed data, and the in-progress output as stages mutate
+ *        it in order.
+ *
  */
 struct MriPreprocessingContext
 {
@@ -51,22 +54,24 @@ struct MriPreprocessingContext
   std::string selectedDwiVolumePath;
   std::string selectedBvalPath;
   std::string selectedBvecPath;
-  
+
   // calculated
   std::vector<float> bValues;
   std::vector<glm::vec3> gradientDirections;
   bool gradientMetadataValid = false;
 
   // output
-  DTIVolumeChannels outputChannels;
+  DTIVolumeChannels outputDtiChannels;
   std::shared_ptr<Mesh> outputSurfaceMesh;
   std::shared_ptr<Mesh> outputStreamlineMesh;
 };
 
 /**
- * @brief A stage of the preprocessor. Each stage performs a specific task in the preprocessing pipeline, 
- *        such as normalizing bvectors or synthesizing the D tensor.
- * 
+ * @brief A single stage of a generic staged MRI preprocessing pipeline. Each stage performs
+ *        one task - either generic to any reconstruction model (e.g. input validation,
+ *        gradient normalization) or specific to the reconstruction model currently wired
+ *        into the pipeline (e.g. DTI tensor synthesis).
+ *
  */
 class IMriPreprocessingStage
 {
@@ -77,8 +82,10 @@ public:
 };
 
 /**
- * @brief A vector of stages that can be executed in order.
- *        Returns a Result object containing the output DTIVolumeChannels (D tensor)
+ * @brief An ordered sequence of IMriPreprocessingStages executed to turn raw MRI input into
+ *        reconstructed output. This pipeline instance is currently wired for DTI output (see
+ *        MriPreprocessingResult::dtiChannels); a future reconstruction model such as fODF
+ *        would need its own result/context output shape alongside this one.
  */
 class MriPreprocessingPipeline
 {

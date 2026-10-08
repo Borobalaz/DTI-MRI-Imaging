@@ -8,5 +8,3 @@ public:
   const char *Name() const override;
   void Execute(MriPreprocessingContext &context) const override;
 };
-
-std::unique_ptr<IMriPreprocessingStage> CreateDwiBrainSurfaceMeshStage();

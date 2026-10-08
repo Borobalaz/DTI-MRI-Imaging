@@ -38,7 +38,7 @@ MriPreprocessingResult MriPreprocessingPipeline::Execute(const MriPreprocessingR
   }
 
   return MriPreprocessingResult{
-    std::move(context.outputChannels),
+    std::move(context.outputDtiChannels),
     std::move(context.outputSurfaceMesh),
     std::move(context.outputStreamlineMesh),
     std::move(context.report)

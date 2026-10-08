@@ -1,4 +1,4 @@
-#include "Preprocessing/stages/DWIScalarSynthesisStage.h"
+#include "Preprocessing/stages/dti/DtiScalarSynthesisStage.h"
 
 #include <algorithm>
 #include <array>
@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "Preprocessing/MriPreprocessingStages.h"
+#include "Preprocessing/stages/dti/DtiPreprocessingStages.h"
 
 namespace
 {
@@ -107,7 +107,7 @@ namespace
  *
  * @return const char*
  */
-const char *DWIScalarSynthesisStage::Name() const
+const char *DtiScalarSynthesisStage::Name() const
 {
   return "DWI scalar synthesis";
 }
@@ -117,9 +117,9 @@ const char *DWIScalarSynthesisStage::Name() const
  * 
  * @param context 
  */
-void DWIScalarSynthesisStage::Execute(MriPreprocessingContext &context) const
+void DtiScalarSynthesisStage::Execute(MriPreprocessingContext &context) const
 {
-  const VolumeMetadata &metadata = context.outputChannels.Dxx.GetMetadata();
+  const VolumeMetadata &metadata = context.outputDtiChannels.Dxx.GetMetadata();
   const int width = metadata.dimensions.x;
   const int height = metadata.dimensions.y;
   const int depth = metadata.dimensions.z;
@@ -133,12 +133,12 @@ void DWIScalarSynthesisStage::Execute(MriPreprocessingContext &context) const
   VolumeData L3(width, height, depth, metadata.spacing);
 
   // Get the tensor
-  const std::vector<float> &dxx = context.outputChannels.Dxx.GetVoxels();
-  const std::vector<float> &dyy = context.outputChannels.Dyy.GetVoxels();
-  const std::vector<float> &dzz = context.outputChannels.Dzz.GetVoxels();
-  const std::vector<float> &dxy = context.outputChannels.Dxy.GetVoxels();
-  const std::vector<float> &dxz = context.outputChannels.Dxz.GetVoxels();
-  const std::vector<float> &dyz = context.outputChannels.Dyz.GetVoxels();
+  const std::vector<float> &dxx = context.outputDtiChannels.Dxx.GetVoxels();
+  const std::vector<float> &dyy = context.outputDtiChannels.Dyy.GetVoxels();
+  const std::vector<float> &dzz = context.outputDtiChannels.Dzz.GetVoxels();
+  const std::vector<float> &dxy = context.outputDtiChannels.Dxy.GetVoxels();
+  const std::vector<float> &dxz = context.outputDtiChannels.Dxz.GetVoxels();
+  const std::vector<float> &dyz = context.outputDtiChannels.Dyz.GetVoxels();
 
   // Output arrays
   std::vector<float> &faOut = fa.GetVoxels();
@@ -202,21 +202,21 @@ void DWIScalarSynthesisStage::Execute(MriPreprocessingContext &context) const
   }
 
   // Move outputs to context
-  context.outputChannels.FA = std::move(fa);
-  context.outputChannels.MD = std::move(md);
-  context.outputChannels.AD = std::move(ad);
-  context.outputChannels.RD = std::move(rd);
-  context.outputChannels.L1 = std::move(L1);
-  context.outputChannels.L2 = std::move(L2);
-  context.outputChannels.L3 = std::move(L3);
+  context.outputDtiChannels.FA = std::move(fa);
+  context.outputDtiChannels.MD = std::move(md);
+  context.outputDtiChannels.AD = std::move(ad);
+  context.outputDtiChannels.RD = std::move(rd);
+  context.outputDtiChannels.L1 = std::move(L1);
+  context.outputDtiChannels.L2 = std::move(L2);
+  context.outputDtiChannels.L3 = std::move(L3);
 }
 
 /**
- * @brief Create a Dwi Scalar Synthesis Stage object
- * 
- * @return std::unique_ptr<IMriPreprocessingStage> 
+ * @brief Create a Dti Scalar Synthesis Stage object
+ *
+ * @return std::unique_ptr<IMriPreprocessingStage>
  */
-std::unique_ptr<IMriPreprocessingStage> CreateDwiScalarSynthesisStage()
+std::unique_ptr<IMriPreprocessingStage> CreateDtiScalarSynthesisStage()
 {
-  return std::make_unique<DWIScalarSynthesisStage>();
+  return std::make_unique<DtiScalarSynthesisStage>();
 }

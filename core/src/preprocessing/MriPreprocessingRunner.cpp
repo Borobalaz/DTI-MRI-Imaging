@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "Preprocessing/MriToDtiPreprocessor.h"
+#include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
 #include "Volume/VolumeFileLoader.h"
 
 namespace
@@ -54,14 +54,14 @@ MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingR
   std::filesystem::create_directories(outputDirectoryPath);
 
   const std::string outputBaseName =
-      request.outputBasename.empty() ? std::string("dti_proxy") : request.outputBasename;
+      request.outputBasename.empty() ? std::string("mri_proxy") : request.outputBasename;
 
   // Run preprocessing pipeline
   MriToDtiPreprocessor preprocessor;
   MriPreprocessingRunnerResult runnerResult;
   runnerResult.preprocessingResult = preprocessor.Process(request.preprocessingRequest);
 
-  const DTIVolumeChannels &channels = runnerResult.preprocessingResult.channels;
+  const DTIVolumeChannels &channels = runnerResult.preprocessingResult.dtiChannels;
 
   // Save volume channels to disk 
 

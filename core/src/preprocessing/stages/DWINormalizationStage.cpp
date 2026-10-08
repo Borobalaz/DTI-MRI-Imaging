@@ -102,7 +102,7 @@ const char *DWINormalizationStage::Name() const
  */
 void DWINormalizationStage::Execute(MriPreprocessingContext &context) const
 {
-  auto &channels = context.outputChannels;
+  auto &channels = context.outputDtiChannels;
   const std::array<std::pair<const char *, VolumeData *>, 16> allChannels = {
       std::make_pair("Dxx", &channels.Dxx),
       std::make_pair("Dyy", &channels.Dyy),

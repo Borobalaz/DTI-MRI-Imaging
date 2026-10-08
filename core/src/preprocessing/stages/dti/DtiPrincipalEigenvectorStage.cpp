@@ -1,4 +1,4 @@
-#include "Preprocessing/stages/DWIPrincipalEigenvectorStage.h"
+#include "Preprocessing/stages/dti/DtiPrincipalEigenvectorStage.h"
 
 #include <algorithm>
 #include <array>
@@ -9,7 +9,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Preprocessing/MriPreprocessingStages.h"
+#include "Preprocessing/stages/dti/DtiPreprocessingStages.h"
 
 namespace
 {
@@ -102,7 +102,7 @@ namespace
  * 
  * @return const char* 
  */
-const char* DWIPrincipalEigenvectorStage::Name() const
+const char* DtiPrincipalEigenvectorStage::Name() const
 {
   return "DWI principal eigenvector synthesis";
 }
@@ -112,9 +112,9 @@ const char* DWIPrincipalEigenvectorStage::Name() const
  * 
  * @param context 
  */
-void DWIPrincipalEigenvectorStage::Execute(MriPreprocessingContext& context) const
+void DtiPrincipalEigenvectorStage::Execute(MriPreprocessingContext& context) const
 {
-  const VolumeMetadata& metadata = context.outputChannels.Dxx.GetMetadata();
+  const VolumeMetadata& metadata = context.outputDtiChannels.Dxx.GetMetadata();
   const int width = metadata.dimensions.x;
   const int height = metadata.dimensions.y;
   const int depth = metadata.dimensions.z;
@@ -123,12 +123,12 @@ void DWIPrincipalEigenvectorStage::Execute(MriPreprocessingContext& context) con
   VolumeData evy(width, height, depth, metadata.spacing);
   VolumeData evz(width, height, depth, metadata.spacing);
 
-  const std::vector<float>& dxx = context.outputChannels.Dxx.GetVoxels();
-  const std::vector<float>& dyy = context.outputChannels.Dyy.GetVoxels();
-  const std::vector<float>& dzz = context.outputChannels.Dzz.GetVoxels();
-  const std::vector<float>& dxy = context.outputChannels.Dxy.GetVoxels();
-  const std::vector<float>& dxz = context.outputChannels.Dxz.GetVoxels();
-  const std::vector<float>& dyz = context.outputChannels.Dyz.GetVoxels();
+  const std::vector<float>& dxx = context.outputDtiChannels.Dxx.GetVoxels();
+  const std::vector<float>& dyy = context.outputDtiChannels.Dyy.GetVoxels();
+  const std::vector<float>& dzz = context.outputDtiChannels.Dzz.GetVoxels();
+  const std::vector<float>& dxy = context.outputDtiChannels.Dxy.GetVoxels();
+  const std::vector<float>& dxz = context.outputDtiChannels.Dxz.GetVoxels();
+  const std::vector<float>& dyz = context.outputDtiChannels.Dyz.GetVoxels();
 
   std::vector<float>& evxOut = evx.GetVoxels();
   std::vector<float>& evyOut = evy.GetVoxels();
@@ -159,17 +159,17 @@ void DWIPrincipalEigenvectorStage::Execute(MriPreprocessingContext& context) con
   }
 
   // Move outputs to context
-  context.outputChannels.EVx = std::move(evx);
-  context.outputChannels.EVy = std::move(evy);
-  context.outputChannels.EVz = std::move(evz);
+  context.outputDtiChannels.EVx = std::move(evx);
+  context.outputDtiChannels.EVy = std::move(evy);
+  context.outputDtiChannels.EVz = std::move(evz);
 }
 
 /**
- * @brief Create a Dwi Principal Eigenvector Stage object
- * 
- * @return std::unique_ptr<IMriPreprocessingStage> 
+ * @brief Create a Dti Principal Eigenvector Stage object
+ *
+ * @return std::unique_ptr<IMriPreprocessingStage>
  */
-std::unique_ptr<IMriPreprocessingStage> CreateDwiPrincipalEigenvectorStage()
+std::unique_ptr<IMriPreprocessingStage> CreateDtiPrincipalEigenvectorStage()
 {
-  return std::make_unique<DWIPrincipalEigenvectorStage>();
+  return std::make_unique<DtiPrincipalEigenvectorStage>();
 }

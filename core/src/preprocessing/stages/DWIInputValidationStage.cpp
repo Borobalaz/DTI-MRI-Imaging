@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "Preprocessing/MriPreprocessingStages.h"
+#include "Preprocessing/stages/CommonPreprocessingStages.h"
 #include "Volume/VolumeFileLoader.h"
 
 namespace

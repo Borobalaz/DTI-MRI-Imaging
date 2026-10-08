@@ -2,7 +2,7 @@
 
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
-class DWIFiberTractographyStage final : public IMriPreprocessingStage
+class DtiFiberTractographyStage final : public IMriPreprocessingStage
 {
 public:
   const char *Name() const override;
@@ -47,5 +47,3 @@ private:
   static std::shared_ptr<Mesh> BuildStreamlineMesh(const MriPreprocessingContext &context,
                                                    const TractographySettings &settings);
 };
-
-std::unique_ptr<IMriPreprocessingStage> CreateDwiFiberTractographyStage();

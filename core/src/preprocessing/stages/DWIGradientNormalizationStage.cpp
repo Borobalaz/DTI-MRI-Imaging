@@ -1,4 +1,4 @@
-#include "Preprocessing/stages/DwiGradientValidationStage.h"
+#include "Preprocessing/stages/DWIGradientNormalizationStage.h"
 
 #include <algorithm>
 #include <cmath>
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "Preprocessing/MriPreprocessingStages.h"
+#include "Preprocessing/stages/CommonPreprocessingStages.h"
 
 namespace
 {
@@ -124,7 +124,7 @@ namespace
  */
 const char* DWIGradientNormalizationStage::Name() const
 {
-  return "DWI gradient validation";
+  return "DWI gradient normalization";
 }
 
 /**
