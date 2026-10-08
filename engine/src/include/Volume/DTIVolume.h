@@ -44,8 +44,6 @@ public:
 
   void Apply(Shader &shader) const override;
   
-  void GetMajorEigenVectorAt(glm::ivec3 voxelCoord, glm::vec3 &outVector) const;
-
   int GetSelectedRenderModeIndex() const { return selectedRenderMode; }
   int GetSelectedChannelIndex() const { return selectedChannel; }
   bool SetSelectedRenderModeIndex(int modeIndex);
