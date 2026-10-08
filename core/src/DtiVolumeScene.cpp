@@ -18,7 +18,7 @@
 
 /**
  * @brief Construct a new Dti Volume Scene:: Dti Volume Scene object
- * 
+ *
  */
 DtiVolumeScene::DtiVolumeScene()
     : dtiVolume(nullptr)
@@ -155,7 +155,7 @@ bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
     std::shared_ptr<Shader> meshShader = std::make_shared<Shader>(
         "dti_brain_surface_shader",
         "shaders/vertex.glsl",
-      "shaders/pbr_fragment.glsl");
+        "shaders/pbr_fragment.glsl");
     this->RegisterShader("dti_brain_surface_shader", meshShader);
 
     std::shared_ptr<Material> meshMaterial = std::make_shared<Material>(meshShader);
@@ -174,8 +174,8 @@ bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
   {
     std::shared_ptr<Shader> streamlineShader = std::make_shared<Shader>(
         "dti_streamline_shader",
-      "shaders/streamlines/streamline_vertex.glsl",
-      "shaders/streamlines/streamline_fragment.glsl");
+        "shaders/streamlines/streamline_vertex.glsl",
+        "shaders/streamlines/streamline_fragment.glsl");
 
     this->RegisterShader("dti_streamline_shader", streamlineShader);
 
@@ -216,8 +216,8 @@ bool DtiVolumeScene::SaveCurrentDataset(const std::string &outputDirectory)
   try
   {
     const std::string matchedPresetName = tractographySettingsInspectable
-        ? tractographySettingsInspectable->GetMatchedPresetName()
-        : std::string("Custom");
+                                              ? tractographySettingsInspectable->GetMatchedPresetName()
+                                              : std::string("Custom");
     const std::string parametersJson = BuildDtiPreprocessingParametersJson(
         currentRequest,
         tractographySettingsInspectable ? *tractographySettingsInspectable : MriTractographySettings{},
@@ -312,10 +312,10 @@ bool DtiVolumeScene::LoadSavedDataset(const std::string &metadataJsonPath)
 }
 
 /**
- * @brief Update the scene, 
+ * @brief Update the scene,
  *  applying a slow rotation to the brain surface and streamlines for better visualization of the 3D structure.
- * 
- * @param deltaTime 
+ *
+ * @param deltaTime
  */
 void DtiVolumeScene::Update(float deltaTime)
 {
@@ -372,73 +372,84 @@ void DtiVolumeScene::Update(float deltaTime)
 
 /**
  * @brief Create inspect widgets for controlling scene parameters such as rotation.
- * 
+ *
  * @return engine inspection fields
  */
 std::vector<InspectFieldPtr> DtiVolumeScene::GetInspectFields()
 {
   std::vector<InspectFieldPtr> fields = Scene::GetInspectFields();
 
-  const auto addFileField = [&fields](const std::string& id, const std::string& label, std::string* path)
+  const std::vector<InspectFieldPtr> tractographyFields = tractographySettingsInspectable
+                                                              ? tractographySettingsInspectable->GetInspectFields()
+                                                              : std::vector<InspectFieldPtr>{};
+  fields.insert(fields.end(), tractographyFields.begin(), tractographyFields.end());
+
+  const auto addFileField = [&fields](const std::string &id, const std::string &label, std::string *path)
   {
     fields.push_back(MakeInspectField(
         id, label, "Preprocessing", InspectFieldType::File, *path,
-        [path]() -> InspectValue { return *path; },
-        [path](const InspectValue& value)
+        [path]() -> InspectValue
+        { return *path; },
+        [path](const InspectValue &value)
         {
-          if (const auto* selectedPath = std::get_if<std::string>(&value)) *path = *selectedPath;
+          if (const auto *selectedPath = std::get_if<std::string>(&value))
+            *path = *selectedPath;
         }));
   };
   addFileField("dwiVolumePath", "DWI Volume", &currentRequest.dwiVolumePath);
   addFileField("bvalPath", "B-Values", &currentRequest.bvalPath);
   addFileField("bvecPath", "B-Vectors", &currentRequest.bvecPath);
 
-  const std::vector<InspectFieldPtr> tractographyFields = tractographySettingsInspectable
-      ? tractographySettingsInspectable->GetInspectFields()
-      : std::vector<InspectFieldPtr>{};
-  fields.insert(fields.end(), tractographyFields.begin(), tractographyFields.end());
-
   fields.push_back(MakeInspectField(
       "rerunPreprocessing", dtiVolume ? "Rerun preprocessing" : "Run Preprocessing", "Preprocessing", InspectFieldType::Action,
       std::monostate{}, {},
-      [this](const InspectValue&) { datasetReloadRequested = true; }));
+      [this](const InspectValue &)
+      { datasetReloadRequested = true; }));
 
   fields.push_back(MakeInspectField(
       "saveOutputDirectory", "Save Output Folder", "Preprocessing", InspectFieldType::Directory,
       pendingSaveOutputDirectory,
-      [this]() -> InspectValue { return pendingSaveOutputDirectory; },
-      [this](const InspectValue& value)
+      [this]() -> InspectValue
+      { return pendingSaveOutputDirectory; },
+      [this](const InspectValue &value)
       {
-        if (const auto* path = std::get_if<std::string>(&value)) pendingSaveOutputDirectory = *path;
+        if (const auto *path = std::get_if<std::string>(&value))
+          pendingSaveOutputDirectory = *path;
       }));
 
   fields.push_back(MakeInspectField(
       "saveCurrentDataset", "Save current dataset...", "Preprocessing", InspectFieldType::Action,
       std::monostate{}, {},
-      [this](const InspectValue&) { datasetSaveRequested = true; }));
+      [this](const InspectValue &)
+      { datasetSaveRequested = true; }));
 
   addFileField("loadDatasetMetadataPath", "Load Saved Dataset (metadata.json)", &pendingLoadMetadataPath);
 
   fields.push_back(MakeInspectField(
       "loadSavedDataset", "Load dataset", "Preprocessing", InspectFieldType::Action,
       std::monostate{}, {},
-      [this](const InspectValue&) { datasetLoadRequested = true; }));
+      [this](const InspectValue &)
+      { datasetLoadRequested = true; }));
 
   // Rotation controls
   fields.push_back(MakeInspectField(
       "rotationEnabled", "Enabled", "Rotation", InspectFieldType::Boolean, rotationEnabled,
-      [this]() -> InspectValue { return rotationEnabled; },
-      [this](const InspectValue& value)
+      [this]() -> InspectValue
+      { return rotationEnabled; },
+      [this](const InspectValue &value)
       {
-        if (const auto* enabled = std::get_if<bool>(&value)) rotationEnabled = *enabled;
+        if (const auto *enabled = std::get_if<bool>(&value))
+          rotationEnabled = *enabled;
       }));
 
   auto rotationSpeedField = MakeInspectField(
       "rotationSpeed", "Speed", "Rotation", InspectFieldType::Number, static_cast<double>(rotationSpeed),
-      [this]() -> InspectValue { return static_cast<double>(rotationSpeed); },
-      [this](const InspectValue& value)
+      [this]() -> InspectValue
+      { return static_cast<double>(rotationSpeed); },
+      [this](const InspectValue &value)
       {
-        if (const auto* speed = std::get_if<double>(&value)) rotationSpeed = static_cast<float>(*speed);
+        if (const auto *speed = std::get_if<double>(&value))
+          rotationSpeed = static_cast<float>(*speed);
       });
   rotationSpeedField->minimum = 0.0;
   rotationSpeedField->maximum = 5.0;
