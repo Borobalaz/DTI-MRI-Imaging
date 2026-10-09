@@ -4,26 +4,33 @@
 #include <QLabel>
 
 #include "state/RenderStatistics.h"
+#include "styles/StyleSheetComposer.h"
 
 RenderStatisticsWidget::RenderStatisticsWidget(QWidget *parent)
   : QFrame(parent)
 {
-  setMinimumWidth(220);
-
-  auto *layout = new QFormLayout(this);
-  layout->setContentsMargins(12, 12, 12, 12);
-  layout->setHorizontalSpacing(12);
-  layout->setVerticalSpacing(6);
+  formLayout = new QFormLayout(this);
+  refreshLayoutMetrics();
 
   fpsValueLabel = new QLabel("0.00", this);
   averageFpsValueLabel = new QLabel("0.00", this);
   renderTimeValueLabel = new QLabel("0.000 ms", this);
   averageRenderTimeValueLabel = new QLabel("0.000 ms", this);
 
-  layout->addRow("FPS", fpsValueLabel);
-  layout->addRow("Average FPS", averageFpsValueLabel);
-  layout->addRow("Render Time", renderTimeValueLabel);
-  layout->addRow("Avg Render Time", averageRenderTimeValueLabel);
+  formLayout->addRow("FPS", fpsValueLabel);
+  formLayout->addRow("Average FPS", averageFpsValueLabel);
+  formLayout->addRow("Render Time", renderTimeValueLabel);
+  formLayout->addRow("Avg Render Time", averageRenderTimeValueLabel);
+}
+
+void RenderStatisticsWidget::refreshLayoutMetrics()
+{
+  setMinimumWidth(ResolveCommonToken("stats-min-width").toInt());
+
+  const int margin = ResolveCommonToken("stats-margin").toInt();
+  formLayout->setContentsMargins(margin, margin, margin, margin);
+  formLayout->setHorizontalSpacing(ResolveCommonToken("stats-spacing-h").toInt());
+  formLayout->setVerticalSpacing(ResolveCommonToken("stats-spacing-v").toInt());
 }
 
 void RenderStatisticsWidget::setRenderStatistics(RenderStatistics *newStatistics)

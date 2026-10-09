@@ -7,16 +7,14 @@
 
 #include <QObject>
 
+#include "styles/StyleSheetComposer.h"
 #include "widgets/inspect_fields/IInspectWidget.h"
 
 InspectorWidget::InspectorWidget(QWidget *parent)
   : QFrame(parent)
 {
-  setMinimumWidth(260);
-
-  auto *inspectorPanelLayout = new QVBoxLayout(this);
-  inspectorPanelLayout->setContentsMargins(4, 4, 4, 4);
-  inspectorPanelLayout->setSpacing(8);
+  inspectorPanelLayout = new QVBoxLayout(this);
+  refreshLayoutMetrics();
 
   auto *scrollArea = new QScrollArea(this);
   scrollArea->setObjectName("inspectorScrollArea");
@@ -32,6 +30,15 @@ InspectorWidget::InspectorWidget(QWidget *parent)
 
   scrollArea->setWidget(inspectorContent);
   inspectorPanelLayout->addWidget(scrollArea, 1);
+}
+
+void InspectorWidget::refreshLayoutMetrics()
+{
+  setMinimumWidth(ResolveCommonToken("inspector-min-width").toInt());
+
+  const int margin = ResolveCommonToken("panel-margin").toInt();
+  inspectorPanelLayout->setContentsMargins(margin, margin, margin, margin);
+  inspectorPanelLayout->setSpacing(ResolveCommonToken("panel-spacing").toInt());
 }
 
 void InspectorWidget::setFields(const QObjectList &fieldObjects)
@@ -115,13 +122,17 @@ void InspectorWidget::addFieldEditor(IInspectWidget *field)
   row->setEnabled(!field->isReadOnly());
 
   auto *rowLayout = new QHBoxLayout(row);
-  rowLayout->setContentsMargins(4, 6, 4, 6);
-  rowLayout->setSpacing(8);
+  rowLayout->setContentsMargins(ResolveCommonToken("field-row-margin-h").toInt(),
+                                 ResolveCommonToken("field-row-margin-v").toInt(),
+                                 ResolveCommonToken("field-row-margin-h").toInt(),
+                                 ResolveCommonToken("field-row-margin-v").toInt());
+  rowLayout->setSpacing(ResolveCommonToken("field-row-spacing").toInt());
 
   auto *nameLabel = new QLabel(field->displayName(), row);
   nameLabel->setObjectName("inspectorFieldLabel");
-  nameLabel->setMinimumWidth(104);
-  nameLabel->setMaximumWidth(104);
+  const int labelWidth = ResolveCommonToken("field-label-width").toInt();
+  nameLabel->setMinimumWidth(labelWidth);
+  nameLabel->setMaximumWidth(labelWidth);
   nameLabel->setWordWrap(true);
   rowLayout->addWidget(nameLabel);
 

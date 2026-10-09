@@ -4,16 +4,14 @@
 #include <QSignalBlocker>
 #include <QVBoxLayout>
 
+#include "styles/StyleSheetComposer.h"
 #include "widgets/InspectProviderWidget.h"
 
 SceneObjectListWidget::SceneObjectListWidget(QWidget *parent)
   : QFrame(parent)
 {
-  setMinimumWidth(220);
-
-  auto *objectsLayout = new QVBoxLayout(this);
-  objectsLayout->setContentsMargins(4, 4, 4, 4);
-  objectsLayout->setSpacing(8);
+  objectsLayout = new QVBoxLayout(this);
+  refreshLayoutMetrics();
 
   scrollArea = new QScrollArea(this);
   scrollArea->setObjectName("objectsScrollArea");
@@ -29,6 +27,15 @@ SceneObjectListWidget::SceneObjectListWidget(QWidget *parent)
 
   scrollArea->setWidget(listContainer);
   objectsLayout->addWidget(scrollArea, 1);
+}
+
+void SceneObjectListWidget::refreshLayoutMetrics()
+{
+  setMinimumWidth(ResolveCommonToken("object-list-min-width").toInt());
+
+  const int margin = ResolveCommonToken("panel-margin").toInt();
+  objectsLayout->setContentsMargins(margin, margin, margin, margin);
+  objectsLayout->setSpacing(ResolveCommonToken("panel-spacing").toInt());
 }
 
 /**

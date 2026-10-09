@@ -13,7 +13,13 @@ QString ComposeThemeStyleSheet(const QString &themeName);
 //  Returns an empty string (with a qWarning) if the theme file or the token is missing.
 QString ResolveThemeToken(const QString &themeName, const QString &tokenName);
 
+// Resolves a token from tokens/common.ini: layout metrics (margins/spacing/fixed sizes) that
+//  don't vary by theme, for C++ code that sets them directly (QLayout::setContentsMargins/
+//  setSpacing, QWidget::setMinimumWidth, etc.) since QSS can't reach those external layout
+//  calls. Use QString::toInt()/toDouble() on the result as needed.
+QString ResolveCommonToken(const QString &tokenName);
+
 // Returns the most recent modification time across every stylesheet source file for the given
-//  theme (every widgets/*.qss file plus that theme's tokens/*.ini) - used to detect on-disk
-//  edits for hot reload without relying on OS file-change notifications.
+//  theme (every widgets/*.qss file, that theme's tokens/*.ini, and tokens/common.ini) - used to
+//  detect on-disk edits for hot reload without relying on OS file-change notifications.
 QDateTime LatestStyleSourceModTime(const QString &themeName);

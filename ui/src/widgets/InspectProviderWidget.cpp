@@ -7,17 +7,21 @@
 #include <QStyle>
 #include <QToolButton>
 
+#include "styles/StyleSheetComposer.h"
+
 InspectProviderWidget::InspectProviderWidget(QWidget *parent)
     : QFrame(parent)
 {
   setObjectName("inspectProviderItem");
   setFrameShape(QFrame::NoFrame);
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-  setMinimumHeight(30);
+  setMinimumHeight(ResolveCommonToken("provider-item-min-height").toInt());
 
   auto *layout = new QHBoxLayout(this);
-  layout->setContentsMargins(8, 4, 8, 4);
-  layout->setSpacing(8);
+  const int marginH = ResolveCommonToken("provider-item-margin-h").toInt();
+  const int marginV = ResolveCommonToken("provider-item-margin-v").toInt();
+  layout->setContentsMargins(marginH, marginV, marginH, marginV);
+  layout->setSpacing(ResolveCommonToken("provider-item-spacing").toInt());
 
   // Add name (elided to fit, with the full name as a tooltip so it's never fully lost)
   nameLabel = new QLabel(this);

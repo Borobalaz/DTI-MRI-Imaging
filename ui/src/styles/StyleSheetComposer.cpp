@@ -33,6 +33,23 @@ QString TokensFilePath(const QString &themeName)
   return QDir(ResolveStylesRootDir()).filePath(QStringLiteral("tokens/%1.ini").arg(themeName));
 }
 
+QString CommonTokensFilePath()
+{
+  return QDir(ResolveStylesRootDir()).filePath(QStringLiteral("tokens/common.ini"));
+}
+
+QMap<QString, QString> LoadIniFile(const QString &path)
+{
+  QSettings settings(path, QSettings::IniFormat);
+
+  QMap<QString, QString> values;
+  for (const QString &key : settings.allKeys())
+  {
+    values.insert(key, settings.value(key).toString());
+  }
+  return values;
+}
+
 // Every *.qss file under ui/styles/widgets/, discovered recursively so adding a new widget's
 //  stylesheet requires no registration anywhere - just drop the file in.
 QStringList DiscoverWidgetQssFiles()
@@ -49,22 +66,25 @@ QStringList DiscoverWidgetQssFiles()
   return files;
 }
 
+// Theme-independent layout tokens (tokens/common.ini) merged with the active theme's color
+//  tokens (tokens/<themeName>.ini), so both kinds are substitutable the same way from a single
+//  map: @token-name in QSS, or ResolveThemeToken()/ResolveCommonToken() from C++.
 QMap<QString, QString> LoadTokenMap(const QString &themeName)
 {
-  const QString path = TokensFilePath(themeName);
-  QSettings settings(path, QSettings::IniFormat);
+  QMap<QString, QString> tokens = LoadIniFile(CommonTokensFilePath());
 
-  QMap<QString, QString> tokens;
-  const QStringList keys = settings.allKeys();
-  if (keys.isEmpty())
+  const QString themePath = TokensFilePath(themeName);
+  const QMap<QString, QString> themeTokens = LoadIniFile(themePath);
+  if (themeTokens.isEmpty())
   {
-    qWarning() << "StyleSheetComposer: no tokens found for theme" << themeName << "at" << path;
+    qWarning() << "StyleSheetComposer: no tokens found for theme" << themeName << "at" << themePath;
   }
 
-  for (const QString &key : keys)
+  for (auto it = themeTokens.constBegin(); it != themeTokens.constEnd(); ++it)
   {
-    tokens.insert(key, settings.value(key).toString());
+    tokens.insert(it.key(), it.value());
   }
+
   return tokens;
 }
 
@@ -139,12 +159,26 @@ QString ResolveThemeToken(const QString &themeName, const QString &tokenName)
   return found.value();
 }
 
+QString ResolveCommonToken(const QString &tokenName)
+{
+  const QString path = CommonTokensFilePath();
+  const QMap<QString, QString> tokens = LoadIniFile(path);
+  const auto found = tokens.constFind(tokenName);
+  if (found == tokens.constEnd())
+  {
+    qWarning() << "StyleSheetComposer: no such common token" << tokenName << "in" << path;
+    return QString();
+  }
+  return found.value();
+}
+
 QDateTime LatestStyleSourceModTime(const QString &themeName)
 {
   QDateTime latest;
 
   QStringList watchedPaths = DiscoverWidgetQssFiles();
   watchedPaths << TokensFilePath(themeName);
+  watchedPaths << CommonTokensFilePath();
 
   for (const QString &path : watchedPaths)
   {

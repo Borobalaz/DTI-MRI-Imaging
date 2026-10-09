@@ -3,6 +3,7 @@ QToolBar#mainToolBar {
   border: 1px solid @border;
   spacing: 1px;
   padding: 1px;
+  margin-bottom: 2px;
 }
 
 QToolBar#mainToolBar QToolButton {

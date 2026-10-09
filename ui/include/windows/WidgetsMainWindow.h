@@ -56,6 +56,7 @@ private:
 
   SceneObjectListWidget *sceneObjectListWidget = nullptr;
 
+  QDockWidget *viewportDock = nullptr;
   QDockWidget *objectsDock = nullptr;
   QDockWidget *statsDock = nullptr;
   QDockWidget *inspectorDock = nullptr;

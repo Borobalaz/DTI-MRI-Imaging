@@ -2,6 +2,7 @@
 
 #include <QFrame>
 
+class QFormLayout;
 class QLabel;
 class RenderStatistics;
 
@@ -14,9 +15,15 @@ public:
 
   void setRenderStatistics(RenderStatistics *statistics);
 
+  // Re-reads layout metrics (margin/spacing/min-width) from tokens/common.ini and re-applies
+  //  them, so editing that file updates an already-running instance (called from
+  //  WidgetsMainWindow::applyTheme() whenever a style source file change is detected).
+  void refreshLayoutMetrics();
+
 private:
   void refresh();
 
+  QFormLayout *formLayout = nullptr;
   RenderStatistics *statistics = nullptr;
   QLabel *fpsValueLabel = nullptr;
   QLabel *averageFpsValueLabel = nullptr;

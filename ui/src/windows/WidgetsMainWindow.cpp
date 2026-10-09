@@ -129,16 +129,16 @@ void WidgetsMainWindow::restoreLayoutState()
 
 /**
  * @brief Build the main window ui layout.
- *  The viewport is the central widget; the scene object list, render statistics,
- *  and inspector panels are dockable QDockWidgets that can be freely moved, resized,
- *  floated, or tabbed by the user.
+ *  The viewport, scene object list, render statistics, and inspector panels are all
+ *  dockable QDockWidgets that can be freely moved, resized, floated, or tabbed by the user.
+ *  QMainWindow has no central widget here; the dock area fills the whole window.
  *
  */
 void WidgetsMainWindow::setupLayout()
 {
   setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
 
-  // Scene viewport (central widget)
+  // Scene viewport
   auto *viewportPanel = new QFrame(this);
   viewportPanel->setObjectName("viewportPanel");
   auto *viewportLayout = new QVBoxLayout(viewportPanel);
@@ -147,7 +147,9 @@ void WidgetsMainWindow::setupLayout()
   viewportWidget = new OpenGLViewportWidget(viewportPanel);
   viewportLayout->addWidget(viewportWidget, 1);
 
-  setCentralWidget(viewportPanel);
+  viewportDock = new QDockWidget(tr("Viewport"), this);
+  viewportDock->setObjectName("viewportDock");
+  viewportDock->setWidget(viewportPanel);
 
   // Left dock: scene object list
   sceneObjectListWidget = new SceneObjectListWidget(this);
@@ -169,10 +171,17 @@ void WidgetsMainWindow::setupLayout()
 
   renderStatisticsWidget->setRenderStatistics(viewportWidget->renderStatistics());
 
-  // Assemble the default dock arrangement
+  // Assemble the default dock arrangement: viewport dominates the middle, with the
+  //  objects/stats column to its left and the inspector to its right.
   addDockWidget(Qt::LeftDockWidgetArea, objectsDock);
   splitDockWidget(objectsDock, statsDock, Qt::Vertical);
+
+  addDockWidget(Qt::LeftDockWidgetArea, viewportDock);
+  splitDockWidget(objectsDock, viewportDock, Qt::Horizontal);
+
   addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
+
+  resizeDocks({objectsDock, viewportDock, inspectorDock}, {220, 1000, 260}, Qt::Horizontal);
 }
 
 void WidgetsMainWindow::setupToolBar()
@@ -183,7 +192,7 @@ void WidgetsMainWindow::setupToolBar()
   {
     toggleTheme();
   });
-  toolBar->setViewActions({objectsDock->toggleViewAction(), statsDock->toggleViewAction(), inspectorDock->toggleViewAction()});
+  toolBar->setViewActions({viewportDock->toggleViewAction(), objectsDock->toggleViewAction(), statsDock->toggleViewAction(), inspectorDock->toggleViewAction()});
 
   addToolBar(Qt::TopToolBarArea, toolBar);
 }
@@ -218,6 +227,13 @@ void WidgetsMainWindow::applyTheme()
   qApp->setPalette(themePalette);
 
   setStyleSheet(ComposeThemeStyleSheet(theme));
+
+  // Layout metrics (margins/spacing/min-widths) come from tokens/common.ini too, but QSS can't
+  //  reach an already-installed QLayout's margins/spacing - each panel re-reads and re-applies
+  //  them explicitly here so editing common.ini hot-reloads the same as a color change.
+  sceneObjectListWidget->refreshLayoutMetrics();
+  inspectorWidget->refreshLayoutMetrics();
+  renderStatisticsWidget->refreshLayoutMetrics();
 
   applyTitleBarTheme();
   recordActiveStyleModTime();

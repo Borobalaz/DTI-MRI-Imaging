@@ -20,6 +20,11 @@ public:
   void setFields(const QObjectList &fieldObjects);
   void refreshBoundEditors();
 
+  // Re-reads layout metrics (margin/spacing/min-width) from tokens/common.ini and re-applies
+  //  them, so editing that file updates an already-running instance (called from
+  //  WidgetsMainWindow::applyTheme() whenever a style source file change is detected).
+  void refreshLayoutMetrics();
+
 private:
   struct EditorBinding
   {
@@ -30,6 +35,7 @@ private:
   void clearInspector();
   void addFieldEditor(IInspectWidget *field);
 
+  QVBoxLayout *inspectorPanelLayout = nullptr;
   QWidget *inspectorContent = nullptr;
   QVBoxLayout *inspectorLayout = nullptr;
   QList<EditorBinding> editorBindings;
