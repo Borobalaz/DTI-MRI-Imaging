@@ -103,6 +103,12 @@ Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(float value)
  * @param value 
  * @return Shader::UniformSlotProxy& 
  */
+Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(const glm::vec2& value)
+{
+  shader.SetStoredUniform(uniformName, value);
+  return *this;
+}
+
 Shader::UniformSlotProxy& Shader::UniformSlotProxy::operator=(const glm::vec3& value)
 {
   shader.SetStoredUniform(uniformName, value);
@@ -232,6 +238,10 @@ void Shader::Use() const
         {
           SetFloat(uniformName, typedValue);
         }
+        else if constexpr (std::is_same_v<ValueType, glm::vec2>)
+        {
+          SetVec2(uniformName, typedValue);
+        }
         else if constexpr (std::is_same_v<ValueType, glm::vec3>)
         {
           SetVec3(uniformName, typedValue);
@@ -321,10 +331,39 @@ void Shader::SetFloat(const std::string& name, float value) const
 }
 
 /**
+ * @brief Set a vec2 uniform in the shader
+ *
+ * @param name
+ * @param value
+ */
+void Shader::SetVec2(const std::string& name, const glm::vec2& value) const
+{
+  if (!HasUniform(name))
+  {
+    return;
+  }
+
+  const std::optional<UniformInfo> info = GetUniformInfo(name);
+  if (info.has_value() && !IsUniformTypeCompatible(info->type, GL_FLOAT_VEC2))
+  {
+    LogUniformTypeMismatch(name, info->type, GL_FLOAT_VEC2);
+    return;
+  }
+
+  const GLint location = info.has_value() ? info->location : GetUniformLocationCached(name);
+
+  glUniform2fv(
+    location,
+    1,
+    glm::value_ptr(value)
+  );
+}
+
+/**
  * @brief Set a vec3 uniform in the shader
- * 
- * @param name 
- * @param value 
+ *
+ * @param name
+ * @param value
  */
 void Shader::SetVec3(const std::string& name, const glm::vec3& value) const
 {
@@ -461,6 +500,10 @@ void Shader::Apply(Shader& shader) const
         else if constexpr (std::is_same_v<ValueType, float>)
         {
           shader.SetFloat(uniformName, typedValue);
+        }
+        else if constexpr (std::is_same_v<ValueType, glm::vec2>)
+        {
+          shader.SetVec2(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::vec3>)
         {

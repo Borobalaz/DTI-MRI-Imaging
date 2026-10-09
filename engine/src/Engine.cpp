@@ -59,6 +59,7 @@ void Engine::SetViewportSize(int width, int height)
   {
     impl->scene->SetCameraAspect(static_cast<float>(width) / static_cast<float>(height));
   }
+  impl->renderer.Resize(width, height);
 }
 
 void Engine::SetFillColor(const glm::vec3& color)

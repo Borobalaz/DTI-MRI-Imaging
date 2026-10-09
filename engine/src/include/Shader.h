@@ -26,7 +26,7 @@ class Shader : public UniformProvider
 {
 public:
   // Uniform storage
-  using UniformValue = std::variant<bool, int, float, glm::vec3, glm::mat4>;
+  using UniformValue = std::variant<bool, int, float, glm::vec2, glm::vec3, glm::mat4>;
 
   unsigned int ID;
 
@@ -51,6 +51,7 @@ public:
   void SetBool(const std::string &name, bool value) const;
   void SetInt(const std::string &name, int value) const;
   void SetFloat(const std::string &name, float value) const;
+  void SetVec2(const std::string &name, const glm::vec2 &value) const;
   void SetVec3(const std::string &name, const glm::vec3 &value) const;
   void SetMat4(const std::string &name, const glm::mat4 &value) const;
   void SetTexture(const std::string &name, int unit) const;
@@ -70,6 +71,7 @@ public:
     UniformSlotProxy &operator=(bool value);
     UniformSlotProxy &operator=(int value);
     UniformSlotProxy &operator=(float value);
+    UniformSlotProxy &operator=(const glm::vec2 &value);
     UniformSlotProxy &operator=(const glm::vec3 &value);
     UniformSlotProxy &operator=(const glm::mat4 &value);
 
