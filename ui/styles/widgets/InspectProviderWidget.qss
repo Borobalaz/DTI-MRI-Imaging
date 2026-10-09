@@ -1,0 +1,30 @@
+QFrame#inspectProviderItem {
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 0px;
+}
+
+QFrame#inspectProviderItem:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.12);
+  border: 1px solid rgba(@hover-border-rgb, 0.20);
+}
+
+QFrame#inspectProviderItem[selected="true"] {
+  background-color: rgba(@selected-overlay-rgb, 0.32);
+  border: 1px solid rgba(@selected-border-rgb, 0.75);
+}
+
+QFrame#inspectProviderItem QLabel {
+  color: @text-primary;
+}
+
+QFrame#inspectProviderItem QToolButton {
+  border: none;
+  border-radius: 4px;
+  padding: 2px;
+  background: transparent;
+}
+
+QFrame#inspectProviderItem QToolButton:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.18);
+}

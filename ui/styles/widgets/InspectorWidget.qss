@@ -1,0 +1,26 @@
+QScrollArea#inspectorScrollArea {
+  background-color: @panel-bg;
+  border: none;
+}
+
+QScrollArea#inspectorScrollArea > QWidget > QWidget {
+  background-color: @panel-bg;
+}
+
+QWidget#inspectorContent {
+  background-color: @panel-bg;
+}
+
+QWidget#inspectorFieldRow {
+  border-bottom: 1px solid rgba(@border-rgb, 0.6);
+}
+
+QLabel#inspectorGroupLabel {
+  color: @text-muted;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+QLabel#inspectorFieldLabel {
+  padding-right: 6px;
+}

@@ -1,0 +1,26 @@
+QPushButton {
+  background-color: @window-bg;
+  color: @text-primary;
+  border: 1px solid @border;
+  border-radius: 6px;
+  padding: 6px 14px;
+}
+
+QPushButton:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.18);
+  border: 1px solid rgba(@hover-border-rgb, 0.30);
+}
+
+QPushButton:pressed {
+  background-color: rgba(@selected-overlay-rgb, 0.32);
+  border: 1px solid rgba(@selected-border-rgb, 0.60);
+}
+
+QPushButton:disabled {
+  color: rgba(@text-primary-rgb, 0.4);
+  border: 1px solid rgba(@border-rgb, 0.6);
+}
+
+QPushButton#fieldBrowseButton {
+  padding: 4px;
+}

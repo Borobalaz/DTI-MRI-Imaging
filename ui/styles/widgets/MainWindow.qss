@@ -1,0 +1,13 @@
+QMainWindow {
+  background-color: @window-bg;
+}
+
+QMainWindow::separator {
+  background-color: @window-bg;
+  width: 6px;
+  height: 6px;
+}
+
+QMainWindow::separator:hover {
+  background-color: @separator-hover;
+}

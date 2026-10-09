@@ -1,0 +1,24 @@
+QScrollArea#objectsScrollArea {
+  background-color: @panel-bg;
+  border: none;
+}
+
+QScrollArea#objectsScrollArea > QWidget > QWidget {
+  background-color: @panel-bg;
+}
+
+QListWidget#objectList {
+  color: @text-primary;
+  border: 1px solid @border;
+}
+
+QListWidget#objectList::item {
+  background-color: @window-bg;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+QListWidget#objectList::item:selected {
+  background: @list-selection-bg;
+  color: @selection-text;
+}

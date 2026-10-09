@@ -2,12 +2,15 @@
 
 #include <memory>
 
+#include <QDateTime>
 #include <QMainWindow>
+#include <QString>
 
 #include "controllers/MainWindowShortcuts.h"
 
 class QDockWidget;
 class QCloseEvent;
+class QTimer;
 
 class OpenGLViewportWidget;
 class InspectorWidget;
@@ -32,6 +35,9 @@ private:
   void applyTheme();
   void toggleTheme();
   void applyTitleBarTheme();
+  void recordActiveStyleModTime();
+  void pollActiveStyleForChanges();
+  QString currentThemeName() const;
 
   void saveLayoutState();
   void restoreLayoutState();
@@ -41,6 +47,8 @@ private:
 
   bool useDarkTheme = true;
   std::unique_ptr<MainWindowShortcuts> shortcuts;
+  QTimer *styleReloadTimer = nullptr;
+  QDateTime lastStyleModTime;
 
   OpenGLViewportWidget *viewportWidget = nullptr;
   InspectorWidget *inspectorWidget = nullptr;

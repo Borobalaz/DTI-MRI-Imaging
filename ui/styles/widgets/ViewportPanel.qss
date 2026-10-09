@@ -1,0 +1,6 @@
+/* The viewport's OpenGL child paints square corners regardless of QSS, so it keeps a
+   plain (non-rounded) border instead of mismatching the rounded dock panels. */
+QFrame#viewportPanel {
+  background-color: @panel-bg;
+  border: 1px solid @border;
+}

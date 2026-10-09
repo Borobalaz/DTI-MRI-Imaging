@@ -1,0 +1,30 @@
+QToolBar#mainToolBar {
+  background-color: @window-bg;
+  border: 1px solid @border;
+  spacing: 1px;
+  padding: 1px;
+}
+
+QToolBar#mainToolBar QToolButton {
+  color: @text-primary;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 1px;
+  padding: 2px 5px;
+}
+
+QToolBar#mainToolBar QToolButton:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.18);
+  border: 1px solid rgba(@hover-border-rgb, 0.20);
+}
+
+QToolBar#mainToolBar QToolButton:checked {
+  background-color: rgba(@selected-overlay-rgb, 0.32);
+  border: 1px solid rgba(@selected-border-rgb, 0.75);
+}
+
+QToolBar#mainToolBar::separator {
+  background-color: @border;
+  width: 1px;
+  margin: 1px 1px;
+}

@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QStyleFactory>
 #include <QSurfaceFormat>
 
 #include "windows/WidgetsMainWindow.h"
@@ -18,6 +19,12 @@ int main(int argc, char *argv[])
   format.setProfile(QSurfaceFormat::CoreProfile);
   format.setSwapInterval(0);  // disable vsync for lowest possible latency
   QSurfaceFormat::setDefaultFormat(format);
+
+  // Use Fusion rather than the native Windows style: the native style ("windowsvista"/
+  //  "Windows11") partially native-themes certain controls (e.g. QDockWidget titles) and
+  //  ignores QSS/palette color overrides for them, which broke theme toggling. Fusion fully
+  //  respects QSS, so the custom dark/light themes apply consistently everywhere.
+  QApplication::setStyle(QStyleFactory::create("Fusion"));
 
   // Declare app
   QApplication app(argc, argv);

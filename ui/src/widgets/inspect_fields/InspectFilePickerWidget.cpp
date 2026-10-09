@@ -9,6 +9,7 @@ InspectFilePickerWidget::InspectFilePickerWidget(QWidget *parent)
   pathEdit = new QLineEdit(this);
   pathEdit->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
   browseButton = new QPushButton("...", this);
+  browseButton->setObjectName("fieldBrowseButton");
   browseButton->setFixedWidth(32);
   layout->addWidget(pathEdit, 1);
   layout->addWidget(browseButton, 0);

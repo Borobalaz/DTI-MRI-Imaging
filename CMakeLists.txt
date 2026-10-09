@@ -99,6 +99,10 @@ target_include_directories(app_qt PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include
 )
 
+target_compile_definitions(app_qt PRIVATE
+    "CONNECTOMICS_STYLE_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/ui/styles\""
+)
+
 target_link_libraries(app_qt PRIVATE
     engine
     Qt6::Core
@@ -127,4 +131,15 @@ add_custom_command(TARGET app_qt POST_BUILD
             "${CMAKE_CURRENT_SOURCE_DIR}/engine/assets"
             "$<TARGET_FILE_DIR:app_qt>/assets"
     COMMENT "Copying assets to build output..."
+)
+
+# Also copy the Qt stylesheets/tokens (ui/styles/widgets/**/*.qss, ui/styles/tokens/*.ini),
+#  for deployed builds that don't have the source tree (StyleSheetComposer prefers
+#  CONNECTOMICS_STYLE_SOURCE_DIR when it exists, so a dev build picks up edits directly,
+#  without needing this copy)
+add_custom_command(TARGET app_qt POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/ui/styles"
+            "$<TARGET_FILE_DIR:app_qt>/styles"
+    COMMENT "Copying styles to build output..."
 )

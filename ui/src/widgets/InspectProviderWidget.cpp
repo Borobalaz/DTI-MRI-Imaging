@@ -3,6 +3,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMouseEvent>
+#include <QResizeEvent>
 #include <QStyle>
 #include <QToolButton>
 
@@ -18,19 +19,18 @@ InspectProviderWidget::InspectProviderWidget(QWidget *parent)
   layout->setContentsMargins(8, 4, 8, 4);
   layout->setSpacing(8);
 
-  // Add name
+  // Add name (elided to fit, with the full name as a tooltip so it's never fully lost)
   nameLabel = new QLabel(this);
   nameLabel->setWordWrap(false);
-  layout->addWidget(nameLabel, 0);
-
-  layout->addStretch(1);
+  nameLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+  layout->addWidget(nameLabel, 1);
 
   visibilityButton = new QToolButton(this);
   visibilityButton->setAutoRaise(true);
   visibilityButton->setIconSize(QSize(16, 16));
   visibilityButton->setCursor(Qt::PointingHandCursor);
   visibilityButton->setVisible(false);
-  layout->addWidget(visibilityButton, 1, Qt::AlignVCenter);
+  layout->addWidget(visibilityButton, 0, Qt::AlignVCenter);
 
   QObject::connect(visibilityButton, &QToolButton::clicked, this, [this]()
                    {
@@ -54,18 +54,42 @@ void InspectProviderWidget::refreshFromObject()
 {
   if (object.id.empty())
   {
+    fullDisplayName.clear();
     nameLabel->clear();
+    nameLabel->setToolTip(QString());
     visibilityButton->setVisible(false);
     return;
   }
 
-  nameLabel->setText(QString::fromStdString(object.displayName));
+  fullDisplayName = QString::fromStdString(object.displayName);
+  nameLabel->setToolTip(fullDisplayName);
+  updateNameLabelElision();
 
   visibilityButton->setVisible(object.hasVisibility);
   if (object.hasVisibility)
   {
     updateVisibilityIcon();
   }
+}
+
+/**
+ * @brief Elide the display name to fit the label's current width, so a long object name
+ *  shrinks the visibility button out of view instead of overflowing the row.
+ */
+void InspectProviderWidget::updateNameLabelElision()
+{
+  if (!nameLabel || fullDisplayName.isEmpty())
+  {
+    return;
+  }
+
+  nameLabel->setText(nameLabel->fontMetrics().elidedText(fullDisplayName, Qt::ElideRight, nameLabel->width()));
+}
+
+void InspectProviderWidget::resizeEvent(QResizeEvent *event)
+{
+  QFrame::resizeEvent(event);
+  updateNameLabelElision();
 }
 
 /**

@@ -1,0 +1,14 @@
+QDockWidget#objectsDock, QDockWidget#renderStatsDock, QDockWidget#inspectorDock {
+  background-color: @panel-bg;
+  border: 1px solid @border;
+  border-radius: 12px;
+}
+
+QDockWidget::title {
+  background-color: @panel-title-bg;
+  color: @text-muted;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 6px;
+  border-bottom: 1px solid @border;
+}

@@ -1,0 +1,38 @@
+QLabel {
+  color: @text-primary;
+}
+
+QLineEdit, QDoubleSpinBox, QComboBox {
+  background: @input-bg;
+  color: @text-primary;
+  border: 1px solid @border;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+QLineEdit:focus, QDoubleSpinBox:focus, QComboBox:focus {
+  border: 1px solid @accent;
+}
+
+QLineEdit:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {
+  color: rgba(@text-primary-rgb, 0.4);
+  background: rgba(@input-bg-rgb, 0.5);
+  border: 1px solid rgba(@border-rgb, 0.6);
+}
+
+QLineEdit::selection, QAbstractSpinBox::selection {
+  background: @selection-bg;
+  color: @selection-text;
+}
+
+QComboBox QAbstractItemView {
+  background: @panel-bg;
+  color: @text-primary;
+  border: 1px solid @border;
+  selection-background-color: @list-selection-bg;
+  selection-color: @selection-text;
+}
+
+QCheckBox {
+  color: @text-primary;
+}

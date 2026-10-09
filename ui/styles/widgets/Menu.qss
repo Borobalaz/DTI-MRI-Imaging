@@ -1,0 +1,19 @@
+QMenu {
+  background-color: @panel-bg;
+  color: @text-primary;
+  border: 1px solid @border;
+}
+
+QMenu::item {
+  padding: 6px 24px 6px 12px;
+}
+
+QMenu::item:selected {
+  background-color: @list-selection-bg;
+}
+
+QMenu::separator {
+  background-color: @border;
+  height: 1px;
+  margin: 4px 0;
+}

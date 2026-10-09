@@ -15,7 +15,7 @@ InspectorWidget::InspectorWidget(QWidget *parent)
   setMinimumWidth(260);
 
   auto *inspectorPanelLayout = new QVBoxLayout(this);
-  inspectorPanelLayout->setContentsMargins(12, 12, 12, 12);
+  inspectorPanelLayout->setContentsMargins(4, 4, 4, 4);
   inspectorPanelLayout->setSpacing(8);
 
   auto *scrollArea = new QScrollArea(this);
@@ -28,7 +28,6 @@ InspectorWidget::InspectorWidget(QWidget *parent)
   inspectorContent->setObjectName("inspectorContent");
   inspectorLayout = new QVBoxLayout(inspectorContent);
   inspectorLayout->setContentsMargins(0, 0, 0, 0);
-  inspectorLayout->setSpacing(10);
   inspectorLayout->addStretch(1);
 
   scrollArea->setWidget(inspectorContent);
@@ -58,10 +57,9 @@ void InspectorWidget::setFields(const QObjectList &fieldObjects)
     {
       currentGroup = field->groupName();
       auto *groupLabel = new QLabel(currentGroup, inspectorContent);
-      QFont groupFont = groupLabel->font();
-      groupFont.setBold(true);
-      groupLabel->setFont(groupFont);
-      groupLabel->setStyleSheet("color: #9aa6b2; margin-top: 8px;");
+      groupLabel->setObjectName("inspectorGroupLabel");
+      // Color, font-weight and spacing all come from QLabel#inspectorGroupLabel in
+      //  ui/styles/widgets/InspectorWidget.qss, so they stay themed and hot-reloadable.
       inspectorLayout->addWidget(groupLabel);
     }
 
@@ -111,13 +109,19 @@ void InspectorWidget::clearInspector()
 void InspectorWidget::addFieldEditor(IInspectWidget *field)
 {
   auto *row = new QWidget(inspectorContent);
+  row->setObjectName("inspectorFieldRow");
+  // Disabling the row (rather than just the editor) also dims the name label via the
+  //  palette's disabled color group, matching read-only fields visually, not just functionally.
+  row->setEnabled(!field->isReadOnly());
+
   auto *rowLayout = new QHBoxLayout(row);
-  rowLayout->setContentsMargins(0, 0, 0, 0);
+  rowLayout->setContentsMargins(4, 6, 4, 6);
   rowLayout->setSpacing(8);
 
   auto *nameLabel = new QLabel(field->displayName(), row);
-  nameLabel->setMinimumWidth(96);
-  nameLabel->setMaximumWidth(96);
+  nameLabel->setObjectName("inspectorFieldLabel");
+  nameLabel->setMinimumWidth(104);
+  nameLabel->setMaximumWidth(104);
   nameLabel->setWordWrap(true);
   rowLayout->addWidget(nameLabel);
 

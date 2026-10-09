@@ -12,7 +12,7 @@ SceneObjectListWidget::SceneObjectListWidget(QWidget *parent)
   setMinimumWidth(220);
 
   auto *objectsLayout = new QVBoxLayout(this);
-  objectsLayout->setContentsMargins(12, 12, 12, 12);
+  objectsLayout->setContentsMargins(4, 4, 4, 4);
   objectsLayout->setSpacing(8);
 
   scrollArea = new QScrollArea(this);

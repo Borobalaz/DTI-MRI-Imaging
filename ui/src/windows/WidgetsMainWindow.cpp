@@ -1,12 +1,16 @@
 #include "windows/WidgetsMainWindow.h"
 
+#include <QApplication>
 #include <QCloseEvent>
+#include <QColor>
 #include <QDockWidget>
 #include <QFrame>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QPalette>
 #include <QScreen>
 #include <QSettings>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #if defined(Q_OS_WIN)
@@ -16,8 +20,7 @@
 
 #include "qt-adapters/QTSceneInspector.h"
 #include "controllers/MainWindowShortcuts.h"
-#include "styles/DarkThemeStyle.h"
-#include "styles/LightThemeStyle.h"
+#include "styles/StyleSheetComposer.h"
 #include "widgets/OpenGLViewportWidget.h"
 #include "widgets/InspectorWidget.h"
 #include "widgets/MainToolBar.h"
@@ -39,6 +42,17 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
     toggleTheme();
   });
 
+  // Poll the active theme's .qss file for changes and re-apply the theme when it's edited,
+  //  so stylesheet edits show up immediately without rebuilding or restarting. This uses
+  //  polling rather than QFileSystemWatcher/ReadDirectoryChangesW because native Windows
+  //  file-change notifications aren't reliably delivered for this project's drive (observed
+  //  with both QFileSystemWatcher and a bare .NET FileSystemWatcher) - polling the mtime
+  //  works regardless of whether the OS delivers change notifications for a given volume.
+  styleReloadTimer = new QTimer(this);
+  styleReloadTimer->setInterval(500);
+  QObject::connect(styleReloadTimer, &QTimer::timeout, this, &WidgetsMainWindow::pollActiveStyleForChanges);
+  styleReloadTimer->start();
+
   // Build the main window layout
   setupLayout();
 
@@ -54,7 +68,7 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
 
   // Set initial window size, title and icon
   resize(1600, 900);
-  setWindowTitle("3D Engine");
+  setWindowTitle("dMRI Visualization");
   setWindowIcon(QIcon(":/icons/app-icon.svg"));
 
   // Restore the user's last dock/geometry arrangement, if any
@@ -174,22 +188,53 @@ void WidgetsMainWindow::setupToolBar()
   addToolBar(Qt::TopToolBarArea, toolBar);
 }
 
+QString WidgetsMainWindow::currentThemeName() const
+{
+  return useDarkTheme ? QStringLiteral("dark") : QStringLiteral("light");
+}
+
 void WidgetsMainWindow::applyTheme()
 {
   viewportWidget->SetFillColor(useDarkTheme ? glm::vec3(0.0f) : glm::vec3(1.0f));
 
-  if (useDarkTheme)
-  {
-    const DarkThemeStyle darkThemeStyle;
-    setStyleSheet(darkThemeStyle.styleSheet());
-  }
-  else
-  {
-    const LightThemeStyle lightThemeStyle;
-    setStyleSheet(lightThemeStyle.styleSheet());
-  }
+  const QString theme = currentThemeName();
+
+  // Qt's "modern Windows" style paints some controls' text (QDockWidget title, QPushButton
+  //  labels) from the application palette rather than the QSS "color" property. setStyleSheet()
+  //  below triggers a style repolish that bakes in whatever the *current* palette is at that
+  //  moment, so the palette must be updated first — otherwise those controls keep repolishing
+  //  against the previous theme's palette and their text color never actually changes on toggle.
+  // Every color here comes from the same token files the QSS itself resolves against
+  //  (ui/styles/tokens/<theme>.ini), so there's exactly one place that defines "window-bg", etc.
+  QPalette themePalette = QApplication::palette();
+  themePalette.setColor(QPalette::Window, QColor(ResolveThemeToken(theme, "window-bg")));
+  themePalette.setColor(QPalette::WindowText, QColor(ResolveThemeToken(theme, "text-primary")));
+  themePalette.setColor(QPalette::Base, QColor(ResolveThemeToken(theme, "input-bg")));
+  themePalette.setColor(QPalette::Text, QColor(ResolveThemeToken(theme, "text-primary")));
+  themePalette.setColor(QPalette::Button, QColor(ResolveThemeToken(theme, "window-bg")));
+  themePalette.setColor(QPalette::ButtonText, QColor(ResolveThemeToken(theme, "text-primary")));
+  themePalette.setColor(QPalette::Highlight, QColor(ResolveThemeToken(theme, "selection-bg")));
+  themePalette.setColor(QPalette::HighlightedText, QColor(ResolveThemeToken(theme, "selection-text")));
+  qApp->setPalette(themePalette);
+
+  setStyleSheet(ComposeThemeStyleSheet(theme));
 
   applyTitleBarTheme();
+  recordActiveStyleModTime();
+}
+
+void WidgetsMainWindow::recordActiveStyleModTime()
+{
+  lastStyleModTime = LatestStyleSourceModTime(currentThemeName());
+}
+
+void WidgetsMainWindow::pollActiveStyleForChanges()
+{
+  const QDateTime modTime = LatestStyleSourceModTime(currentThemeName());
+  if (modTime.isValid() && modTime != lastStyleModTime)
+  {
+    applyTheme();
+  }
 }
 
 void WidgetsMainWindow::applyTitleBarTheme()
@@ -205,8 +250,13 @@ void WidgetsMainWindow::applyTitleBarTheme()
   const BOOL useDarkMode = useDarkTheme ? TRUE : FALSE;
   DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, &useDarkMode, sizeof(useDarkMode));
 
-  const COLORREF captionColor = useDarkTheme ? RGB(0x1b, 0x26, 0x35) : RGB(0xee, 0xf3, 0xf8);
-  const COLORREF textColor = useDarkTheme ? RGB(0xd8, 0xe1, 0xea) : RGB(0x2a, 0x3b, 0x4f);
+  // Same token source as the QSS/palette above - the native titlebar is the one piece of
+  //  chrome QSS can never reach, but its colors still come from the one canonical place.
+  const QString theme = currentThemeName();
+  const QColor captionQColor(ResolveThemeToken(theme, "window-bg"));
+  const QColor textQColor(ResolveThemeToken(theme, "text-primary"));
+  const COLORREF captionColor = RGB(captionQColor.red(), captionQColor.green(), captionQColor.blue());
+  const COLORREF textColor = RGB(textQColor.red(), textQColor.green(), textQColor.blue());
   DwmSetWindowAttribute(hwnd, DwmwaCaptionColor, &captionColor, sizeof(captionColor));
   DwmSetWindowAttribute(hwnd, DwmwaTextColor, &textColor, sizeof(textColor));
 #endif
