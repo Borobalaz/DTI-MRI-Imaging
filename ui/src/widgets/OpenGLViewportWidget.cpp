@@ -137,7 +137,8 @@ void OpenGLViewportWidget::resizeGL(int width, int height)
 {
   if (engine)
   {
-    engine->SetViewportSize(width, height);
+    const qreal dpr = devicePixelRatioF();
+    engine->SetViewportSize(static_cast<int>(width * dpr), static_cast<int>(height * dpr));
   }
 }
 
@@ -154,7 +155,8 @@ void OpenGLViewportWidget::paintGL()
 
   if (height() > 0)
   {
-    engine->SetViewportSize(width(), height());
+    const qreal dpr = devicePixelRatioF();
+    engine->SetViewportSize(static_cast<int>(width() * dpr), static_cast<int>(height() * dpr));
   }
 
   // delta time
