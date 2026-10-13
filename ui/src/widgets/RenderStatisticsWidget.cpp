@@ -2,9 +2,21 @@
 
 #include <QFormLayout>
 #include <QLabel>
+#include <QTimer>
 
 #include "state/RenderStatistics.h"
 #include "styles/StyleSheetComposer.h"
+
+namespace
+{
+  // RenderStatistics::statisticsChanged fires once per rendered frame, which can be
+  //  hundreds/thousands of times a second with an uncapped render loop. Reacting to it
+  //  directly would run QLabel::setText() (and the QSS repaint + dock layout invalidation
+  //  it triggers) on the GUI thread inside that per-frame call stack, competing with
+  //  rendering itself. Polling on a fixed-rate timer instead decouples the display refresh
+  //  rate from the render loop's rate.
+  constexpr int kRefreshIntervalMs = 100;
+}
 
 RenderStatisticsWidget::RenderStatisticsWidget(QWidget *parent)
   : QFrame(parent)
@@ -21,6 +33,11 @@ RenderStatisticsWidget::RenderStatisticsWidget(QWidget *parent)
   formLayout->addRow("Average FPS", averageFpsValueLabel);
   formLayout->addRow("Render Time", renderTimeValueLabel);
   formLayout->addRow("Avg Render Time", averageRenderTimeValueLabel);
+
+  refreshTimer = new QTimer(this);
+  refreshTimer->setInterval(kRefreshIntervalMs);
+  QObject::connect(refreshTimer, &QTimer::timeout, this, &RenderStatisticsWidget::refresh);
+  refreshTimer->start();
 }
 
 void RenderStatisticsWidget::refreshLayoutMetrics()
@@ -35,26 +52,7 @@ void RenderStatisticsWidget::refreshLayoutMetrics()
 
 void RenderStatisticsWidget::setRenderStatistics(RenderStatistics *newStatistics)
 {
-  if (statistics == newStatistics)
-  {
-    return;
-  }
-
-  if (statistics)
-  {
-    QObject::disconnect(statistics, nullptr, this, nullptr);
-  }
-
   statistics = newStatistics;
-
-  if (statistics)
-  {
-    QObject::connect(statistics, &RenderStatistics::statisticsChanged, this, [this]()
-    {
-      refresh();
-    });
-  }
-
   refresh();
 }
 
