@@ -21,6 +21,7 @@
 #include "qt-adapters/QTSceneInspector.h"
 #include "controllers/MainWindowShortcuts.h"
 #include "styles/StyleSheetComposer.h"
+#include "widgets/DockTitleBarWidget.h"
 #include "widgets/OpenGLViewportWidget.h"
 #include "widgets/InspectorWidget.h"
 #include "widgets/MainToolBar.h"
@@ -150,24 +151,28 @@ void WidgetsMainWindow::setupLayout()
   viewportDock = new QDockWidget(tr("Viewport"), this);
   viewportDock->setObjectName("viewportDock");
   viewportDock->setWidget(viewportPanel);
+  viewportDock->setTitleBarWidget(new DockTitleBarWidget(viewportDock, viewportDock));
 
   // Left dock: scene object list
   sceneObjectListWidget = new SceneObjectListWidget(this);
   objectsDock = new QDockWidget(tr("Objects"), this);
   objectsDock->setObjectName("objectsDock");
   objectsDock->setWidget(sceneObjectListWidget);
+  objectsDock->setTitleBarWidget(new DockTitleBarWidget(objectsDock, objectsDock));
 
   // Left dock (stacked below objects): render statistics
   renderStatisticsWidget = new RenderStatisticsWidget(this);
   statsDock = new QDockWidget(tr("Render Statistics"), this);
   statsDock->setObjectName("renderStatsDock");
   statsDock->setWidget(renderStatisticsWidget);
+  statsDock->setTitleBarWidget(new DockTitleBarWidget(statsDock, statsDock));
 
   // Right dock: inspector
   inspectorWidget = new InspectorWidget(this);
   inspectorDock = new QDockWidget(tr("Inspector"), this);
   inspectorDock->setObjectName("inspectorDock");
   inspectorDock->setWidget(inspectorWidget);
+  inspectorDock->setTitleBarWidget(new DockTitleBarWidget(inspectorDock, inspectorDock));
 
   renderStatisticsWidget->setRenderStatistics(viewportWidget->renderStatistics());
 
