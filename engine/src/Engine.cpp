@@ -4,7 +4,6 @@
 
 #include "Scene/Scene.h"
 #include "EngineOpenGL.h"
-#include "Camera/InspectionCameraMovement.h"
 #include "Renderer/ForwardRenderer.h"
 #include "RenderCore/ExtractionRegistry.h"
 #include "RenderCore/RenderFrameBuilder.h"
@@ -29,18 +28,8 @@ bool Engine::InitializeOpenGL(GLADloadproc loadProc)
 
 void Engine::CreateScene()
 {
-  movement = nullptr;
   scene = std::make_unique<DtiVolumeScene>();
   scene->Init();
-
-  if (std::shared_ptr<Camera> camera = scene->GetCamera())
-  {
-    auto* inspectionMovement = new InspectionCameraMovement();
-    inspectionMovement->SetInputState(inputState.get());
-    movement = inspectionMovement;
-    camera->SetMoveComponent(std::unique_ptr<BaseMovement>(inspectionMovement));
-  }
-
   scene->RebuildInspectProviders();
   inspectionService = std::make_unique<SceneInspectionService>(*scene);
 }

@@ -10,7 +10,6 @@
 #include "Inspection/IInspectionService.h"
 
 class Scene;
-class BaseMovement;
 class ForwardRenderer;
 class ExtractionRegistry;
 class RenderFrameBuilder;
@@ -61,7 +60,6 @@ public:
 
 private:
   std::unique_ptr<Scene> scene;
-  BaseMovement* movement = nullptr;
   std::unique_ptr<ForwardRenderer> renderer;
   std::unique_ptr<ExtractionRegistry> extractionRegistry;
   std::unique_ptr<RenderFrameBuilder> renderFrameBuilder;

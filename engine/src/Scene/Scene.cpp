@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <string>
 
+#include "Camera/InspectionCameraMovement.h"
 #include "Mesh.h"
 #include "Geometry/ModelLoader.h"
 #include "Geometry/SphereGeometry.h"
@@ -27,6 +28,14 @@ namespace
 Scene::Scene()
     : camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.1f, 100.0f)), selfInspectProvider(static_cast<InspectProvider *>(this), [](InspectProvider *) {}) // non-owning alias; Scene owns itself
 {
+  // ------------- CAMERA MOVEMENT -------------
+  // Scene owns the camera, so it owns wiring up its default interactive
+  // movement strategy too; it reads from the scene's own InputState, which
+  // Engine refreshes every frame via SetInputState().
+  auto cameraMovement = std::make_unique<InspectionCameraMovement>();
+  cameraMovement->SetInputState(&inputState);
+  camera->SetMoveComponent(std::move(cameraMovement));
+
   // ------------- SHADERS (PBR) -------------
   std::shared_ptr<Shader> defaultShader = std::make_shared<Shader>(
       "default",
