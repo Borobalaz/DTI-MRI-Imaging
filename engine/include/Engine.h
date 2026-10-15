@@ -9,6 +9,14 @@
 #include "Inspection/InspectField.h"
 #include "Inspection/IInspectionService.h"
 
+class Scene;
+class BaseMovement;
+class ForwardRenderer;
+class ExtractionRegistry;
+class RenderFrameBuilder;
+class InputState;
+class SceneInspectionService;
+
 /**
  * @brief Public façade for the engine library. This is the only class UI code
  *  should depend on; all other engine headers are private implementation details.
@@ -52,6 +60,11 @@ public:
   Ray ScreenPointToRay(float ndcX, float ndcY) const;
 
 private:
-  struct Impl;
-  std::unique_ptr<Impl> impl;
+  std::unique_ptr<Scene> scene;
+  BaseMovement* movement = nullptr;
+  std::unique_ptr<ForwardRenderer> renderer;
+  std::unique_ptr<ExtractionRegistry> extractionRegistry;
+  std::unique_ptr<RenderFrameBuilder> renderFrameBuilder;
+  std::unique_ptr<InputState> inputState;
+  std::unique_ptr<SceneInspectionService> inspectionService;
 };
