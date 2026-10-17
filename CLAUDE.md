@@ -91,6 +91,6 @@ Subsystem docs are deliberately split and owned separately: engine architecture/
 
 ### `.claude/`
 
-`.claude/agents/*.agent.md` are persona/instruction files (currently: `documentation`, `dti-mri-processing-planner`, `expert-cpp-software-engineer`, `glsl-gpu-implementer`, `qt-gui`) that encode house conventions worth following generally: keep changes scoped to what was asked (no unrelated refactors), prefer incremental edits over new abstractions, and keep engine/UI documentation changes confined to `engine/docs`/`ui/docs` as described above.
+`.claude/agents/*.agent.md` are persona/instruction files (currently: `documentation`, `mri-processing-planner`, `expert-cpp-software-engineer`, `glsl-gpu-implementer`, `qt-gui`) that encode house conventions worth following generally: keep changes scoped to what was asked (no unrelated refactors), prefer incremental edits over new abstractions, and keep engine/UI documentation changes confined to `engine/docs`/`ui/docs` as described above.
 
 `.claude/skills/build-and-run/SKILL.md` reinforces using `build.ps1`/`build-and-run.ps1`/`debug.ps1`/`clean.ps1` rather than raw CMake or manually launching the exe, and to report a script's failure/output rather than silently falling back to a manual build.
