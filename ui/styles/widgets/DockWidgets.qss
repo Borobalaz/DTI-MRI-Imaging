@@ -4,11 +4,25 @@ QDockWidget#objectsDock, QDockWidget#renderStatsDock, QDockWidget#inspectorDock 
   border-radius: 12px;
 }
 
-QDockWidget::title {
+QWidget#dockTitleBar {
   background-color: @panel-title-bg;
-  color: @text-muted;
-  font-weight: bold;
-  font-size: 20px;
-  padding: 8px 6px;
   border-bottom: 2px solid @border;
+}
+
+QWidget#dockTitleBar QLabel#dockTitleLabel {
+  color: @text-muted;
+  font: bold 15px;
+}
+
+QWidget#dockTitleBar QToolButton {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px;
+  icon-size: 18px;
+}
+
+QWidget#dockTitleBar QToolButton:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.18);
+  border: 1px solid rgba(@hover-border-rgb, 0.20);
 }

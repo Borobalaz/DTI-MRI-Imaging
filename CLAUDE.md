@@ -35,9 +35,7 @@ cmake --build build --config Release
 
 Required dependencies (`vcpkg install ... glm glad assimp stb nlohmann-json`, plus Qt6 Core/Gui/Widgets/OpenGL/OpenGLWidgets/Svg): see `CMakeLists.txt`'s `find_package` calls. ITK (`ITKCommon`, `ITKIOImageBase`, `ITKIONIFTI`, `ITKIONRRD`, `ITKIOMeta`, `ITKIOGDCM`) is a `QUIET` optional dependency gated by `CONNECTOMICS_ENABLE_ITK_IO`; code that needs ITK I/O must guard with that macro since it may not be present.
 
-There is no automated test suite in this repo (no test target, no test framework dependency).
-
-A release-build workflow (triggered on push to `main` with `[release]` in the head commit message; builds Release on `windows-latest` and publishes exe + DLLs to the `release` branch under `release/windows`) lives at `.agents/workflows/build-release-branch.yml`. **GitHub Actions only picks up workflows under `.github/workflows/`**, so as long as the file stays under `.agents/` instead, this CI job will not run — confirm whether that's intentional before relying on it, or whether it needs to be restored under `.github/workflows/`.
+There is no automated test suite in this repo (no test target, no test framework dependency), and no CI workflow currently checked in (no `.github/workflows/`).
 
 ## Architecture
 
@@ -57,6 +55,7 @@ Crossing the boundary happens through:
 
 - **Scene** coordinates camera, lights, drawables/updateables, shader registry, input, and inspection providers; it also constructs default scene content. It builds a `SceneSnapshot` of typed render commands per frame.
 - **Render pipeline**: `RenderFrameBuilder` turns a `SceneSnapshot` into a `RenderFrame`/`RenderDataStore` via a registry of `IRenderExtractor`s. `ForwardRenderer` (the current `Renderer` implementation) runs a vector of `IRenderPass`es in registration order — currently `MeshGeometryPass`, `VolumePass`, `SkyboxPass` (`engine/src/include/Renderer/Passes`, `engine/src/Renderer/Passes`). New render features (e.g. particles) add a typed render command + a new pass registered via `Renderer::AddRenderPass`, without touching existing passes.
+- **Postprocessing**: when any postprocessing passes are registered, `ForwardRenderer` renders the scene passes into an offscreen `sceneFramebuffer` instead of the default framebuffer, then runs the registered `IPostProcessingPass` chain (ping-ponging between two scratch `Framebuffer`s) before blitting to the original target framebuffer. Passes implement `IPostProcessingPass` (`engine/src/include/Postprocessing/`) and never bind a framebuffer or set the viewport themselves — that's the orchestrator's (`Renderer::ExecutePostProcessingPasses`) job. Currently one pass is registered: `AntiAliasingPass` (FXAA-style), added via `Renderer::AddPostProcessingPass` in `ForwardRenderer`'s constructor.
 - **Volume hierarchy**: abstract `Volume` (owns transform, `VolumeGeometry`, `Shader`, `VolumeTextureSet`; implements `UniformProvider`, `IDrawable`, `InspectProvider`) has two concrete subclasses: `FloatVolume` (single scalar channel) and `DTIVolume` (17 `VolumeData` channels — 6 tensor components Dxx/Dyy/Dzz/Dxy/Dxz/Dyz, 3 eigenvector components, 3 eigenvalues L1-L3, 4 scalars FA/MD/AD/RD, 1 mask — packed into 5 RGB/RGBA 3D textures, with selectable render modes and a Z-slice parameter). See `docs/VOLUME_INHERITANCE_DIAGRAM.md`.
 - Everything renderable/updatable implements `UniformProvider` (binds uniforms to a `Shader`) and, where applicable, `IDrawable`/`IUpdateable`/`InspectProvider`.
 
@@ -80,14 +79,18 @@ Separately, `scripts/run_hd_bet.py` is a standalone Python helper (HD-BET skull 
 
 ### UI layer (`ui/`)
 
-`ui/src/app/main.cpp` sets up a 3.3 core-profile OpenGL surface and `QApplication`, then shows `WidgetsMainWindow` (`ui/src/windows`), which lays out `OpenGLViewportWidget` (viewport), `InspectorWidget`/`InspectProviderWidget` (editable fields), `SceneObjectListWidget`, and `RenderStatisticsWidget`. `OpenGLViewportWidget` (`QOpenGLWidget` subclass) owns the `Engine` instance, drives `Update`/`Render` from a `QTimer` inside `paintGL`, translates Qt input events into `Engine` input calls, and feeds `QTSceneInspector`. `DTIViewportWidget` specializes the viewport for DWI/bval/bvec dataset loading. Theming goes through `IThemeStyle`/`DarkThemeStyle`/`LightThemeStyle`.
+`ui/src/app/main.cpp` sets up a 3.3 core-profile OpenGL surface and `QApplication`, then shows `WidgetsMainWindow` (`ui/src/windows`). `WidgetsMainWindow` docks `OpenGLViewportWidget`, `InspectorWidget`/`InspectProviderWidget` (editable fields), `SceneObjectListWidget`, and `RenderStatisticsWidget` as movable/resizable/floatable `QDockWidget`s (no central widget); dock layout is persisted across sessions via `QSettings`. It also owns a `MainToolBar` (view-menu dock toggles, theme toggle) and a `MainWindowShortcuts` controller, and hot-reloads the active theme's `.qss` on disk changes via a polling `QTimer`. There is a single concrete viewport — `OpenGLViewportWidget` (`QOpenGLWidget` subclass) owns the `Engine` instance, drives `Update`/`Render` from a `QTimer` inside `paintGL`, translates Qt input events into `Engine` input calls, and feeds `QTSceneInspector` — no separate DTI-specific viewport subclass.
+
+Scene inspection is split into two layers: `InspectionSession` (`ui/include/qt-adapters/InspectionSession.h`) is engine-agnostic, Qt-free selection/query logic (select by id/ray, visibility, current fields) built purely on `IInspectionService`; `QTSceneInspector` is a thin Qt adapter that owns an `InspectionSession` plus a sync `QTimer` and converts `InspectField`/`InspectValue` into Qt field widgets (`ui/include/widgets/inspect_fields/`) and `QVariant`s/signals for the rest of the UI.
+
+Theming is a QSS token composer, not a class hierarchy: `StyleSheetComposer` (`ui/include/styles/StyleSheetComposer.h`) discovers every `ui/styles/widgets/**/*.qss` file, substitutes `@token-name` references against `ui/styles/tokens/<dark|light>.ini` (plus theme-independent layout metrics in `tokens/common.ini`), and concatenates the result for `setStyleSheet()`; `ResolveThemeToken`/`ResolveCommonToken` expose individual token values to C++ (`QPalette`, native titlebar, layout calls) that QSS can't reach.
 
 ### Documentation conventions
 
 Subsystem docs are deliberately split and owned separately: engine architecture/diagrams live under `engine/docs/*.md` / `*.mmd`, UI under `ui/docs/*.md` / `*.mmd`. Cross-boundary behavior is documented on the owning side and linked from the other side — there is no combined root architecture doc (root `docs/` predates this convention and is not kept in sync; see note above). When updating these docs, keep code as ground truth and update docs to match code, not the reverse.
 
-### `.agents/`
+### `.claude/`
 
-`.agents/agents/*.agent.md` are persona/instruction files for a different (VSCode/Copilot-style) agent runner, not Claude Code subagents (currently: `documentation`, `dti-mri-processing-planner`, `expert-cpp-software-engineer`, `glsl-gpu-implementer`, `qt-gui`) — but they encode house conventions worth following here too: keep changes scoped to what was asked (no unrelated refactors), prefer incremental edits over new abstractions, and keep engine/UI documentation changes confined to `engine/docs`/`ui/docs` as described above.
+`.claude/agents/*.agent.md` are persona/instruction files (currently: `documentation`, `mri-processing-planner`, `expert-cpp-software-engineer`, `glsl-gpu-implementer`, `qt-gui`) that encode house conventions worth following generally: keep changes scoped to what was asked (no unrelated refactors), prefer incremental edits over new abstractions, and keep engine/UI documentation changes confined to `engine/docs`/`ui/docs` as described above.
 
-`.agents/skills/build-and-run/SKILL.md` reinforces using `build.ps1`/`build-and-run.ps1`/`debug.ps1`/`clean.ps1` rather than raw CMake or manually launching the exe, and to report a script's failure/output rather than silently falling back to a manual build.
+`.claude/skills/build-and-run/SKILL.md` reinforces using `build.ps1`/`build-and-run.ps1`/`debug.ps1`/`clean.ps1` rather than raw CMake or manually launching the exe, and to report a script's failure/output rather than silently falling back to a manual build.

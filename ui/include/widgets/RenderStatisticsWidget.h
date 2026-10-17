@@ -4,6 +4,7 @@
 
 class QFormLayout;
 class QLabel;
+class QTimer;
 class RenderStatistics;
 
 class RenderStatisticsWidget : public QFrame
@@ -25,6 +26,7 @@ private:
 
   QFormLayout *formLayout = nullptr;
   RenderStatistics *statistics = nullptr;
+  QTimer *refreshTimer = nullptr;
   QLabel *fpsValueLabel = nullptr;
   QLabel *averageFpsValueLabel = nullptr;
   QLabel *renderTimeValueLabel = nullptr;

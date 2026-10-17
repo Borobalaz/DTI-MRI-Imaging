@@ -4,7 +4,6 @@
 
 #include "Scene/Scene.h"
 #include "EngineOpenGL.h"
-#include "Camera/InspectionCameraMovement.h"
 #include "Renderer/ForwardRenderer.h"
 #include "RenderCore/ExtractionRegistry.h"
 #include "RenderCore/RenderFrameBuilder.h"
@@ -12,19 +11,11 @@
 #include "Inspection/SceneInspectionService.h"
 #include "DtiVolumeScene.h"
 
-struct Engine::Impl
-{
-  std::unique_ptr<Scene> scene;
-  BaseMovement* movement = nullptr;
-  ForwardRenderer renderer;
-  ExtractionRegistry extractionRegistry;
-  RenderFrameBuilder renderFrameBuilder;
-  InputState inputState;
-  std::unique_ptr<SceneInspectionService> inspectionService;
-};
-
 Engine::Engine()
-  : impl(std::make_unique<Impl>())
+  : renderer(std::make_unique<ForwardRenderer>()),
+    extractionRegistry(std::make_unique<ExtractionRegistry>()),
+    renderFrameBuilder(std::make_unique<RenderFrameBuilder>()),
+    inputState(std::make_unique<InputState>())
 {
 }
 
@@ -37,104 +28,94 @@ bool Engine::InitializeOpenGL(GLADloadproc loadProc)
 
 void Engine::CreateScene()
 {
-  impl->movement = nullptr;
-  impl->scene = std::make_unique<DtiVolumeScene>();
-  impl->scene->Init();
-
-  if (std::shared_ptr<Camera> camera = impl->scene->GetCamera())
-  {
-    auto* inspectionMovement = new InspectionCameraMovement();
-    inspectionMovement->SetInputState(&impl->inputState);
-    impl->movement = inspectionMovement;
-    camera->SetMoveComponent(std::unique_ptr<BaseMovement>(inspectionMovement));
-  }
-
-  impl->scene->RebuildInspectProviders();
-  impl->inspectionService = std::make_unique<SceneInspectionService>(*impl->scene);
+  scene = std::make_unique<DtiVolumeScene>();
+  scene->Init();
+  scene->RebuildInspectProviders();
+  inspectionService = std::make_unique<SceneInspectionService>(*scene);
 }
 
 void Engine::SetViewportSize(int width, int height)
 {
-  if (impl->scene && height > 0)
+  if (scene && height > 0)
   {
-    impl->scene->SetCameraAspect(static_cast<float>(width) / static_cast<float>(height));
+    scene->SetCameraAspect(static_cast<float>(width) / static_cast<float>(height));
   }
-  impl->renderer.Resize(width, height);
+  renderer->Resize(width, height);
 }
 
 void Engine::SetFillColor(const glm::vec3& color)
 {
-  impl->renderer.SetFillColor(color);
+  renderer->SetFillColor(color);
 }
 
 void Engine::Update(float deltaSeconds)
 {
-  if (!impl->scene)
+  if (!scene)
   {
     return;
   }
 
-  impl->scene->ReloadShadersIfChanged();
-  impl->scene->SetInputState(impl->inputState);
-  impl->scene->Update(deltaSeconds);
+  scene->ReloadShadersIfChanged();
+  scene->SetInputState(*inputState);
+  scene->Update(deltaSeconds);
 
-  if (impl->inspectionService)
+  if (inspectionService)
   {
-    impl->inspectionService->PollForProviderChanges();
+    inspectionService->PollForProviderChanges();
   }
 }
 
 void Engine::Render()
 {
-  if (!impl->scene)
+  if (!scene)
   {
     return;
   }
 
-  const SceneSnapshot snapshot = impl->scene->CreateSnapshot();
-  const RenderFrame frame = impl->renderFrameBuilder.Build(snapshot, impl->renderer.GetDescriptor(), impl->extractionRegistry);
-  impl->renderer.Draw(frame);
-  impl->inputState.ResetFrameTransientState();
+  const SceneSnapshot snapshot = scene->CreateSnapshot();
+  const RenderFrame frame = renderFrameBuilder->Build(snapshot, renderer->GetDescriptor(), *extractionRegistry);
+  renderer->Draw(frame);
+  inputState->ResetFrameTransientState();
 }
 
 void Engine::OnKeyChanged(int key, bool down)
 {
-  impl->inputState.SetKeyDown(key, down);
+  inputState->SetKeyDown(key, down);
 }
 
 bool Engine::IsKeyDown(int key) const
 {
-  return impl->inputState.IsKeyDown(key);
+  return inputState->IsKeyDown(key);
 }
 
 void Engine::OnMouseButtonChanged(int button, bool down)
 {
-  impl->inputState.SetMouseButtonDown(button, down);
+  inputState->SetMouseButtonDown(button, down);
 }
 
 void Engine::OnMousePositionChanged(const glm::vec2& position)
 {
-  impl->inputState.SetMousePosition(position);
+  inputState->SetMousePosition(position);
 }
 
 void Engine::OnScroll(float delta)
 {
-  impl->inputState.AddScrollDelta(delta);
+  inputState->AddScrollDelta(delta);
 }
 
 IInspectionService& Engine::GetInspectionService()
 {
-  return *impl->inspectionService;
+  return *inspectionService;
 }
 
 Engine::Ray Engine::ScreenPointToRay(float ndcX, float ndcY) const
 {
-  if (!impl->scene)
+  if (!scene)
   {
     return Ray{glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)};
   }
 
-  std::shared_ptr<Camera> camera = impl->scene->GetCamera();
+  std::shared_ptr<Camera> camera = scene->GetCamera();
   if (!camera)
   {
     return Ray{glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)};
