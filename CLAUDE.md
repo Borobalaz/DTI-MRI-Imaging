@@ -49,7 +49,7 @@ Crossing the boundary happens through:
 - `Engine` facade methods: lifecycle (`InitializeOpenGL`, `CreateScene`), per-frame (`Update`, `Render`, `SetViewportSize`), input (`OnKeyChanged`, `OnMouseButtonChanged`, `OnMousePositionChanged`, `OnScroll`), picking (`ScreenPointToRay`).
 - The **inspection contract** (`IInspectionService`, `InspectField`, `InspectHandle`): a Qt-free way for the engine to describe editable scene state. `ui/src/qt-adapters/QTSceneInspector.cpp` adapts these neutral fields into Qt widgets (`ui/include/widgets/inspect_fields/`) and routes edits back through field setters/callbacks.
 
-> Note: `docs/*.md` / `docs/*.mmd` at repo root (sequence/class diagrams) describe an earlier ImGui+GLFW main-loop prototype (`GuiRoot`, `PanelRegistry`, `RuntimeControlsPanel`) and, in places, a wider engine public surface (`Scene.h`, `ForwardRenderer.h` as public headers) that no longer matches the CMake include visibility or `Engine.h`'s own doc comment. Treat `engine/docs/architecture.md` and `ui/docs/architecture.md` as the current, maintained source of truth for each subsystem; treat root `docs/` as historical/possibly stale and verify against code before relying on it.
+> Root `docs/` is stale (describes an old ImGui+GLFW prototype); `engine/docs/architecture.md` and `ui/docs/architecture.md` are the maintained sources of truth.
 
 ### Engine internals (private, under `engine/src/include` + `engine/src`)
 
@@ -91,6 +91,6 @@ Subsystem docs are deliberately split and owned separately: engine architecture/
 
 ### `.claude/`
 
-`.claude/agents/*.agent.md` are persona/instruction files (currently: `documentation`, `mri-processing-planner`, `expert-cpp-software-engineer`, `glsl-gpu-implementer`, `qt-gui`) that encode house conventions worth following generally: keep changes scoped to what was asked (no unrelated refactors), prefer incremental edits over new abstractions, and keep engine/UI documentation changes confined to `engine/docs`/`ui/docs` as described above.
+Subagents live in `.claude/agents/`, skills in `.claude/skills/`. House rules: keep changes scoped to what was asked (no unrelated refactors), prefer incremental edits over new abstractions, build/run only via the PowerShell scripts and report their failures rather than falling back to raw CMake.
 
-`.claude/skills/build-and-run/SKILL.md` reinforces using `build.ps1`/`build-and-run.ps1`/`debug.ps1`/`clean.ps1` rather than raw CMake or manually launching the exe, and to report a script's failure/output rather than silently falling back to a manual build.
+Agents follow a strict planner/implementer split: `cpp-architecture-planner`, `qt-gui-planner`, `rendering-shader-planner`, and `mri-processing-planner` own feature/architecture/UX decisions, produce detailed plans, and validate the built result; `cpp-implementer` and `glsl-implementer` are the *only* agents that write code (all C++, and GLSL respectively) and execute those plans without making design decisions of their own, asking the originating planner when a plan is ambiguous.
