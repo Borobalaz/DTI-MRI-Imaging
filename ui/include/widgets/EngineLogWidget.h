@@ -7,6 +7,7 @@
 
 #include "Log/ILogService.h"
 
+class QHBoxLayout;
 class QScrollArea;
 class QVBoxLayout;
 class QToolButton;
@@ -35,11 +36,24 @@ private:
   void appendRow(const LogEntry &entry);
   void clearRows();
   bool isScrolledToBottom() const;
+  bool isSeverityVisible(LogSeverity severity) const;
+  void setSeverityFilterVisible(LogSeverity severity, bool visible);
 
   ILogService *logService = nullptr;
   std::uint64_t lastAppendedSequenceId = 0;
 
+  bool showMessage = true;
+  bool showWarning = true;
+  bool showError = true;
+
+  bool hasSelection = false;
+  quint64 selectedSequenceId = 0;
+
   QVBoxLayout *panelLayout = nullptr;
+  QHBoxLayout *headerLayout = nullptr;
+  QToolButton *filterMessageButton = nullptr;
+  QToolButton *filterWarningButton = nullptr;
+  QToolButton *filterErrorButton = nullptr;
   QToolButton *clearButton = nullptr;
   QScrollArea *scrollArea = nullptr;
   QWidget *listContainer = nullptr;

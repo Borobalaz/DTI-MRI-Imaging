@@ -1,7 +1,6 @@
 #include "widgets/EngineLogWidget.h"
 
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QTimer>
@@ -15,17 +14,55 @@ EngineLogWidget::EngineLogWidget(QWidget *parent)
     : QFrame(parent)
 {
   panelLayout = new QVBoxLayout(this);
-  refreshLayoutMetrics();
 
-  // Header row: title + a Clear button local to this widget (the shared DockTitleBarWidget
-  //  stays generic, so widget-specific controls like this live in the widget's own header).
+  // Header row: severity filter toggles + a Clear button local to this widget (the shared
+  //  DockTitleBarWidget stays generic, so widget-specific controls like this live in the
+  //  widget's own header; the dock's own title bar already shows "Engine Log").
   auto *headerRow = new QWidget(this);
-  auto *headerLayout = new QHBoxLayout(headerRow);
-  headerLayout->setContentsMargins(0, 0, 0, 0);
+  headerLayout = new QHBoxLayout(headerRow);
+  headerLayout->setContentsMargins(2, 2, 2, 2);
 
-  auto *titleLabel = new QLabel(tr("Log"), headerRow);
-  titleLabel->setObjectName("engineLogHeaderLabel");
-  headerLayout->addWidget(titleLabel, 1);
+  filterMessageButton = new QToolButton(headerRow);
+  filterMessageButton->setObjectName("engineLogFilterButton");
+  filterMessageButton->setText(tr("Message"));
+  filterMessageButton->setCheckable(true);
+  filterMessageButton->setChecked(true);
+  filterMessageButton->setAutoRaise(true);
+  filterMessageButton->setProperty("severity", "message");
+  headerLayout->addWidget(filterMessageButton);
+
+  filterWarningButton = new QToolButton(headerRow);
+  filterWarningButton->setObjectName("engineLogFilterButton");
+  filterWarningButton->setText(tr("Warning"));
+  filterWarningButton->setCheckable(true);
+  filterWarningButton->setChecked(true);
+  filterWarningButton->setAutoRaise(true);
+  filterWarningButton->setProperty("severity", "warning");
+  headerLayout->addWidget(filterWarningButton);
+
+  filterErrorButton = new QToolButton(headerRow);
+  filterErrorButton->setObjectName("engineLogFilterButton");
+  filterErrorButton->setText(tr("Error"));
+  filterErrorButton->setCheckable(true);
+  filterErrorButton->setChecked(true);
+  filterErrorButton->setAutoRaise(true);
+  filterErrorButton->setProperty("severity", "error");
+  headerLayout->addWidget(filterErrorButton);
+
+  QObject::connect(filterMessageButton, &QToolButton::toggled, this, [this](bool checked)
+  {
+    setSeverityFilterVisible(LogSeverity::Message, checked);
+  });
+  QObject::connect(filterWarningButton, &QToolButton::toggled, this, [this](bool checked)
+  {
+    setSeverityFilterVisible(LogSeverity::Warning, checked);
+  });
+  QObject::connect(filterErrorButton, &QToolButton::toggled, this, [this](bool checked)
+  {
+    setSeverityFilterVisible(LogSeverity::Error, checked);
+  });
+
+  headerLayout->addStretch(1);
 
   clearButton = new QToolButton(headerRow);
   clearButton->setObjectName("engineLogClearButton");
@@ -53,13 +90,17 @@ EngineLogWidget::EngineLogWidget(QWidget *parent)
 
   scrollArea->setWidget(listContainer);
   panelLayout->addWidget(scrollArea, 1);
+
+  refreshLayoutMetrics();
 }
 
 void EngineLogWidget::refreshLayoutMetrics()
 {
   const int margin = ResolveCommonToken("panel-margin").toInt();
-  panelLayout->setContentsMargins(margin, margin, margin, margin);
-  panelLayout->setSpacing(ResolveCommonToken("panel-spacing").toInt());
+  const int spacing = ResolveCommonToken("panel-spacing").toInt();
+  panelLayout->setContentsMargins(margin, spacing, margin, margin);
+  panelLayout->setSpacing(spacing);
+  headerLayout->setSpacing(ResolveCommonToken("log-header-spacing").toInt());
 }
 
 void EngineLogWidget::SetLogService(ILogService *service)
@@ -104,6 +145,23 @@ void EngineLogWidget::appendRow(const LogEntry &entry)
 
   auto *rowWidget = new EngineLogEntryWidget(listContainer);
   rowWidget->setEntry(entry);
+  rowWidget->setVisible(isSeverityVisible(entry.severity));
+
+  QObject::connect(rowWidget, &EngineLogEntryWidget::clicked, this, [this](quint64 id)
+  {
+    hasSelection = true;
+    selectedSequenceId = id;
+
+    for (EngineLogEntryWidget *row : rows)
+    {
+      if (!row)
+      {
+        continue;
+      }
+
+      row->setSelected(row->sequenceId() == selectedSequenceId);
+    }
+  });
 
   rows.push_back(rowWidget);
   listLayout->insertWidget(listLayout->count() - 1, rowWidget);
@@ -135,6 +193,9 @@ void EngineLogWidget::clearRows()
     }
   }
   rows.clear();
+
+  hasSelection = false;
+  selectedSequenceId = 0;
 }
 
 bool EngineLogWidget::isScrolledToBottom() const
@@ -146,4 +207,36 @@ bool EngineLogWidget::isScrolledToBottom() const
 
   const QScrollBar *verticalScrollBar = scrollArea->verticalScrollBar();
   return verticalScrollBar->value() >= verticalScrollBar->maximum();
+}
+
+bool EngineLogWidget::isSeverityVisible(LogSeverity severity) const
+{
+  switch (severity)
+  {
+    case LogSeverity::Message: return showMessage;
+    case LogSeverity::Warning: return showWarning;
+    case LogSeverity::Error:   return showError;
+  }
+  return true;
+}
+
+// Updates the filter state for one severity and re-applies visibility to every already-displayed
+//  row of that severity - QScrollArea preserves its (clamped) scroll position automatically when
+//  content visibility changes, so no extra scroll handling is needed here.
+void EngineLogWidget::setSeverityFilterVisible(LogSeverity severity, bool visible)
+{
+  switch (severity)
+  {
+    case LogSeverity::Message: showMessage = visible; break;
+    case LogSeverity::Warning: showWarning = visible; break;
+    case LogSeverity::Error:   showError = visible; break;
+  }
+
+  for (EngineLogEntryWidget *row : rows)
+  {
+    if (row && row->severity() == severity)
+    {
+      row->setVisible(isSeverityVisible(severity));
+    }
+  }
 }

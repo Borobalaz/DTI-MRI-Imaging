@@ -95,6 +95,8 @@ Subagents live in `.claude/agents/`, skills in `.claude/skills/`. House rules: k
 
 Agents follow a strict planner/implementer split: `cpp-architecture-planner`, `qt-gui-planner`, `rendering-shader-planner`, and `mri-processing-planner` own feature/architecture/UX decisions, produce detailed plans, and validate the built result; `cpp-implementer` and `glsl-implementer` are the *only* agents that write code (all C++, and GLSL respectively) and execute those plans without making design decisions of their own, asking the originating planner when a plan is ambiguous.
 
+This split applies even when a generic workflow (e.g. plan mode's own phase instructions) says to launch a "Plan agent" for the design step — substitute the matching specialized planner above instead (pick by subject area: general C++ → `cpp-architecture-planner`, Qt/UI → `qt-gui-planner`, rendering/shaders → `rendering-shader-planner`, MRI/DTI pipeline → `mri-processing-planner`), never the generic one.
+
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 

@@ -7,11 +7,6 @@ QScrollArea#engineLogScrollArea > QWidget > QWidget {
   background-color: @panel-bg;
 }
 
-QLabel#engineLogHeaderLabel {
-  color: @text-muted;
-  font: bold 13px;
-}
-
 QToolButton#engineLogClearButton {
   color: @text-primary;
   border: 1px solid @border;
@@ -25,22 +20,89 @@ QToolButton#engineLogClearButton:hover {
   border: 1px solid rgba(@hover-border-rgb, 0.20);
 }
 
-QFrame#engineLogEntryItem {
-  background-color: transparent;
+QToolButton#engineLogFilterButton {
+  color: @text-muted;
+  border: 1px solid @border;
+  border-radius: 4px;
+  padding: 2px 2px;
+  background: transparent;
 }
 
-/* Qt Style Sheets' "color" inheritance is overridden by the common "QLabel { color: ... }"
-   rule (ui/styles/widgets/common/Inputs.qss), so severity coloring is applied via explicit
-   descendant selectors here instead - same approach InspectProviderWidget.qss already uses
-   for its QLabel children. */
+QToolButton#engineLogFilterButton:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.18);
+  border: 1px solid rgba(@hover-border-rgb, 0.20);
+}
+
+QToolButton#engineLogFilterButton:checked {
+  color: @text-primary;
+  background-color: rgba(@selected-overlay-rgb, 0.18);
+  border: 1px solid rgba(@selected-border-rgb, 0.5);
+}
+
+QToolButton#engineLogFilterButton[severity="message"]:checked {
+  color: @log-message-color;
+}
+
+QToolButton#engineLogFilterButton[severity="warning"]:checked {
+  color: @log-warning-color;
+}
+
+QToolButton#engineLogFilterButton[severity="error"]:checked {
+  color: @log-error-color;
+}
+
+QFrame#engineLogEntryItem {
+  background-color: transparent;
+  border-top: 1px solid transparent;
+  border-right: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: 0px;
+}
+
+QFrame#engineLogEntryItem:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.12);
+  border-top: 1px solid rgba(@hover-border-rgb, 0.20);
+  border-right: 1px solid rgba(@hover-border-rgb, 0.20);
+  border-bottom: 1px solid rgba(@hover-border-rgb, 0.20);
+}
+
+QFrame#engineLogEntryItem[selected="true"] {
+  background-color: rgba(@selected-overlay-rgb, 0.32);
+  border-top: 1px solid rgba(@selected-border-rgb, 0.75);
+  border-right: 1px solid rgba(@selected-border-rgb, 0.75);
+  border-bottom: 1px solid rgba(@selected-border-rgb, 0.75);
+}
+
+QFrame#engineLogEntryItem[severity="warning"] {
+  border-left: 3px solid @log-warning-color;
+}
+
+QFrame#engineLogEntryItem[severity="error"] {
+  border-left: 3px solid @log-error-color;
+}
+
 QFrame#engineLogEntryItem QLabel {
   color: @log-message-color;
 }
 
-QFrame#engineLogEntryItem[severity="warning"] QLabel {
+QFrame#engineLogEntryItem QLabel#engineLogTimestampLabel {
+  color: @text-muted;
+}
+
+QFrame#engineLogEntryItem QLabel#engineLogSeverityLabel {
+  font-weight: bold;
+}
+
+QFrame#engineLogEntryItem[severity="warning"] QLabel#engineLogSeverityLabel {
   color: @log-warning-color;
 }
 
-QFrame#engineLogEntryItem[severity="error"] QLabel {
+QFrame#engineLogEntryItem[severity="error"] QLabel#engineLogSeverityLabel {
   color: @log-error-color;
+}
+
+QLabel#engineLogTextLabel {
+  selection-background-color: rgba(@selected-overlay-rgb, 0.6);
+  selection-color: @text-primary;
 }
