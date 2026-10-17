@@ -29,11 +29,6 @@ namespace
   }
 }
 
-/**
- * @brief Construct a new OpenGLViewportWidget::OpenGLViewportWidget object
- * 
- * @param parent 
- */
 OpenGLViewportWidget::OpenGLViewportWidget(QWidget *parent)
   : QOpenGLWidget(parent)
 {
@@ -57,28 +52,14 @@ OpenGLViewportWidget::OpenGLViewportWidget(QWidget *parent)
   frameTimer.start();
 }
 
-/**
- * @brief Destroy the OpenGLViewportWidget::OpenGLViewportWidget object
- * 
- */
 OpenGLViewportWidget::~OpenGLViewportWidget() = default;
 
-/**
- * @brief Gets the render statistics object.
- * 
- * @return RenderStatistics* 
- */
 RenderStatistics *OpenGLViewportWidget::renderStatistics() const
 {
   return renderStatisticsObject.get();
 }
 
-/**
- * @brief Gets the scene inspector adapter for this viewport, 
- *  which exposes the inspectable objects in the scene to Qt widgets.
- * 
- * @return QTSceneInspector& 
- */
+// Exposes the inspectable objects in the scene to Qt widgets.
 QTSceneInspector &OpenGLViewportWidget::inspectAdapter() const
 {
   Q_ASSERT(inspectAdapterObject != nullptr);

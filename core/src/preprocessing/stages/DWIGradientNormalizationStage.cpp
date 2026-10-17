@@ -98,23 +98,6 @@ namespace
   {
     return std::isfinite(value) != 0;
   }
-
-  std::filesystem::path ResolveRequestPath(const std::string& requestedPath)
-  {
-    namespace fs = std::filesystem;
-    const fs::path candidate(requestedPath);
-    if (candidate.is_absolute())
-    {
-      return candidate;
-    }
-
-    if (fs::exists(candidate))
-    {
-      return candidate;
-    }
-
-    return candidate;
-  }
 }
 
 /**
@@ -134,12 +117,9 @@ const char* DWIGradientNormalizationStage::Name() const
  */
 void DWIGradientNormalizationStage::Execute(MriPreprocessingContext& context) const
 {
-  const std::filesystem::path dwiPath =
-    ResolveRequestPath(context.request.dwiVolumePath);
-  const std::filesystem::path bvalPath =
-    ResolveRequestPath(context.request.bvalPath);
-  const std::filesystem::path bvecPath =
-    ResolveRequestPath(context.request.bvecPath);
+  const std::filesystem::path dwiPath(context.request.dwiVolumePath);
+  const std::filesystem::path bvalPath(context.request.bvalPath);
+  const std::filesystem::path bvecPath(context.request.bvecPath);
 
   // Populate context with resolved paths and parsed metadata for downstream stages
   context.selectedDwiVolumePath = dwiPath.string();

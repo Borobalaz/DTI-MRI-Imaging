@@ -214,45 +214,7 @@ void Shader::Use() const
     std::cout << "GL error after glUseProgram: " << error << std::endl;
   }
 
-  for (const auto& [name, value] : storedUniforms)
-  {
-    const std::string uniformName = ResolveStoredUniformName(*this, name);
-    if (uniformName.empty())
-    {
-      continue;
-    }
-
-    std::visit(
-      [&](const auto& typedValue)
-      {
-        using ValueType = std::decay_t<decltype(typedValue)>;
-        if constexpr (std::is_same_v<ValueType, bool>)
-        {
-          SetBool(uniformName, typedValue);
-        }
-        else if constexpr (std::is_same_v<ValueType, int>)
-        {
-          SetInt(uniformName, typedValue);
-        }
-        else if constexpr (std::is_same_v<ValueType, float>)
-        {
-          SetFloat(uniformName, typedValue);
-        }
-        else if constexpr (std::is_same_v<ValueType, glm::vec2>)
-        {
-          SetVec2(uniformName, typedValue);
-        }
-        else if constexpr (std::is_same_v<ValueType, glm::vec3>)
-        {
-          SetVec3(uniformName, typedValue);
-        }
-        else if constexpr (std::is_same_v<ValueType, glm::mat4>)
-        {
-          SetMat4(uniformName, typedValue);
-        }
-      },
-      value);
-  }
+  ApplyStoredUniformsTo(*this);
 }
 
 /**
@@ -477,9 +439,14 @@ const std::map<std::string, Shader::UniformValue>& Shader::GetStoredUniforms() c
  */
 void Shader::Apply(Shader& shader) const
 {
+  ApplyStoredUniformsTo(shader);
+}
+
+void Shader::ApplyStoredUniformsTo(const Shader& target) const
+{
   for (const auto& [name, value] : storedUniforms)
   {
-    const std::string uniformName = ResolveStoredUniformName(shader, name);
+    const std::string uniformName = ResolveStoredUniformName(target, name);
     if (uniformName.empty())
     {
       continue;
@@ -491,27 +458,27 @@ void Shader::Apply(Shader& shader) const
         using ValueType = std::decay_t<decltype(typedValue)>;
         if constexpr (std::is_same_v<ValueType, bool>)
         {
-          shader.SetBool(uniformName, typedValue);
+          target.SetBool(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, int>)
         {
-          shader.SetInt(uniformName, typedValue);
+          target.SetInt(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, float>)
         {
-          shader.SetFloat(uniformName, typedValue);
+          target.SetFloat(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::vec2>)
         {
-          shader.SetVec2(uniformName, typedValue);
+          target.SetVec2(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::vec3>)
         {
-          shader.SetVec3(uniformName, typedValue);
+          target.SetVec3(uniformName, typedValue);
         }
         else if constexpr (std::is_same_v<ValueType, glm::mat4>)
         {
-          shader.SetMat4(uniformName, typedValue);
+          target.SetMat4(uniformName, typedValue);
         }
       },
       value);

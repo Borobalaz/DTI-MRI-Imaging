@@ -172,12 +172,8 @@ QTSceneInspector::QTSceneInspector(QObject *parent)
   syncTimer.start();
 }
 
-/**
- * @brief Attach the engine's inspection service and perform the initial provider sync.
- *  Subscribes to push-based provider-list-changed notifications instead of per-frame polling.
- *
- * @param service
- */
+// Attaches the engine's inspection service and performs the initial provider sync.
+//  Subscribes to push-based provider-list-changed notifications instead of per-frame polling.
 void QTSceneInspector::SetInspectionService(IInspectionService *service)
 {
   session.SetService(service);
@@ -196,11 +192,7 @@ std::string QTSceneInspector::selectedObjectName() const
   return session.SelectedId();
 }
 
-/**
- * @brief Select the object with the given stable id. Clears selection if not found.
- *
- * @param id
- */
+// Selects the object with the given stable id. Clears selection if not found.
 void QTSceneInspector::setSelectedObjectName(const std::string &id)
 {
   if (id == session.SelectedId())
@@ -228,10 +220,8 @@ int QTSceneInspector::fieldRevision() const
   return revision;
 }
 
-/**
- * @brief React to the engine's push notification that the provider list structurally changed.
- *  Re-validates the current selection and rebuilds the field list if needed.
- */
+// Reacts to the engine's push notification that the provider list structurally changed:
+//  re-validates the current selection and rebuilds the field list if needed.
 void QTSceneInspector::HandleProvidersChanged()
 {
   const std::string previousSelection = session.SelectedId();
@@ -332,15 +322,9 @@ bool QTSceneInspector::setVisible(const std::string &providerId, bool visible)
   return true;
 }
 
-/**
- * @brief Select an object in the scene by casting a ray from the given origin in the given direction.
- *        The closest intersecting object will be selected, via the engine's inspection service.
- *
- * @param rayOrigin
- * @param rayDirection
- * @return true
- * @return false
- */
+// Selects an object in the scene by casting a ray from the given origin in the given direction.
+//  The closest intersecting object is selected, via the engine's inspection service. Returns
+//  true if something was hit.
 bool QTSceneInspector::selectObjectByRay(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection)
 {
   const std::string previousSelection = session.SelectedId();

@@ -111,10 +111,10 @@ DTIVolume::DTIVolume(const std::string& id,
     : Volume(id, channels.Dxx.GetDimensions(), channels.Dxx.GetSpacing(), std::move(shader)),
       channels(std::move(channels))
 {
-  // Hallod ez konkrétan majdnem 2 héting volt egy bug amit nem találtam meg és lófaszt sem mutatott a volume render.
-  // Úgy töltöttem fel a textúrát, hogy channels.Dxx
-  // De a kontruktor ugye azt a pointer std::move-val kinullolta kb, és utána a this->channels-ben volt.
-  // c:
+  // Must read from this->channels, not the constructor parameter `channels`: the member
+  // initializer list above already std::move'd the parameter into this->channels, so by
+  // this point the parameter is moved-from and uploading textures from it silently produced
+  // an empty volume render.
   const DTIVolumeChannels &gpuChannels = this->channels;
 
   const std::array<const VolumeData *, 16> metadataValidatedChannels = {

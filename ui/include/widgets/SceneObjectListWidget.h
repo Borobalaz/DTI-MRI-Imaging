@@ -2,8 +2,6 @@
 
 #include <vector>
 
-#include <QStringList>
-
 #include <QFrame>
 
 #include "qt-adapters/InspectObjectSummary.h"

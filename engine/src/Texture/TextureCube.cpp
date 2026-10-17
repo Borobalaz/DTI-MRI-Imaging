@@ -1,27 +1,11 @@
 #include "Texture/TextureCube.h"
 
-#include <array>
 #include <iostream>
 
 #include <stb_image.h>
 
 namespace
 {
-  GLenum ResolveFormat(int channels)
-  {
-    switch (channels)
-    {
-      case 1:
-        return GL_RED;
-      case 3:
-        return GL_RGB;
-      case 4:
-        return GL_RGBA;
-      default:
-        return GL_NONE;
-    }
-  }
-
   void ConfigureCubeTexture()
   {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -114,7 +98,7 @@ bool TextureCube::UploadFace(unsigned int target,
     return false;
   }
 
-  const GLenum format = ResolveFormat(channels);
+  const GLenum format = ResolveStbImageChannelFormat(channels);
   if (format == GL_NONE)
   {
     std::cout << "Unsupported cubemap face format for '" << faceName << "' at path: " << path << std::endl;

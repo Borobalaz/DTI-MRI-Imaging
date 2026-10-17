@@ -14,7 +14,7 @@ void VolumeTextureSet::AddTexture(std::shared_ptr<Texture3D> texture)
 }
 
 /**
- * @brief Uplaod the textures in this set to the GPU and bind them to the shader's uniform samplers. 
+ * @brief Upload the textures in this set to the GPU and bind them to the shader's uniform samplers.
  *        The shader must have sampler uniforms named like "uniformBaseName[0]", "uniformBaseName[1]", etc. for each texture in the set.
  * 
  * @param shader 

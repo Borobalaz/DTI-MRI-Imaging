@@ -9,25 +9,6 @@
 #include "Preprocessing/stages/CommonPreprocessingStages.h"
 #include "Volume/VolumeFileLoader.h"
 
-namespace
-{
-  std::filesystem::path ResolveRequestPath(const std::string& requestedPath)
-  {
-    const std::filesystem::path candidate(requestedPath);
-    if (candidate.is_absolute())
-    {
-      return candidate;
-    }
-
-    if (std::filesystem::exists(candidate))
-    {
-      return candidate;
-    }
-
-    return candidate;
-  }
-}
-
 /**
  * @brief Get the name of the preprocessing stage.
  * @return The name of the stage.
@@ -60,9 +41,9 @@ void DWIInputValidationStage::Execute(MriPreprocessingContext& context) const
     throw std::runtime_error("bvec sidecar path is empty.");
   }
 
-  const std::filesystem::path dwiPath = ResolveRequestPath(context.request.dwiVolumePath);
-  const std::filesystem::path bvalPath = ResolveRequestPath(context.request.bvalPath);
-  const std::filesystem::path bvecPath = ResolveRequestPath(context.request.bvecPath);
+  const std::filesystem::path dwiPath(context.request.dwiVolumePath);
+  const std::filesystem::path bvalPath(context.request.bvalPath);
+  const std::filesystem::path bvecPath(context.request.bvecPath);
 
   if (!std::filesystem::exists(dwiPath))
   {

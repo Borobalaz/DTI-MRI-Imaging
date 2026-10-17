@@ -14,12 +14,10 @@
 class QTSceneInspector;
 
 /**
- * @brief Base class for OpenGL-based scene rendering viewports.
- * 
- * Provides core functionality for rendering a 3D scene in a Qt OpenGL context,
+ * @brief The single concrete OpenGL scene viewport widget.
+ *
+ * Owns the Engine instance and renders a 3D scene in a Qt OpenGL context,
  * including input handling, frame timing, and render statistics.
- * 
- * Subclasses should override initializeScene() to set up their specific scene type.
  */
 class OpenGLViewportWidget : public QOpenGLWidget
 {
@@ -49,10 +47,7 @@ protected:
   void mouseMoveEvent(QMouseEvent *event) override;
   void wheelEvent(QWheelEvent *event) override;
 
-  /**
-   * @brief Initialize the 3D scene. Called once after OpenGL context is ready.
-   * Subclasses should override this to set up their specific scene.
-   */
+  // Creates the engine's default scene. Called once after the OpenGL context is ready.
   void initializeScene();
 
   // Scene management

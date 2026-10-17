@@ -1,6 +1,5 @@
 #include "Preprocessing/io/dti/DtiPreprocessingDatasetReader.h"
 
-#include <array>
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
@@ -9,30 +8,9 @@
 #include "Geometry/MeshFileLoader.h"
 #include "Mesh.h"
 #include "Preprocessing/MriPreprocessingPipeline.h"
+#include "Preprocessing/io/dti/DtiChannelTable.h"
 #include "Volume/DTIVolume.h"
 #include "Volume/VolumeFileLoader.h"
-
-namespace
-{
-  struct ChannelEntry
-  {
-    const char *name;
-    VolumeData DTIVolumeChannels::*member;
-  };
-
-  const std::array<ChannelEntry, 16> &GetChannelTable()
-  {
-    static const std::array<ChannelEntry, 16> table = {{
-        {"Dxx", &DTIVolumeChannels::Dxx}, {"Dyy", &DTIVolumeChannels::Dyy}, {"Dzz", &DTIVolumeChannels::Dzz},
-        {"Dxy", &DTIVolumeChannels::Dxy}, {"Dxz", &DTIVolumeChannels::Dxz}, {"Dyz", &DTIVolumeChannels::Dyz},
-        {"EVx", &DTIVolumeChannels::EVx}, {"EVy", &DTIVolumeChannels::EVy}, {"EVz", &DTIVolumeChannels::EVz},
-        {"L1", &DTIVolumeChannels::L1}, {"L2", &DTIVolumeChannels::L2}, {"L3", &DTIVolumeChannels::L3},
-        {"FA", &DTIVolumeChannels::FA}, {"MD", &DTIVolumeChannels::MD},
-        {"AD", &DTIVolumeChannels::AD}, {"RD", &DTIVolumeChannels::RD},
-    }};
-    return table;
-  }
-}
 
 std::any DtiPreprocessingDatasetReader::Read(
     const PreprocessingDatasetMetadata &metadata,
@@ -53,7 +31,7 @@ std::any DtiPreprocessingDatasetReader::Read(
   const std::filesystem::path datasetPath(datasetDirectory);
 
   MriPreprocessingResult result;
-  for (const ChannelEntry &channelEntry : GetChannelTable())
+  for (const DtiChannelEntry &channelEntry : GetDtiChannelTable())
   {
     const std::string key = std::string("channel.") + channelEntry.name;
     const auto found = relativePathByKey.find(key);

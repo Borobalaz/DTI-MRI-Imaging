@@ -7,21 +7,6 @@
 
 namespace
 {
-  GLenum ResolveFormat(int channels)
-  {
-    switch (channels)
-    {
-      case 1:
-        return GL_RED;
-      case 3:
-        return GL_RGB;
-      case 4:
-        return GL_RGBA;
-      default:
-        return GL_NONE;
-    }
-  }
-
   void ConfigureTexture2D()
   {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -63,7 +48,7 @@ Texture2D::Texture2D(const std::string& path, bool flipVertically)
 
   if (data != nullptr)
   {
-    const GLenum format = ResolveFormat(channels);
+    const GLenum format = ResolveStbImageChannelFormat(channels);
     if (format != GL_NONE)
     {
       glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format), width, height, 0, format, GL_UNSIGNED_BYTE, data);

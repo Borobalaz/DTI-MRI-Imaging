@@ -63,7 +63,7 @@ const std::vector<PresetValues> &GetPresetValues()
           4U,
       },
       {
-        "Human Full Brain",
+          "Human Full Brain",
           0.6f,
           0.15f,
           1e-6f,

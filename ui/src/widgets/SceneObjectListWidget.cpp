@@ -38,11 +38,7 @@ void SceneObjectListWidget::refreshLayoutMetrics()
   objectsLayout->setSpacing(ResolveCommonToken("panel-spacing").toInt());
 }
 
-/**
- * @brief Set the list of scene objects to display in the widget, along with their visibility states.
- * 
- * @param objects 
- */
+// Sets the list of scene objects to display, along with their visibility states.
 void SceneObjectListWidget::setObjects(std::vector<InspectObjectSummary> objects)
 {
   clearRows();
@@ -86,10 +82,6 @@ void SceneObjectListWidget::setCurrentProviderName(const std::string &providerNa
   }
 }
 
-/**
- * @brief Clear the list of InspectProviderWidgets. 
- * 
- */
 void SceneObjectListWidget::clearRows()
 {
   for (InspectProviderWidget *row : rows)

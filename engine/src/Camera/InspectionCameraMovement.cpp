@@ -215,7 +215,6 @@ void InspectionCameraMovement::OnCameraStateChanged(const glm::vec3& position,
   }
 
   const glm::vec3 normalizedFront = glm::normalize(front);
-  const glm::vec3 normalizedUp = glm::length(up) > 1e-5f ? glm::normalize(up) : kWorldUp;
   const glm::vec3 targetToCamera = glm::normalize(-normalizedFront);
 
   yaw = glm::degrees(std::atan2(targetToCamera.z, targetToCamera.x));
@@ -226,7 +225,6 @@ void InspectionCameraMovement::OnCameraStateChanged(const glm::vec3& position,
   distance = std::clamp(distance, minDistance, maxDistance);
   lookAtPoint = position + normalizedFront * distance;
 
-  (void)normalizedUp;
   firstOrbitDrag = true;
   firstPanDrag = true;
   initialized = true;

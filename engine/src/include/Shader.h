@@ -84,6 +84,10 @@ public:
 private:
   void SetStoredUniform(const std::string &name, const UniformValue &value);
 
+  // Shared by Use() (applying stored uniforms to itself after activation) and
+  // Apply() (applying them to another shader, e.g. a render pass's shader).
+  void ApplyStoredUniformsTo(const Shader &target) const;
+
   void CacheActiveUniforms();
   GLint GetUniformLocationCached(const std::string &name) const;
   bool IsUniformTypeCompatible(GLenum actualType, GLenum requestedType) const;
@@ -101,7 +105,7 @@ private:
 
   mutable std::unordered_map<std::string, GLint> uniformLocationCache;
   std::unordered_map<std::string, UniformInfo> uniformsByName; // Every uniform reported by OpenGL, indexed by name
-  std::map<std::string, UniformValue> storedUniforms;          // Uniforms coming from the shader (shader.unifroms)
+  std::map<std::string, UniformValue> storedUniforms;          // Uniforms coming from the shader (shader.uniforms)
 
   // File paths and modification times for hot reload
   std::string vertexPath;

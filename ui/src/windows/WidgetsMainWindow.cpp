@@ -28,11 +28,6 @@
 #include "widgets/RenderStatisticsWidget.h"
 #include "widgets/SceneObjectListWidget.h"
 
-/**
- * @brief Construct a new Widgets Main Window:: Widgets Main Window object
- * 
- * @param parent 
- */
 WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
   : QMainWindow(parent)
 {
@@ -289,11 +284,8 @@ void WidgetsMainWindow::toggleTheme()
   applyTheme();
 }
 
-/**
- * @brief Wire signals between the QTSceneInspector and the scene object list and inspector widgets, 
- *  to synchronize state between them.
- * 
- */
+// Wires signals between the QTSceneInspector and the scene object list and inspector widgets,
+//  to synchronize state between them.
 void WidgetsMainWindow::wireAdapterSignals()
 {
   QTSceneInspector *const adapter = &viewportWidget->inspectAdapter();
@@ -356,9 +348,6 @@ void WidgetsMainWindow::wireAdapterSignals()
   inspectorWidget->setFields(viewportWidget->inspectAdapter().fields());
 }
 
-/**
- * @brief Refresh the scene object list with the latest object names from the adapter.
- */
 void WidgetsMainWindow::refreshObjectList()
 {
   QTSceneInspector &adapter = viewportWidget->inspectAdapter();
@@ -366,9 +355,6 @@ void WidgetsMainWindow::refreshObjectList()
   sceneObjectListWidget->setCurrentProviderName(adapter.selectedObjectName(), false);
 }
 
-/**
- * @brief Synchronize the object selection between the adapter and the scene object list.
- */
 void WidgetsMainWindow::syncObjectSelection()
 {
   sceneObjectListWidget->setCurrentProviderName(viewportWidget->inspectAdapter().selectedObjectName(), false);

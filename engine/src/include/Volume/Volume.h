@@ -22,8 +22,8 @@ class Volume : public UniformProvider, public IDrawable, public IUpdateable, pub
 public:
   virtual ~Volume() = default;
 
-  void Apply(Shader &shader) const;
-  void BuildRenderProxy(RenderProxy& renderProxy) const;
+  void Apply(Shader &shader) const override;
+  void BuildRenderProxy(RenderProxy& renderProxy) const override;
   bool IsValid() const;
 
   const std::shared_ptr<Shader> &getShader() const { return shader; }
@@ -40,12 +40,12 @@ public:
   const std::string &GetId() const { return id; }
 
   // InspectProvider implementation
-  bool HasVisibility() const { return true; }
-  bool IsVisible() const { return visible; }
-  std::optional<float> CastRay(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection) const;
-  void SetVisible(bool newVisible) { visible = newVisible; }
-  std::string GetInspectDisplayName() const;
-  std::vector<InspectFieldPtr> GetInspectFields();
+  bool HasVisibility() const override { return true; }
+  bool IsVisible() const override { return visible; }
+  std::optional<float> CastRay(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection) const override;
+  void SetVisible(bool newVisible) override { visible = newVisible; }
+  std::string GetInspectDisplayName() const override;
+  std::vector<InspectFieldPtr> GetInspectFields() override;
 
 private:
   const std::string id;

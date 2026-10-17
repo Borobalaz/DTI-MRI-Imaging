@@ -33,7 +33,7 @@ public:
                            QString groupName,
                            double minimumValue = 0.0,
                            double maximumValue = 1.0,
-                             double stepSize = 0.01,
+                           double stepSize = 0.01,
                            bool readOnly = false,
                            QObject *parent = nullptr)
     : InspectNumberFieldWidget(std::move(fieldId), std::move(displayName), std::move(groupName),

@@ -18,6 +18,21 @@
 namespace
 {
   constexpr int kMaxLights = 16;
+
+  // Removes every element whose runtime type is TargetType from a vector of
+  // base-class shared_ptrs. Shared by Scene::ClearGameObjects/ClearVolumes/
+  // SetSkybox/ClearSkybox, which all need to prune drawables/updateables by
+  // concrete type.
+  template <typename TargetType, typename ElementType>
+  void RemoveElementsOfType(std::vector<std::shared_ptr<ElementType>> &elements)
+  {
+    elements.erase(std::remove_if(elements.begin(), elements.end(),
+                                  [](const std::shared_ptr<ElementType> &element)
+                                  {
+                                    return std::dynamic_pointer_cast<TargetType>(element) != nullptr;
+                                  }),
+                  elements.end());
+  }
 }
 
 /**
@@ -204,19 +219,8 @@ void Scene::Apply(Shader &shader) const
  */
 void Scene::ClearGameObjects()
 {
-  drawables.erase(std::remove_if(drawables.begin(), drawables.end(),
-                                 [](const std::shared_ptr<IDrawable> &drawable)
-                                 {
-                                   return std::dynamic_pointer_cast<GameObject>(drawable) != nullptr;
-                                 }),
-                  drawables.end());
-
-  updateables.erase(std::remove_if(updateables.begin(), updateables.end(),
-                                   [](const std::shared_ptr<IUpdateable> &updateable)
-                                   {
-                                     return std::dynamic_pointer_cast<GameObject>(updateable) != nullptr;
-                                   }),
-                    updateables.end());
+  RemoveElementsOfType<GameObject>(drawables);
+  RemoveElementsOfType<GameObject>(updateables);
 }
 
 /**
@@ -225,19 +229,8 @@ void Scene::ClearGameObjects()
  */
 void Scene::ClearVolumes()
 {
-  drawables.erase(std::remove_if(drawables.begin(), drawables.end(),
-                                 [](const std::shared_ptr<IDrawable> &drawable)
-                                 {
-                                   return std::dynamic_pointer_cast<Volume>(drawable) != nullptr;
-                                 }),
-                  drawables.end());
-
-  updateables.erase(std::remove_if(updateables.begin(), updateables.end(),
-                                   [](const std::shared_ptr<IUpdateable> &updateable)
-                                   {
-                                     return std::dynamic_pointer_cast<Volume>(updateable) != nullptr;
-                                   }),
-                    updateables.end());
+  RemoveElementsOfType<Volume>(drawables);
+  RemoveElementsOfType<Volume>(updateables);
 }
 
 /**
@@ -252,12 +245,7 @@ void Scene::SetSkybox(std::shared_ptr<TextureCube> cubemap)
     // Remove any existing skybox drawable first
     if (skybox)
     {
-      drawables.erase(std::remove_if(drawables.begin(), drawables.end(),
-                                     [this](const std::shared_ptr<IDrawable> &d)
-                                     {
-                                       return std::dynamic_pointer_cast<Skybox>(d) != nullptr;
-                                     }),
-                      drawables.end());
+      RemoveElementsOfType<Skybox>(drawables);
     }
 
     skybox = std::make_shared<Skybox>(std::move(cubemap));
@@ -285,14 +273,7 @@ void Scene::SetSkybox(const SkyboxFaces &faces)
  */
 void Scene::ClearSkybox()
 {
-  // Remove any skybox drawable from drawables list
-  drawables.erase(std::remove_if(drawables.begin(), drawables.end(),
-                                 [](const std::shared_ptr<IDrawable> &d)
-                                 {
-                                   return std::dynamic_pointer_cast<Skybox>(d) != nullptr;
-                                 }),
-                  drawables.end());
-
+  RemoveElementsOfType<Skybox>(drawables);
   skybox.reset();
 }
 
@@ -349,18 +330,13 @@ void Scene::SetCameraAspect(float aspect)
   }
 }
 
-/**
- * @brief Destroy the Scene:: Scene object
- *
- */
+// Currently a no-op: all scene resources are owned by shared_ptrs and clean
+// themselves up via normal destruction. Kept as an explicit lifecycle hook
+// for callers that want a deterministic teardown point before destruction.
 void Scene::Destroy()
 {
 }
 
-/**
- * @brief Destroy the Scene:: Scene object
- *
- */
 Scene::~Scene()
 {
 }

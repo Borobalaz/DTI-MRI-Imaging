@@ -96,22 +96,13 @@ void InspectProviderWidget::resizeEvent(QResizeEvent *event)
   updateNameLabelElision();
 }
 
-/**
- * @brief Sets the selection state of the widget
- * 
- * @param isSelected 
- */
 void InspectProviderWidget::setSelected(bool isSelected)
 {
   selected = isSelected;
   updateSelectionStyle();
 }
 
-/**
- * @brief If the widget is clicked, emit the clicked signal with the row index
- * 
- * @param event 
- */
+// On left click, emit the clicked signal with this row's provider id.
 void InspectProviderWidget::mousePressEvent(QMouseEvent *event)
 {
   if (event && event->button() == Qt::LeftButton && !object.id.empty())
@@ -122,10 +113,6 @@ void InspectProviderWidget::mousePressEvent(QMouseEvent *event)
   QFrame::mousePressEvent(event);
 }
 
-/**
- * @brief Updates the visual style of the widget based on its selection state
- * 
- */
 void InspectProviderWidget::updateSelectionStyle()
 {
   setProperty("selected", selected);
