@@ -5,6 +5,7 @@
 #include <iostream>
 #include <filesystem>
 
+#include "Log/EngineLog.h"
 #include "Texture/Texture2D.h"
 
 Material::Material()
@@ -72,6 +73,7 @@ bool Material::SetTextureFromFile(PBR::TextureSlot slot,
   if (!std::filesystem::exists(texturePath))
   {
     std::cout << "Material texture path does not exist: " << texturePath << std::endl;
+    EngineLog::Warning("Material texture path does not exist: " + texturePath, "Material");
     return false;
   }
 
@@ -79,6 +81,7 @@ bool Material::SetTextureFromFile(PBR::TextureSlot slot,
   if (!texture || !texture->IsValid())
   {
     std::cout << "Failed to create texture for material from path: " << texturePath << std::endl;
+    EngineLog::Warning("Failed to create texture for material from path: " + texturePath, "Material");
     return false;
   }
 
@@ -149,6 +152,7 @@ void Material::Apply(Shader& shader) const
 {
   if (!this->shader)
   {
+    EngineLog::Warning("Material::Apply called with no shader assigned", "Material");
     return;
   }
 

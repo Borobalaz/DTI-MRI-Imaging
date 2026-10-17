@@ -12,6 +12,7 @@
 #include <glm/glm.hpp>
 
 #include "Geometry/ImportedGeometry.h"
+#include "Log/EngineLog.h"
 #include "Material.h"
 #include "Mesh.h"
 #include "Texture/Texture2D.h"
@@ -219,6 +220,7 @@ std::shared_ptr<GameObject> ModelLoader::LoadGameObject(const std::string& model
   if (!shader)
   {
     std::cout << "ModelLoader requires a valid shader instance." << std::endl;
+    EngineLog::Warning("ModelLoader requires a valid shader instance.", "ModelLoader");
     return nullptr;
   }
 
@@ -240,6 +242,9 @@ std::shared_ptr<GameObject> ModelLoader::LoadGameObject(const std::string& model
   {
     std::cout << "Failed to import model: " << modelPath << std::endl;
     std::cout << "Assimp error: " << importer.GetErrorString() << std::endl;
+    EngineLog::Error("Failed to import model: " + modelPath +
+                      ". Assimp error: " + importer.GetErrorString(),
+                      "ModelLoader");
     return nullptr;
   }
 

@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "Log/EngineLog.h"
+
 Framebuffer::Framebuffer(bool withDepth)
   : withDepth(withDepth)
 {
@@ -29,6 +31,8 @@ void Framebuffer::Allocate(int w, int h)
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
   {
     std::cout << "Framebuffer incomplete (" << w << "x" << h << ")" << std::endl;
+    EngineLog::Error("Framebuffer incomplete (" + std::to_string(w) + "x" + std::to_string(h) + ")",
+                      "Framebuffer");
   }
 
   width = w;

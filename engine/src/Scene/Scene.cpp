@@ -13,6 +13,8 @@
 #include <cmath>
 #include <iostream>
 
+#include "Log/EngineLog.h"
+
 #include <glm/gtc/constants.hpp>
 
 namespace
@@ -254,6 +256,7 @@ void Scene::SetSkybox(std::shared_ptr<TextureCube> cubemap)
     return;
   }
 
+  EngineLog::Warning("SetSkybox called with a null or invalid cubemap; resetting to no skybox.", "Scene");
   skybox.reset();
 }
 
@@ -287,6 +290,7 @@ void Scene::RegisterShader(const std::string &name, std::shared_ptr<Shader> shad
 {
   if (!shader)
   {
+    EngineLog::Warning("RegisterShader called with a null shader for '" + name + "'.", "Scene");
     return;
   }
 
@@ -312,7 +316,7 @@ void Scene::ReloadShadersIfChanged()
   {
     if (shader && shader->ReloadIfChanged())
     {
-      // Shader was reloaded successfully
+      EngineLog::Message("Shader reloaded: " + shader->GetId(), "Scene");
     }
   }
 }

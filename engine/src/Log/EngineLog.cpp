@@ -3,6 +3,8 @@
 #include <chrono>
 #include <deque>
 #include <mutex>
+#include <string>
+#include <unordered_set>
 
 namespace
 {
@@ -18,6 +20,12 @@ namespace
   {
     static std::deque<LogEntry> entries;
     return entries;
+  }
+
+  std::unordered_set<std::string>& SeenOnceKeys()
+  {
+    static std::unordered_set<std::string> keys;
+    return keys;
   }
 
   std::uint64_t& NextSequenceId()
@@ -39,25 +47,34 @@ namespace
   }
 }
 
+namespace
+{
+  // Assumes the caller already holds LogMutex() - factored out so AddOnce() can check-and-append
+  // atomically under a single lock without double-locking the non-recursive mutex.
+  void AppendLocked(LogSeverity severity, std::string_view text, std::string_view source)
+  {
+    LogEntry entry;
+    entry.sequenceId = NextSequenceId()++;
+    entry.severity = severity;
+    entry.text = std::string(text);
+    entry.source = std::string(source);
+    entry.timestampMs = CurrentTimestampMs();
+
+    std::deque<LogEntry>& entries = LogEntries();
+    entries.push_back(std::move(entry));
+    if (entries.size() > kRetentionCap)
+    {
+      entries.pop_front();
+    }
+
+    ++GenerationCounter();
+  }
+}
+
 void EngineLog::Add(LogSeverity severity, std::string_view text, std::string_view source)
 {
   std::lock_guard<std::mutex> lock(LogMutex());
-
-  LogEntry entry;
-  entry.sequenceId = NextSequenceId()++;
-  entry.severity = severity;
-  entry.text = std::string(text);
-  entry.source = std::string(source);
-  entry.timestampMs = CurrentTimestampMs();
-
-  std::deque<LogEntry>& entries = LogEntries();
-  entries.push_back(std::move(entry));
-  if (entries.size() > kRetentionCap)
-  {
-    entries.pop_front();
-  }
-
-  ++GenerationCounter();
+  AppendLocked(severity, text, source);
 }
 
 void EngineLog::Message(std::string_view text, std::string_view source)
@@ -73,6 +90,40 @@ void EngineLog::Warning(std::string_view text, std::string_view source)
 void EngineLog::Error(std::string_view text, std::string_view source)
 {
   Add(LogSeverity::Error, text, source);
+}
+
+void EngineLog::AddOnce(LogSeverity severity, std::string_view text, std::string_view source)
+{
+  std::lock_guard<std::mutex> lock(LogMutex());
+
+  std::string key;
+  key.reserve(source.size() + text.size() + 2);
+  key += std::to_string(static_cast<int>(severity));
+  key += '\x1f';
+  key += source;
+  key += '\x1f';
+  key += text;
+
+  std::unordered_set<std::string>& seenKeys = SeenOnceKeys();
+  if (seenKeys.insert(std::move(key)).second)
+  {
+    AppendLocked(severity, text, source);
+  }
+}
+
+void EngineLog::MessageOnce(std::string_view text, std::string_view source)
+{
+  AddOnce(LogSeverity::Message, text, source);
+}
+
+void EngineLog::WarningOnce(std::string_view text, std::string_view source)
+{
+  AddOnce(LogSeverity::Warning, text, source);
+}
+
+void EngineLog::ErrorOnce(std::string_view text, std::string_view source)
+{
+  AddOnce(LogSeverity::Error, text, source);
 }
 
 std::vector<LogEntry> EngineLog::Snapshot()

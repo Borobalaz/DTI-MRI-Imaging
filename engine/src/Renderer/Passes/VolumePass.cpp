@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 
 #include "Geometry/VolumeGeometry.h"
+#include "Log/EngineLog.h"
 #include "Renderer/RenderProxy.h"
 #include "Volume/VolumeTextureSet.h"
 
@@ -17,6 +18,7 @@ void VolumePass::Execute(const RenderFrame& frame, RenderExecutionContext&)
   {
     if (!command.geometry || !command.shader || !command.textures)
     {
+      EngineLog::WarningOnce("skipped draw command: missing geometry, shader, or textures", "VolumePass");
       continue;
     }
 

@@ -1,6 +1,7 @@
 #include "Renderer/Passes/MeshGeometryPass.h"
 
 #include "Geometry/Geometry.h"
+#include "Log/EngineLog.h"
 #include "Material.h"
 #include "Renderer/RenderProxy.h"
 
@@ -17,6 +18,7 @@ void MeshGeometryPass::Execute(const RenderFrame& frame, RenderExecutionContext&
     {
       if (!command.geometry || !command.material)
       {
+        EngineLog::WarningOnce("skipped draw command: missing geometry or material", "MeshGeometryPass");
         continue;
       }
 

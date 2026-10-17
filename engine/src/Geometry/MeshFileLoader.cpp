@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include "Geometry/ImportedGeometry.h"
+#include "Log/EngineLog.h"
 
 namespace
 {
@@ -13,6 +14,7 @@ namespace
   void SetMeshLoaderError(const std::string &message)
   {
     g_lastMeshLoaderError = message;
+    EngineLog::Error(message, "MeshFileLoader");
   }
 }
 

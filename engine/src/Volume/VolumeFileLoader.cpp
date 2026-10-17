@@ -7,6 +7,8 @@
 #include <iostream>
 #include <limits>
 
+#include "Log/EngineLog.h"
+
 #ifdef CONNECTOMICS_ENABLE_ITK_IO
 #include <itkGDCMImageIO.h>
 #include <itkGDCMImageIOFactory.h>
@@ -31,6 +33,7 @@ namespace
   {
     g_lastVolumeLoaderError = message;
     std::cerr << message << std::endl;
+    EngineLog::Error(message, "VolumeFileLoader");
   }
 
   std::optional<VolumeFileHeader> TryReadHeader(const std::string &filePath)
@@ -38,6 +41,7 @@ namespace
     std::ifstream input(filePath, std::ios::binary);
     if (!input.is_open())
     {
+      EngineLog::Warning("Failed to open file for VXA header read: " + filePath, "VolumeFileLoader");
       return std::nullopt;
     }
 
@@ -45,11 +49,13 @@ namespace
     input.read(reinterpret_cast<char *>(&header), sizeof(header));
     if (!input.good())
     {
+      EngineLog::Warning("Failed to read VXA header (short read): " + filePath, "VolumeFileLoader");
       return std::nullopt;
     }
 
     if (std::memcmp(header.magic, "VXA1", 4) != 0 || header.version != 1)
     {
+      EngineLog::Warning("Invalid VXA header (bad magic or version): " + filePath, "VolumeFileLoader");
       return std::nullopt;
     }
 
@@ -466,6 +472,8 @@ std::optional<VolumeData> VolumeFileLoader::Load(const std::string &filePath)
   }
 
   std::cout << "File '" << filePath << "' does not have a valid VXA header. Attempting medical format loading...\n";
+  EngineLog::Message("File '" + filePath + "' does not have a valid VXA header. Attempting medical format loading...",
+                      "VolumeFileLoader");
   return LoadTyped(filePath);
 }
 
@@ -541,6 +549,7 @@ bool VolumeFileLoader::Save(const std::string &filePath, const VolumeData &volum
   std::ofstream output(filePath, std::ios::binary);
   if (!output.is_open())
   {
+    EngineLog::Error("Failed to open file for VXA write: " + filePath, "VolumeFileLoader");
     return false;
   }
 
@@ -562,7 +571,13 @@ bool VolumeFileLoader::Save(const std::string &filePath, const VolumeData &volum
   output.write(reinterpret_cast<const char *>(voxels.data()), static_cast<std::streamsize>(voxels.size() * sizeof(float)));
   
   // Check output
-  return output.good();
+  if (!output.good())
+  {
+    EngineLog::Error("Failed to write VXA file: " + filePath, "VolumeFileLoader");
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -593,6 +608,7 @@ std::optional<VolumeData> VolumeFileLoader::LoadTypedVxa(const std::string &file
   std::ifstream input(filePath, std::ios::binary);
   if (!input.is_open())
   {
+    EngineLog::Warning("Failed to open file for VXA read: " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 
@@ -601,6 +617,7 @@ std::optional<VolumeData> VolumeFileLoader::LoadTypedVxa(const std::string &file
   input.read(reinterpret_cast<char *>(&header), sizeof(header));
   if (!input.good())
   {
+    EngineLog::Warning("Failed to read VXA header (short read): " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 
@@ -608,12 +625,14 @@ std::optional<VolumeData> VolumeFileLoader::LoadTypedVxa(const std::string &file
   if (std::memcmp(header.magic, "VXA1", 4) != 0 ||
       header.version != 1)
   {
+    EngineLog::Warning("Invalid VXA header (bad magic or version): " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 
   // Only accept not empty 3D volumes
   if (header.width == 0 || header.height == 0 || header.depth == 0)
   {
+    EngineLog::Warning("VXA header describes a zero-sized volume: " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 
@@ -624,6 +643,7 @@ std::optional<VolumeData> VolumeFileLoader::LoadTypedVxa(const std::string &file
       static_cast<uint64_t>(header.depth);
   if (voxelCount > static_cast<uint64_t>(std::numeric_limits<size_t>::max() / sizeof(float)))
   {
+    EngineLog::Warning("VXA voxel count overflows addressable size: " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 
@@ -632,6 +652,7 @@ std::optional<VolumeData> VolumeFileLoader::LoadTypedVxa(const std::string &file
   const std::streamoff fileSize = input.tellg();
   if (fileSize < 0)
   {
+    EngineLog::Warning("Failed to determine VXA file size: " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 
@@ -639,6 +660,7 @@ std::optional<VolumeData> VolumeFileLoader::LoadTypedVxa(const std::string &file
   const uint64_t expectedSize = sizeof(VolumeFileHeader) + voxelCount * sizeof(float);
   if (static_cast<uint64_t>(fileSize) != expectedSize)
   {
+    EngineLog::Warning("VXA file size does not match its header: " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 
@@ -658,6 +680,7 @@ std::optional<VolumeData> VolumeFileLoader::LoadTypedVxa(const std::string &file
   // Return success
   if (!input.good())
   {
+    EngineLog::Warning("Failed to read VXA voxel data (short read): " + filePath, "VolumeFileLoader");
     return std::nullopt;
   }
 

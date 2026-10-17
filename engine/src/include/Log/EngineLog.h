@@ -20,6 +20,11 @@ public:
   static void Warning(std::string_view text, std::string_view source = {});
   static void Error(std::string_view text, std::string_view source = {});
 
+  static void AddOnce(LogSeverity severity, std::string_view text, std::string_view source = {});
+  static void MessageOnce(std::string_view text, std::string_view source = {});
+  static void WarningOnce(std::string_view text, std::string_view source = {});
+  static void ErrorOnce(std::string_view text, std::string_view source = {});
+
   static std::vector<LogEntry> Snapshot(); // for EngineLogService only
   static std::uint64_t Generation();
 };

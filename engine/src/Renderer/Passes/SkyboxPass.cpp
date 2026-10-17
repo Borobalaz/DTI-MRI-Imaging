@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 
 #include "Geometry/CubeGeometry.h"
+#include "Log/EngineLog.h"
 #include "Renderer/RenderProxy.h"
 #include "Texture/TextureCube.h"
 
@@ -17,6 +18,7 @@ void SkyboxPass::Execute(const RenderFrame& frame, RenderExecutionContext&)
   {
     if (!command.geometry || !command.shader || !command.cubemap)
     {
+      EngineLog::WarningOnce("skipped draw command: missing geometry, shader, or cubemap", "SkyboxPass");
       continue;
     }
 

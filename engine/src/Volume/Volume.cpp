@@ -6,6 +6,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "Log/EngineLog.h"
 #include "Renderer/RenderProxy.h"
 #include "Volume/VolumeTextureSet.h"
 
@@ -46,6 +47,7 @@ void Volume::BuildRenderProxy(RenderProxy& renderProxy) const
 {
   if (!IsValid() || !visible)
   {
+    EngineLog::WarningOnce("Volume skipped: invalid or not visible", "Volume");
     renderProxy.visible = false;
     return;
   }
@@ -74,6 +76,7 @@ void Volume::Draw(const UniformProvider &frameUniforms) const
 {
   if (!IsValid() || !visible)
   {
+    EngineLog::WarningOnce("Volume skipped: invalid or not visible", "Volume");
     return;
   }
 

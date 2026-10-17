@@ -7,6 +7,7 @@
 #include <string>
 #include <stdexcept>
 
+#include "Log/EngineLog.h"
 #include "Texture/Texture3D.h"
 #include "Scene/Scene.h"
 
@@ -143,6 +144,7 @@ DTIVolume::DTIVolume(const std::string& id,
   {
     if (!HasCompatibleMetadata(*channel, referenceDimensions, referenceSpacing))
     {
+      EngineLog::Error("All DTI channels must have the same dimensions and spacing.", "DTIVolume");
       throw std::invalid_argument("All DTI channels must have the same dimensions and spacing.");
     }
   }
@@ -152,6 +154,7 @@ DTIVolume::DTIVolume(const std::string& id,
   {
     if (!HasFiniteVoxelData(*channel))
     {
+      EngineLog::Error("All DTI channels must have finite voxel values.", "DTIVolume");
       throw std::invalid_argument("All DTI channels must have finite voxel values.");
     }
   }
@@ -269,6 +272,10 @@ void DTIVolume::InitializeRenderModes()
     (*channelSliceShader)["shader.sliceZ"] = sliceZValue;
     renderModes.push_back(RenderMode{"Channel Slice", channelSliceShader});
   }
+  else
+  {
+    EngineLog::Warning("Render mode 'Channel Slice' unavailable: shader failed to build", "DTIVolume");
+  }
 
   // Principal Eigenvector RGB Mode
   std::shared_ptr<Shader> principalDirectionShader = std::make_shared<Shader>(
@@ -281,6 +288,10 @@ void DTIVolume::InitializeRenderModes()
     (*principalDirectionShader)["shader.sliceZ"] = sliceZValue;
     (*principalDirectionShader)["shader.density"] = 1.0f;
     renderModes.push_back(RenderMode{"Principal EV RGB", principalDirectionShader});
+  }
+  else
+  {
+    EngineLog::Warning("Render mode 'Principal EV RGB' unavailable: shader failed to build", "DTIVolume");
   }
 
   // 3D FA Raymarch Mode
@@ -297,6 +308,10 @@ void DTIVolume::InitializeRenderModes()
     (*faRaymarchShader)["shader.maxSteps"] = 512;
     renderModes.push_back(RenderMode{"FA 3D Raymarch", faRaymarchShader});
   }
+  else
+  {
+    EngineLog::Warning("Render mode 'FA 3D Raymarch' unavailable: shader failed to build", "DTIVolume");
+  }
 
   // 3D direction color-coded raymarch mode.
   std::shared_ptr<Shader> directionRaymarchShader = std::make_shared<Shader>(
@@ -311,6 +326,10 @@ void DTIVolume::InitializeRenderModes()
     (*directionRaymarchShader)["shader.stepSize"] = 0.0005f;
     (*directionRaymarchShader)["shader.maxSteps"] = 512;
     renderModes.push_back(RenderMode{"Direction 3D Raymarch", directionRaymarchShader});
+  }
+  else
+  {
+    EngineLog::Warning("Render mode 'Direction 3D Raymarch' unavailable: shader failed to build", "DTIVolume");
   }
 
   // Lit FA isosurface mode with ambient occlusion.
@@ -331,13 +350,22 @@ void DTIVolume::InitializeRenderModes()
     (*surfaceLitShader)["shader.aoSamples"] = 8;
     renderModes.push_back(RenderMode{"FA Surface Lit", surfaceLitShader});
   }
+  else
+  {
+    EngineLog::Warning("Render mode 'FA Surface Lit' unavailable: shader failed to build", "DTIVolume");
+  }
 
   // Additional render modes can be added here following the same pattern.
 
   if (renderModes.empty())
   {
+    EngineLog::Error("DTIVolume could not initialize any valid render mode shader.", "DTIVolume");
     throw std::runtime_error("DTIVolume could not initialize any valid render mode shader.");
   }
+
+  EngineLog::Message(
+    "DTIVolume ready: " + std::to_string(renderModes.size()) + "/5 render modes available",
+    "DTIVolume");
 
   SetActiveRenderMode(0);
 }
@@ -353,12 +381,15 @@ bool DTIVolume::SetActiveRenderMode(int modeIndex)
 {
   if (modeIndex < 0 || modeIndex >= static_cast<int>(renderModes.size()))
   {
+    EngineLog::Warning("SetActiveRenderMode: index out of range", "DTIVolume");
     return false;
   }
 
   const RenderMode &mode = renderModes[static_cast<size_t>(modeIndex)];
   if (!mode.shader || mode.shader->ID == 0)
   {
+    EngineLog::Warning("SetActiveRenderMode: render mode '" + mode.label + "' has no built shader",
+                        "DTIVolume");
     return false;
   }
 

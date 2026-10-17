@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "Log/EngineLog.h"
 #include "RenderCore/StableTypeId.h"
 
 class IRenderDataChannel
@@ -99,6 +100,10 @@ public:
     {
       auto* typedChannel = dynamic_cast<RenderDataChannel<T>*>(iterator->second.get());
       assert(typedChannel != nullptr && "RenderDataStore channel type mismatch");
+      if (typedChannel == nullptr)
+      {
+        EngineLog::Error("RenderDataStore channel type mismatch", "RenderDataStore");
+      }
       return *typedChannel;
     }
 
@@ -138,6 +143,10 @@ public:
 
     const auto* typedChannel = dynamic_cast<const RenderDataChannel<T>*>(iterator->second.get());
     assert(typedChannel != nullptr && "RenderDataStore channel type mismatch");
+    if (typedChannel == nullptr)
+    {
+      EngineLog::Error("RenderDataStore channel type mismatch", "RenderDataStore");
+    }
     return typedChannel->Items();
   }
 

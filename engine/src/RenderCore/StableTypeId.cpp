@@ -4,6 +4,8 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "Log/EngineLog.h"
+
 namespace
 {
   constexpr StableTypeId kFnvOffsetBasis = 14695981039346656037ull;
@@ -56,9 +58,10 @@ StableTypeId detail::RegisterStableTypeId(StableTypeId typeId, std::string_view 
   std::lock_guard<std::mutex> lock(TypeRegistryMutex());
 
   auto [iterator, inserted] = TypeNames().emplace(typeId, debugName);
-  if (!inserted)
+  if (!inserted && iterator->second != debugName)
   {
     assert(iterator->second == debugName && "StableTypeId collision detected");
+    EngineLog::Error("StableTypeId collision detected", "StableTypeId");
   }
 
   return typeId;

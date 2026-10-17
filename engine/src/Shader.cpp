@@ -10,6 +10,8 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
+#include "Log/EngineLog.h"
+
 namespace
 {
 std::string ResolveShaderPath(const std::string& path)
@@ -151,6 +153,7 @@ Shader::Shader(const std::string& id,
 
   if (vertexShader == 0 || fragmentShader == 0) {
     std::cout << "Shader compilation failed\n";
+    EngineLog::Error("Shader compilation failed", "Shader");
     ID = 0;
     return;
   }
@@ -170,6 +173,7 @@ Shader::Shader(const std::string& id,
     glGetProgramInfoLog(ID, 512, NULL, infoLog);
     std::cout << "Shader linking failed:\n"
               << infoLog << std::endl;
+    EngineLog::Error(std::string("Shader linking failed:\n") + infoLog, "Shader");
     glDeleteProgram(ID);
     ID = 0;
   } else
@@ -212,6 +216,7 @@ void Shader::Use() const
   GLenum error = glGetError();
   if (error != GL_NO_ERROR) {
     std::cout << "GL error after glUseProgram: " << error << std::endl;
+    EngineLog::Error("GL error after glUseProgram: " + std::to_string(error), "Shader");
   }
 
   ApplyStoredUniformsTo(*this);
@@ -511,6 +516,7 @@ std::string Shader::ReadFile(const std::string& path)
   std::ifstream file(path);
   if (!file.is_open()) {
     std::cout << "Failed to open shader file: " << path << std::endl;
+    EngineLog::Error("Failed to open shader file: " + path, "Shader");
     return "";
   }
   std::stringstream buffer;
@@ -546,6 +552,7 @@ unsigned int Shader::Compile(unsigned int type, const std::string& source)
     glGetShaderInfoLog(shader, 512, NULL, infoLog);
     std::cout << "Shader compilation error:\n"
               << infoLog << std::endl;
+    EngineLog::Error(std::string("Shader compilation error:\n") + infoLog, "Shader");
     glDeleteShader(shader);
     return 0;
   }
@@ -718,6 +725,11 @@ void Shader::LogUniformTypeMismatch(const std::string& name,
             << ". Reflected type=" << actualType
             << ", requested setter type=" << requestedType
             << std::endl;
+  EngineLog::Warning("Uniform type mismatch for '" + name +
+                      "' in shader " + std::to_string(ID) +
+                      ". Reflected type=" + std::to_string(actualType) +
+                      ", requested setter type=" + std::to_string(requestedType),
+                      "Shader");
 }
 
 /**
@@ -751,12 +763,14 @@ bool Shader::ReloadIfChanged()
   }
 
   std::cout << "Shader file change detected, reloading: " << vertexPath << ", " << fragmentPath << "\n";
+  EngineLog::Message("Shader file change detected, reloading: " + vertexPath + ", " + fragmentPath, "Shader");
 
   std::string vertexCode = ReadFile(vertexPath);
   std::string fragmentCode = ReadFile(fragmentPath);
 
   if (vertexCode.empty() || fragmentCode.empty()) {
     std::cout << "Failed to read shader files\n";
+    EngineLog::Message("Failed to read shader files", "Shader");
     return false;
   }
 
@@ -765,10 +779,12 @@ bool Shader::ReloadIfChanged()
     lastVertexModTime = vertexModTime;
     lastFragmentModTime = fragmentModTime;
     std::cout << "Shader reloaded successfully\n";
+    EngineLog::Message("Shader reloaded successfully", "Shader");
     return true;
   }
 
   std::cout << "Shader rebuild failed, keeping previous shader\n";
+  EngineLog::Error("Shader rebuild failed, keeping previous shader", "Shader");
   return false;
 }
 
@@ -784,6 +800,7 @@ std::filesystem::file_time_type Shader::GetFileModTime(const std::string& path) 
     return std::filesystem::last_write_time(path);
   } catch (const std::exception& e) {
     std::cout << "Error getting modification time for " << path << ": " << e.what() << "\n";
+    EngineLog::Warning("Error getting modification time for " + path + ": " + e.what(), "Shader");
     return std::filesystem::file_time_type::min();
   }
 }
@@ -802,6 +819,7 @@ bool Shader::RebuildProgram(const std::string& vertexCode, const std::string& fr
 
   if (vertexShader == 0 || fragmentShader == 0) {
     std::cout << "Shader compilation failed during rebuild\n";
+    EngineLog::Error("Shader compilation failed during rebuild", "Shader");
     if (vertexShader != 0) glDeleteShader(vertexShader);
     if (fragmentShader != 0) glDeleteShader(fragmentShader);
     return false;
@@ -819,6 +837,7 @@ bool Shader::RebuildProgram(const std::string& vertexCode, const std::string& fr
   if (!success) {
     glGetProgramInfoLog(newProgram, 512, NULL, infoLog);
     std::cout << "Shader linking failed during rebuild:\n" << infoLog << std::endl;
+    EngineLog::Error(std::string("Shader linking failed during rebuild:\n") + infoLog, "Shader");
     glDeleteProgram(newProgram);
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);

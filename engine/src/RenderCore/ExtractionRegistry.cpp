@@ -2,11 +2,14 @@
 
 #include <algorithm>
 
+#include "Log/EngineLog.h"
+
 RegistrationToken ExtractionRegistry::RegisterExtractor(std::unique_ptr<IRenderExtractor> extractor,
                                                         ExtractorRegistrationInfo info)
 {
   if (!extractor)
   {
+    EngineLog::Warning("RegisterExtractor called with a null extractor.", "ExtractionRegistry");
     return 0;
   }
 

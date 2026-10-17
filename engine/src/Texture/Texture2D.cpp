@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "Log/EngineLog.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -33,6 +35,7 @@ Texture2D::Texture2D(const std::string& path, bool flipVertically)
   if (id == 0)
   {
     std::cout << "Failed to allocate OpenGL texture for path: " << path << std::endl;
+    EngineLog::Error("Failed to allocate OpenGL texture for path: " + path, "Texture2D");
     return;
   }
 
@@ -58,6 +61,8 @@ Texture2D::Texture2D(const std::string& path, bool flipVertically)
     else
     {
       std::cout << "Unsupported channel count (" << channels << ") for texture: " << path << std::endl;
+      EngineLog::Error("Unsupported channel count (" + std::to_string(channels) + ") for texture: " + path,
+                        "Texture2D");
     }
 
     stbi_image_free(data);
@@ -65,6 +70,7 @@ Texture2D::Texture2D(const std::string& path, bool flipVertically)
   else
   {
     std::cout << "Failed to load texture from path: " << path << ". Using fallback texture." << std::endl;
+    EngineLog::Warning("Failed to load texture from path: " + path + ". Using fallback texture.", "Texture2D");
   }
 
   if (!valid)
@@ -91,6 +97,8 @@ Texture2D::Texture2D(int width,
   if (width <= 0 || height <= 0)
   {
     std::cout << "Invalid 2D texture size: " << width << "x" << height << std::endl;
+    EngineLog::Error("Invalid 2D texture size: " + std::to_string(width) + "x" + std::to_string(height),
+                      "Texture2D");
     return;
   }
 
@@ -98,6 +106,7 @@ Texture2D::Texture2D(int width,
   if (id == 0)
   {
     std::cout << "Failed to allocate empty 2D texture." << std::endl;
+    EngineLog::Error("Failed to allocate empty 2D texture.", "Texture2D");
     return;
   }
 

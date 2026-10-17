@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "Log/EngineLog.h"
 #include "Volume/VolumeFileLoader.h"
 
 namespace
@@ -11,6 +12,7 @@ namespace
     const std::optional<VolumeData> loaded = VolumeFileLoader::LoadTyped(filePath);
     if (!loaded.has_value())
     {
+      EngineLog::Error("Failed to load volume data from file: " + filePath, "VolumeData");
       throw std::invalid_argument("Failed to load volume data from file: " + filePath);
     }
 
@@ -62,6 +64,7 @@ void VolumeData::Resize(int width, int height, int depth)
 {
   if (width <= 0 || height <= 0 || depth <= 0)
   {
+    EngineLog::Error("Volume dimensions must be positive.", "VolumeData");
     throw std::invalid_argument("Volume dimensions must be positive.");
   }
 
@@ -106,6 +109,7 @@ float VolumeData::GetValue(glm::vec3 coord) const
       y >= dimensions.y ||
       z >= dimensions.z)
   {
+    EngineLog::Error("VolumeData index is out of bounds.", "VolumeData");
     throw std::out_of_range("VolumeData index is out of bounds.");
   }
 

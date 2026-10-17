@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "Log/EngineLog.h"
+
 Texture3D::Texture3D(int width,
                      int height,
                      int depth,
@@ -20,6 +22,8 @@ Texture3D::Texture3D(int width,
       width > maxTextureSize || height > maxTextureSize || depth > maxTextureSize)
   {
     std::cout << "Invalid 3D texture size: " << width << "x" << height << "x" << depth << std::endl;
+    EngineLog::Error("Invalid 3D texture size: " + std::to_string(width) + "x" + std::to_string(height) +
+                      "x" + std::to_string(depth), "Texture3D");
     return;
   }
 
@@ -27,6 +31,7 @@ Texture3D::Texture3D(int width,
   if (id == 0)
   {
     std::cout << "Failed to allocate 3D texture." << std::endl;
+    EngineLog::Error("Failed to allocate 3D texture.", "Texture3D");
     return;
   }
 

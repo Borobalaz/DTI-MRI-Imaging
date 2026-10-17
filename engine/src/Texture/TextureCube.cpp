@@ -4,6 +4,8 @@
 
 #include <stb_image.h>
 
+#include "Log/EngineLog.h"
+
 namespace
 {
   void ConfigureCubeTexture()
@@ -26,6 +28,7 @@ TextureCube::TextureCube(const SkyboxFaces& faces)
   if (id == 0)
   {
     std::cout << "Failed to allocate OpenGL cubemap texture" << std::endl;
+    EngineLog::Error("Failed to allocate OpenGL cubemap texture", "TextureCube");
     return;
   }
 
@@ -47,6 +50,7 @@ TextureCube::TextureCube(const SkyboxFaces& faces)
   if (!valid)
   {
     std::cout << "Cubemap initialization failed. Skybox will be disabled." << std::endl;
+    EngineLog::Error("Cubemap initialization failed. Skybox will be disabled.", "TextureCube");
   }
 
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
@@ -95,6 +99,7 @@ bool TextureCube::UploadFace(unsigned int target,
   if (data == nullptr)
   {
     std::cout << "Failed to load cubemap face '" << faceName << "' from path: " << path << std::endl;
+    EngineLog::Error("Failed to load cubemap face '" + faceName + "' from path: " + path, "TextureCube");
     return false;
   }
 
@@ -102,6 +107,7 @@ bool TextureCube::UploadFace(unsigned int target,
   if (format == GL_NONE)
   {
     std::cout << "Unsupported cubemap face format for '" << faceName << "' at path: " << path << std::endl;
+    EngineLog::Error("Unsupported cubemap face format for '" + faceName + "' at path: " + path, "TextureCube");
     stbi_image_free(data);
     return false;
   }
@@ -117,6 +123,10 @@ bool TextureCube::UploadFace(unsigned int target,
               << "'. Expected " << expectedWidth << "x" << expectedHeight
               << " but got " << width << "x" << height
               << " from path: " << path << std::endl;
+    EngineLog::Error("Cubemap face size mismatch for '" + faceName +
+                      "'. Expected " + std::to_string(expectedWidth) + "x" + std::to_string(expectedHeight) +
+                      " but got " + std::to_string(width) + "x" + std::to_string(height) +
+                      " from path: " + path, "TextureCube");
     stbi_image_free(data);
     return false;
   }

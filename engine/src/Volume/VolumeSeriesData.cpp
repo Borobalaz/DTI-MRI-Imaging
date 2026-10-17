@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <stdexcept>
 
+#include "Log/EngineLog.h"
+
 VolumeSeriesData::VolumeSeriesData(int width,
                                    int height,
                                    int depth,
@@ -24,6 +26,7 @@ void VolumeSeriesData::Resize(int width, int height, int depth, int frames)
 {
   if (width < 0 || height < 0 || depth < 0 || frames < 0)
   {
+    EngineLog::Error("VolumeSeriesData dimensions cannot be negative.", "VolumeSeriesData");
     throw std::invalid_argument("VolumeSeriesData dimensions cannot be negative.");
   }
 
@@ -39,6 +42,7 @@ VolumeData VolumeSeriesData::ExtractFrame(int frameIndex) const
 {
   if (frameIndex < 0 || frameIndex >= frameCount)
   {
+    EngineLog::Error("VolumeSeriesData frame index is out of bounds.", "VolumeSeriesData");
     throw std::out_of_range("VolumeSeriesData frame index is out of bounds.");
   }
 
