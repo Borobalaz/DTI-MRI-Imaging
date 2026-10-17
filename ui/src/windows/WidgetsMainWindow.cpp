@@ -23,6 +23,7 @@
 #include "styles/StyleSheetComposer.h"
 #include "widgets/DockTitleBarWidget.h"
 #include "widgets/OpenGLViewportWidget.h"
+#include "widgets/EngineLogWidget.h"
 #include "widgets/InspectorWidget.h"
 #include "widgets/MainToolBar.h"
 #include "widgets/RenderStatisticsWidget.h"
@@ -182,6 +183,15 @@ void WidgetsMainWindow::setupLayout()
   addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
 
   resizeDocks({objectsDock, viewportDock, inspectorDock}, {220, 1000, 260}, Qt::Horizontal);
+
+  // Bottom dock, full width: engine log
+  engineLogWidget = new EngineLogWidget(this);
+  engineLogDock = new QDockWidget(tr("Engine Log"), this);
+  engineLogDock->setObjectName("engineLogDock");
+  engineLogDock->setWidget(engineLogWidget);
+  engineLogDock->setTitleBarWidget(new DockTitleBarWidget(engineLogDock, engineLogDock));
+  addDockWidget(Qt::BottomDockWidgetArea, engineLogDock);
+  resizeDocks({engineLogDock}, {160}, Qt::Vertical);
 }
 
 void WidgetsMainWindow::setupToolBar()
@@ -192,7 +202,7 @@ void WidgetsMainWindow::setupToolBar()
   {
     toggleTheme();
   });
-  toolBar->setViewActions({viewportDock->toggleViewAction(), objectsDock->toggleViewAction(), statsDock->toggleViewAction(), inspectorDock->toggleViewAction()});
+  toolBar->setViewActions({viewportDock->toggleViewAction(), objectsDock->toggleViewAction(), statsDock->toggleViewAction(), inspectorDock->toggleViewAction(), engineLogDock->toggleViewAction()});
 
   addToolBar(Qt::TopToolBarArea, toolBar);
 }
@@ -234,6 +244,7 @@ void WidgetsMainWindow::applyTheme()
   sceneObjectListWidget->refreshLayoutMetrics();
   inspectorWidget->refreshLayoutMetrics();
   renderStatisticsWidget->refreshLayoutMetrics();
+  engineLogWidget->refreshLayoutMetrics();
 
   applyTitleBarTheme();
   recordActiveStyleModTime();
@@ -340,6 +351,12 @@ void WidgetsMainWindow::wireAdapterSignals()
   QObject::connect(adapter, &QTSceneInspector::fieldRevisionChanged, this, [this]()
   {
     inspectorWidget->refreshBoundEditors();
+  });
+
+  // Once the engine (and its log service) is initialized, attach the engine log widget to it.
+  QObject::connect(viewportWidget, &OpenGLViewportWidget::engineInitialized, this, [this]()
+  {
+    engineLogWidget->SetLogService(viewportWidget->logService());
   });
 
   // Initial synchronization

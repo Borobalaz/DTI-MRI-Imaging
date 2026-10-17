@@ -30,10 +30,12 @@ public:
 
   RenderStatistics *renderStatistics() const;
   QTSceneInspector &inspectAdapter() const;
+  ILogService *logService() const;
   void SetFillColor(const glm::vec3& color);
 
 signals:
   void renderStatisticsChanged();
+  void engineInitialized();
 
 protected:
   void initializeGL() override;

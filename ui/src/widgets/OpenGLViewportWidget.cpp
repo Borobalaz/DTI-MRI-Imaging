@@ -66,6 +66,12 @@ QTSceneInspector &OpenGLViewportWidget::inspectAdapter() const
   return *inspectAdapterObject;
 }
 
+// Exposes the engine's log service to Qt widgets. Returns nullptr until the engine is initialized.
+ILogService *OpenGLViewportWidget::logService() const
+{
+  return engine ? &engine->GetLogService() : nullptr;
+}
+
 void OpenGLViewportWidget::SetFillColor(const glm::vec3& color)
 {
   fillColor = color;
@@ -105,6 +111,8 @@ void OpenGLViewportWidget::initializeScene()
 
   elapsedTimer.start();
   lastFrameTimeNs = 0;
+
+  emit engineInitialized();
 }
 
 /**

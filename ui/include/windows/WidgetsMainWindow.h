@@ -16,6 +16,7 @@ class OpenGLViewportWidget;
 class InspectorWidget;
 class RenderStatisticsWidget;
 class SceneObjectListWidget;
+class EngineLogWidget;
 class MainToolBar;
 
 class WidgetsMainWindow : public QMainWindow
@@ -55,11 +56,13 @@ private:
   RenderStatisticsWidget *renderStatisticsWidget = nullptr;
 
   SceneObjectListWidget *sceneObjectListWidget = nullptr;
+  EngineLogWidget *engineLogWidget = nullptr;
 
   QDockWidget *viewportDock = nullptr;
   QDockWidget *objectsDock = nullptr;
   QDockWidget *statsDock = nullptr;
   QDockWidget *inspectorDock = nullptr;
+  QDockWidget *engineLogDock = nullptr;
 
   MainToolBar *toolBar = nullptr;
 };

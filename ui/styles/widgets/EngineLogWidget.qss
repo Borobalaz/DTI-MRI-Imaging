@@ -1,0 +1,46 @@
+QScrollArea#engineLogScrollArea {
+  background-color: @panel-bg;
+  border: none;
+}
+
+QScrollArea#engineLogScrollArea > QWidget > QWidget {
+  background-color: @panel-bg;
+}
+
+QLabel#engineLogHeaderLabel {
+  color: @text-muted;
+  font: bold 13px;
+}
+
+QToolButton#engineLogClearButton {
+  color: @text-primary;
+  border: 1px solid @border;
+  border-radius: 4px;
+  padding: 2px 8px;
+  background: transparent;
+}
+
+QToolButton#engineLogClearButton:hover {
+  background-color: rgba(@hover-overlay-rgb, 0.18);
+  border: 1px solid rgba(@hover-border-rgb, 0.20);
+}
+
+QFrame#engineLogEntryItem {
+  background-color: transparent;
+}
+
+/* Qt Style Sheets' "color" inheritance is overridden by the common "QLabel { color: ... }"
+   rule (ui/styles/widgets/common/Inputs.qss), so severity coloring is applied via explicit
+   descendant selectors here instead - same approach InspectProviderWidget.qss already uses
+   for its QLabel children. */
+QFrame#engineLogEntryItem QLabel {
+  color: @log-message-color;
+}
+
+QFrame#engineLogEntryItem[severity="warning"] QLabel {
+  color: @log-warning-color;
+}
+
+QFrame#engineLogEntryItem[severity="error"] QLabel {
+  color: @log-error-color;
+}

@@ -1,4 +1,4 @@
-QDockWidget#objectsDock, QDockWidget#renderStatsDock, QDockWidget#inspectorDock {
+QDockWidget#objectsDock, QDockWidget#renderStatsDock, QDockWidget#inspectorDock, QDockWidget#engineLogDock {
   background-color: @panel-bg;
   border: 1px solid @border;
   border-radius: 12px;

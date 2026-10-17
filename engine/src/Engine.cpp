@@ -9,13 +9,15 @@
 #include "RenderCore/RenderFrameBuilder.h"
 #include "Input/InputState.h"
 #include "Inspection/SceneInspectionService.h"
+#include "Log/EngineLogService.h"
 #include "DtiVolumeScene.h"
 
 Engine::Engine()
   : renderer(std::make_unique<ForwardRenderer>()),
     extractionRegistry(std::make_unique<ExtractionRegistry>()),
     renderFrameBuilder(std::make_unique<RenderFrameBuilder>()),
-    inputState(std::make_unique<InputState>())
+    inputState(std::make_unique<InputState>()),
+    logService(std::make_unique<EngineLogService>())
 {
 }
 
@@ -50,6 +52,11 @@ void Engine::SetFillColor(const glm::vec3& color)
 
 void Engine::Update(float deltaSeconds)
 {
+  if (logService)
+  {
+    logService->PollForEntryChanges();
+  }
+
   if (!scene)
   {
     return;
@@ -106,6 +113,11 @@ void Engine::OnScroll(float delta)
 IInspectionService& Engine::GetInspectionService()
 {
   return *inspectionService;
+}
+
+ILogService& Engine::GetLogService()
+{
+  return *logService;
 }
 
 Engine::Ray Engine::ScreenPointToRay(float ndcX, float ndcY) const
