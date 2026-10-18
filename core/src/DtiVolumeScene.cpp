@@ -7,14 +7,17 @@
 #include "Material.h"
 #include "Mesh.h"
 #include "GameObject.h"
+#include "Geometry/SphereGeometry.h"
 #include "Preprocessing/io/PreprocessingDatasetFormats.h"
 #include "Preprocessing/io/PreprocessingDatasetMetadataIO.h"
 #include "Preprocessing/io/dti/DtiPreprocessingParameters.h"
 
+#include <algorithm>
 #include <any>
 #include <filesystem>
 #include <iostream>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 /**
  * @brief Construct a new Dti Volume Scene:: Dti Volume Scene object
@@ -31,6 +34,10 @@ DtiVolumeScene::DtiVolumeScene()
   currentRequest.dwiVolumePath = "assets/volumes/dwi/human/HARDI150_hdbet_masked4d.nii.gz";
   currentRequest.bvalPath = "assets/volumes/dwi/human/HARDI150.bval";
   currentRequest.bvecPath = "assets/volumes/dwi/human/HARDI150.bvec";
+
+  // TEMPORARY DEBUG HOOK: auto-trigger a reload on startup so the seed-point instancing crash
+  // can be reproduced without manual UI interaction. Remove before committing.
+  datasetReloadRequested = true;
 }
 
 /**
@@ -113,6 +120,7 @@ void DtiVolumeScene::ClearProcessedScene()
   dtiVolume.reset();
   brainSurfaceObject.reset();
   streamlineObject.reset();
+  seedPointsObject.reset();
   ClearGameObjects();
   ClearVolumes();
 }
@@ -188,7 +196,82 @@ bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
     AddGameObject(streamlineObject);
   }
 
+  // Tractography seed points, rendered as small instanced red spheres - one GPU draw call for
+  // every seed regardless of count. Demonstrates GameObject GPU instancing and doubles as a
+  // way to visually verify seed placement/density as tractography settings change.
+  if (!lastPreprocessingResult.seedPoints.empty())
+  {
+    std::cout << "[DEBUG] seedPoints count = " << lastPreprocessingResult.seedPoints.size() << std::endl;
+    std::shared_ptr<Shader> seedPointShader = std::make_shared<Shader>(
+        "dti_seed_point_shader",
+        "shaders/vertex_instanced.glsl",
+        "shaders/pbr_fragment.glsl");
+    std::cout << "[DEBUG] seedPointShader created" << std::endl;
+    this->RegisterShader("dti_seed_point_shader", seedPointShader);
+    std::cout << "[DEBUG] seedPointShader registered" << std::endl;
+
+    std::shared_ptr<Material> seedPointMaterial = std::make_shared<Material>(seedPointShader);
+    seedPointMaterial->SetBaseColor(glm::vec3(1.0f, 0.05f, 0.05f));
+    seedPointMaterial->SetRoughness(0.5f);
+    seedPointMaterial->SetMetallic(0.0f);
+    std::cout << "[DEBUG] seedPointMaterial created" << std::endl;
+
+    // Nearest-neighbor seed spacing in the same normalized object space as seedPoints (mirrors
+    // DtiFiberTractographyStage::VoxelToObjectSpace's normalization), so the sphere radius
+    // scales with dataset resolution and the seed stride setting instead of a fixed constant -
+    // keeping neighboring markers from touching at any setting.
+    const VolumeMetadata &seedMetadata = lastPreprocessingResult.dtiChannels.FA.GetMetadata();
+    const glm::ivec3 seedDims = seedMetadata.dimensions;
+    const glm::vec3 seedSpacing = seedMetadata.spacing;
+    std::cout << "[DEBUG] seedDims=" << seedDims.x << "," << seedDims.y << "," << seedDims.z
+               << " seedSpacing=" << seedSpacing.x << "," << seedSpacing.y << "," << seedSpacing.z << std::endl;
+    const glm::vec3 seedExtent = glm::vec3(std::max(seedDims.x - 1, 1),
+                                           std::max(seedDims.y - 1, 1),
+                                           std::max(seedDims.z - 1, 1)) *
+                                 seedSpacing;
+    const float seedMaxExtent = std::max({seedExtent.x, seedExtent.y, seedExtent.z});
+    const int seedStride = std::max(tractographySettingsInspectable ? tractographySettingsInspectable->GetSeedStride() : 1, 1);
+    const float seedMinAxisSpacing = std::min({seedSpacing.x, seedSpacing.y, seedSpacing.z});
+    const float seedSpacingObjectSpace = seedMaxExtent > 1e-6f
+                                              ? (static_cast<float>(seedStride) * seedMinAxisSpacing) / seedMaxExtent
+                                              : 0.01f;
+    const float seedPointRadius = std::max(seedSpacingObjectSpace * 0.35f, 1e-4f);
+    std::cout << "[DEBUG] seedPointRadius=" << seedPointRadius << std::endl;
+
+    std::shared_ptr<Geometry> seedPointGeometry = std::make_shared<SphereGeometry>(seedPointRadius, 12, 8);
+    std::cout << "[DEBUG] seedPointGeometry created" << std::endl;
+    std::shared_ptr<Mesh> seedPointMesh = std::make_shared<Mesh>(seedPointGeometry, seedPointMaterial);
+    std::cout << "[DEBUG] seedPointMesh created" << std::endl;
+
+    seedPointsObject = std::make_shared<GameObject>("dti_seed_points");
+    seedPointsObject->AddMesh(seedPointMesh);
+    std::cout << "[DEBUG] seedPointsObject created + mesh added" << std::endl;
+    // The instanced path applies this GameObject's own transform as a shared outer/group
+    // transform on top of every instance, same as the volume/surface/streamlines above - so
+    // this rotation (and Update()'s continuous spin below) affects the whole batch without
+    // needing to touch the per-instance matrices.
+    seedPointsObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
+    std::cout << "[DEBUG] seedPointsObject rotated" << std::endl;
+
+    // Per-instance matrices are translation-only; the shared rotation above is applied once as
+    // a group, not baked into each seed.
+    std::vector<glm::mat4> seedTransforms;
+    seedTransforms.reserve(lastPreprocessingResult.seedPoints.size());
+    for (const glm::vec3 &seedPosition : lastPreprocessingResult.seedPoints)
+    {
+      seedTransforms.push_back(glm::translate(glm::mat4(1.0f), seedPosition));
+    }
+    std::cout << "[DEBUG] seedTransforms built, count=" << seedTransforms.size() << std::endl;
+    seedPointsObject->SetInstanceTransforms(seedTransforms);
+    std::cout << "[DEBUG] SetInstanceTransforms done" << std::endl;
+
+    AddGameObject(seedPointsObject);
+    std::cout << "[DEBUG] seedPointsObject added to scene" << std::endl;
+  }
+
+  std::cout << "[DEBUG] about to RebuildInspectProviders" << std::endl;
   RebuildInspectProviders();
+  std::cout << "[DEBUG] ApplyPreprocessingResult done" << std::endl;
   return true;
 }
 
@@ -366,6 +449,10 @@ void DtiVolumeScene::Update(float deltaTime)
     if (dtiVolume)
     {
       dtiVolume->SetRotation(dtiVolume->GetRotation() + rotationDelta);
+    }
+    if (seedPointsObject)
+    {
+      seedPointsObject->SetRotation(seedPointsObject->GetRotation() + rotationDelta);
     }
   }
 }

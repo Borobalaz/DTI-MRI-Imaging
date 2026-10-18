@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 
 #include "Postprocessing/Passes/AntiAliasingPass.h"
+#include "Renderer/Passes/InstancedMeshGeometryPass.h"
 #include "Renderer/Passes/MeshGeometryPass.h"
 #include "Renderer/Passes/SkyboxPass.h"
 #include "Renderer/Passes/VolumePass.h"
@@ -15,6 +16,7 @@ ForwardRenderer::ForwardRenderer()
       CapabilitySet{RenderCapabilities::Rasterization, RenderCapabilities::ForwardShading}}
 {
   AddRenderPass(std::make_unique<MeshGeometryPass>());
+  AddRenderPass(std::make_unique<InstancedMeshGeometryPass>());
   AddRenderPass(std::make_unique<VolumePass>());
   AddRenderPass(std::make_unique<SkyboxPass>());
 

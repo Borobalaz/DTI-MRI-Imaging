@@ -34,6 +34,10 @@ struct MriPreprocessingResult
   DTIVolumeChannels dtiChannels;
   std::shared_ptr<Mesh> surfaceMesh;
   std::shared_ptr<Mesh> streamlineMesh;
+  // Tractography seed positions in the same normalized object space as streamlineMesh's
+  // vertices (see DtiFiberTractographyStage::VoxelToObjectSpace), for visualizing seed
+  // placement independently of whether a streamline was successfully traced from it.
+  std::vector<glm::vec3> seedPoints;
   MriPreprocessingReport report;
 };
 
@@ -64,6 +68,7 @@ struct MriPreprocessingContext
   DTIVolumeChannels outputDtiChannels;
   std::shared_ptr<Mesh> outputSurfaceMesh;
   std::shared_ptr<Mesh> outputStreamlineMesh;
+  std::vector<glm::vec3> outputSeedPoints;
 };
 
 /**

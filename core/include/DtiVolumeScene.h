@@ -56,6 +56,7 @@ private:
   std::shared_ptr<DTIVolume> dtiVolume;
   std::shared_ptr<GameObject> brainSurfaceObject;
   std::shared_ptr<GameObject> streamlineObject;
+  std::shared_ptr<GameObject> seedPointsObject;
   MriToDtiPreprocessor preprocessor;
   std::string lastLoadError;
   bool datasetReloadRequested = false;

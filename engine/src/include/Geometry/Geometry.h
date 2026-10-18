@@ -25,6 +25,7 @@ public:
   virtual void Generate() = 0;
   virtual void Upload();
   virtual void Draw(Shader& shader) const;
+  virtual void DrawInstanced(Shader& shader, unsigned int instanceVBO, size_t instanceCount) const;
   virtual void Destroy();
 
   // Geometry processing

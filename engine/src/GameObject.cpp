@@ -73,6 +73,12 @@ void GameObject::BuildRenderProxy(RenderProxy& context) const
     return;
   }
 
+  if (IsInstanced())
+  {
+    BuildInstancedRenderProxy(context);
+    return;
+  }
+
   context.visible = true;
   MeshRenderBatch batch;
   for (const auto& mesh : meshes)
@@ -92,6 +98,71 @@ void GameObject::BuildRenderProxy(RenderProxy& context) const
     MeshRenderCommand command;
     command.geometry = geometry;
     command.material = material;
+    command.modelMatrix = BuildModelMatrix();
+    command.frameUniforms = context.frameUniforms;
+    batch.draws.push_back(std::move(command));
+  }
+
+  context.visible = !batch.draws.empty();
+  if (context.visible)
+  {
+    context.data.Append(std::move(batch));
+  }
+}
+
+/**
+ * @brief Set the per-instance transform list this GameObject renders with. An
+ *        empty list clears instancing (see ClearInstanceTransforms).
+ *
+ * @param transforms per-instance model matrices
+ */
+void GameObject::SetInstanceTransforms(const std::vector<glm::mat4>& transforms)
+{
+  instanceBuffer.Upload(transforms);
+}
+
+/**
+ * @brief Clear any instance transforms, returning this GameObject to the
+ *        normal single-draw rendering path.
+ */
+void GameObject::ClearInstanceTransforms()
+{
+  instanceBuffer.Reset();
+}
+
+/**
+ * @brief Build a MeshInstancedRenderCommand per mesh, one shared instance
+ *        buffer across all of them. This GameObject's own transform is used
+ *        as a shared outer/group transform applied to every instance (see
+ *        MeshInstancedRenderCommand::modelMatrix) - e.g. so SetPosition/
+ *        SetRotation can move or spin the whole instanced batch as a group,
+ *        while each instance's own matrix stays a local offset within it.
+ *
+ * @param context
+ */
+void GameObject::BuildInstancedRenderProxy(RenderProxy& context) const
+{
+  context.visible = true;
+  MeshInstancedRenderBatch batch;
+  for (const auto& mesh : meshes)
+  {
+    if (!mesh)
+    {
+      continue;
+    }
+
+    const std::shared_ptr<Geometry> geometry = mesh->GetGeometry();
+    const std::shared_ptr<Material> material = mesh->GetMaterial();
+    if (!geometry || !material)
+    {
+      continue;
+    }
+
+    MeshInstancedRenderCommand command;
+    command.geometry = geometry;
+    command.material = material;
+    command.instanceVBO = instanceBuffer.GetHandle();
+    command.instanceCount = instanceBuffer.GetInstanceCount();
     command.modelMatrix = BuildModelMatrix();
     command.frameUniforms = context.frameUniforms;
     batch.draws.push_back(std::move(command));
@@ -153,6 +224,16 @@ std::vector<InspectFieldPtr> GameObject::GetInspectFields()
   });
 
   fields.push_back(visibleField);
+
+  if (IsInstanced())
+  {
+    auto instanceCountField = MakeInspectField(
+      "instanceCount", "Instance Count", "Rendering", InspectFieldType::Number,
+      static_cast<int>(GetInstanceCount()));
+    instanceCountField->readOnly = true;
+    fields.push_back(instanceCountField);
+  }
+
   return fields;
 }
 

@@ -30,6 +30,25 @@ struct MeshRenderBatch
   std::vector<MeshRenderCommand> draws;
 };
 
+struct MeshInstancedRenderCommand
+{
+  std::shared_ptr<Geometry> geometry;
+  std::shared_ptr<Material> material;
+  unsigned int instanceVBO = 0;   // non-owning handle; owned by the GameObject's InstanceBuffer
+  size_t instanceCount = 0;
+  // Outer/group transform shared by every instance (the GameObject's own transform), combined
+  // in the shader with each instance's own matrix as modelMatrix * instanceMatrix. Lets the
+  // whole instanced batch be moved/rotated as a group (e.g. animated each frame) without
+  // re-uploading the per-instance buffer.
+  glm::mat4 modelMatrix{1.0f};
+  CompositeUniformProvider frameUniforms;
+};
+
+struct MeshInstancedRenderBatch
+{
+  std::vector<MeshInstancedRenderCommand> draws;
+};
+
 struct VolumeRenderCommand
 {
   std::shared_ptr<VolumeGeometry> geometry;

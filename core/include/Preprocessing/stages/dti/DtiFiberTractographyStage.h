@@ -45,5 +45,6 @@ private:
                                                         const std::vector<float> &evz,
                                                         const TractographySettings &settings);
   static std::shared_ptr<Mesh> BuildStreamlineMesh(const MriPreprocessingContext &context,
-                                                   const TractographySettings &settings);
+                                                   const TractographySettings &settings,
+                                                   const std::vector<glm::vec3> &seedsVoxelSpace);
 };

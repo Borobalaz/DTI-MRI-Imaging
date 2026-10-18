@@ -116,8 +116,51 @@ void Geometry::Draw(Shader& shader) const
 }
 
 /**
+ * @brief Draw the geometry once per instance using the given instance buffer,
+ *        with the per-instance model matrix supplied as vertex attributes 4-7.
+ *
+ * @param shader
+ * @param instanceVBO GL_ARRAY_BUFFER handle holding one glm::mat4 per instance
+ * @param instanceCount number of instances to draw
+ */
+void Geometry::DrawInstanced(Shader& shader, unsigned int instanceVBO, size_t instanceCount) const
+{
+  if (instanceCount == 0)
+  {
+    return;
+  }
+
+  shader.Use();
+  glBindVertexArray(VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+
+  // Locations 4-7: per-instance model matrix (one vec4 per column, divisor 1).
+  // Locations 0-3 are the regular per-vertex layout set up in Upload().
+  // Must match vertex_instanced.glsl's layout(location = 4..7) declarations.
+  for (unsigned int column = 0; column < 4; ++column)
+  {
+    const unsigned int location = 4 + column;
+    glEnableVertexAttribArray(location);
+    glVertexAttribPointer(
+      location, 4, GL_FLOAT, GL_FALSE,
+      sizeof(glm::mat4),
+      reinterpret_cast<void*>(column * sizeof(glm::vec4)));
+    glVertexAttribDivisor(location, 1);
+  }
+
+  glDrawElementsInstanced(
+    GL_TRIANGLES,
+    static_cast<GLsizei>(indices.size()),
+    GL_UNSIGNED_INT,
+    0,
+    static_cast<GLsizei>(instanceCount));
+
+  glBindVertexArray(0);
+}
+
+/**
  * @brief Delete VAO, VBO and EBO buffers
- * 
+ *
  */
 void Geometry::Destroy()
 {
