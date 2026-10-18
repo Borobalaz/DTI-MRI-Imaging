@@ -18,6 +18,7 @@ public:
 
 signals:
   void toggleThemeRequested();
+  void engineSettingsRequested();
 
 private:
   QMenu *viewMenu = nullptr;

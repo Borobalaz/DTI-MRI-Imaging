@@ -12,6 +12,7 @@
 #include "state/RenderStatistics.h"
 
 class QTSceneInspector;
+class QTEngineSettingsAdapter;
 
 /**
  * @brief The single concrete OpenGL scene viewport widget.
@@ -30,6 +31,7 @@ public:
 
   RenderStatistics *renderStatistics() const;
   QTSceneInspector &inspectAdapter() const;
+  QTEngineSettingsAdapter &settingsAdapter() const;
   ILogService *logService() const;
   void SetFillColor(const glm::vec3& color);
 
@@ -58,6 +60,7 @@ protected:
 private:
   std::unique_ptr<RenderStatistics> renderStatisticsObject; // Owned by this widget; exposes rendering metrics for external display
   std::unique_ptr<QTSceneInspector> inspectAdapterObject; // Owned by this widget; exposes the scene's inspectable objects to Qt widgets
+  std::unique_ptr<QTEngineSettingsAdapter> settingsAdapterObject; // Owned by this widget; exposes engine-wide settings to Qt widgets
   QTimer frameTimer;
   QElapsedTimer elapsedTimer;
   qint64 lastFrameTimeNs = 0;

@@ -9,6 +9,7 @@
 #include "Inspection/InspectField.h"
 #include "Inspection/IInspectionService.h"
 #include "Log/ILogService.h"
+#include "Settings/ISettingsService.h"
 
 class Scene;
 class ForwardRenderer;
@@ -17,6 +18,7 @@ class RenderFrameBuilder;
 class InputState;
 class SceneInspectionService;
 class EngineLogService;
+class SettingsService;
 
 /**
  * @brief Public façade for the engine library. This is the only class UI code
@@ -60,6 +62,9 @@ public:
   // Log
   ILogService& GetLogService();
 
+  // Settings
+  ISettingsService& GetSettingsService();
+
   // Picking
   Ray ScreenPointToRay(float ndcX, float ndcY) const;
 
@@ -71,4 +76,5 @@ private:
   std::unique_ptr<InputState> inputState;
   std::unique_ptr<SceneInspectionService> inspectionService;
   std::unique_ptr<EngineLogService> logService;
+  std::unique_ptr<SettingsService> settingsService;
 };

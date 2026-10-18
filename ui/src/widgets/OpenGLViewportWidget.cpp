@@ -13,6 +13,7 @@
 #include <QtGlobal>
 
 #include "qt-adapters/QTSceneInspector.h"
+#include "qt-adapters/QTEngineSettingsAdapter.h"
 #include "state/RenderStatistics.h"
 
 namespace
@@ -34,6 +35,7 @@ OpenGLViewportWidget::OpenGLViewportWidget(QWidget *parent)
 {
   renderStatisticsObject = std::make_unique<RenderStatistics>();
   inspectAdapterObject = std::make_unique<QTSceneInspector>();
+  settingsAdapterObject = std::make_unique<QTEngineSettingsAdapter>();
 
   QObject::connect(renderStatisticsObject.get(), &RenderStatistics::statisticsChanged, this, [this]()
   {
@@ -64,6 +66,13 @@ QTSceneInspector &OpenGLViewportWidget::inspectAdapter() const
 {
   Q_ASSERT(inspectAdapterObject != nullptr);
   return *inspectAdapterObject;
+}
+
+// Exposes the engine's settings (ISettingsService) to Qt widgets.
+QTEngineSettingsAdapter &OpenGLViewportWidget::settingsAdapter() const
+{
+  Q_ASSERT(settingsAdapterObject != nullptr);
+  return *settingsAdapterObject;
 }
 
 // Exposes the engine's log service to Qt widgets. Returns nullptr until the engine is initialized.
@@ -107,6 +116,11 @@ void OpenGLViewportWidget::initializeScene()
   if (inspectAdapterObject)
   {
     inspectAdapterObject->SetInspectionService(&engine->GetInspectionService());
+  }
+
+  if (settingsAdapterObject)
+  {
+    settingsAdapterObject->SetSettingsService(&engine->GetSettingsService());
   }
 
   elapsedTimer.start();

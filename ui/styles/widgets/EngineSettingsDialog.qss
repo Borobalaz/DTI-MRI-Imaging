@@ -1,0 +1,4 @@
+QDialog#engineSettingsDialog {
+  background-color: @panel-bg;
+  border: 1px solid @border;
+}

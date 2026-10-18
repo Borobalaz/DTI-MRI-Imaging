@@ -36,6 +36,12 @@ MainToolBar::MainToolBar(QWidget *parent)
   auto *toggleThemeAction = addAction(tr("Toggle Theme"));
   toggleThemeAction->setToolTip(tr("Switch between dark and light theme (Ctrl+Shift+T)"));
   QObject::connect(toggleThemeAction, &QAction::triggered, this, &MainToolBar::toggleThemeRequested);
+
+  addSeparator();
+
+  auto *engineSettingsAction = addAction(tr("Engine Settings"));
+  engineSettingsAction->setToolTip(tr("Open engine-wide settings (Ctrl+Shift+S)"));
+  QObject::connect(engineSettingsAction, &QAction::triggered, this, &MainToolBar::engineSettingsRequested);
 }
 
 void MainToolBar::setViewActions(const QList<QAction *> &actions)

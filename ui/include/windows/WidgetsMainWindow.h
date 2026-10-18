@@ -18,6 +18,7 @@ class RenderStatisticsWidget;
 class SceneObjectListWidget;
 class EngineLogWidget;
 class MainToolBar;
+class EngineSettingsDialog;
 
 class WidgetsMainWindow : public QMainWindow
 {
@@ -32,6 +33,8 @@ protected:
 private:
   void setupLayout();
   void setupToolBar();
+  void setupEngineSettingsDialog();
+  void showEngineSettingsDialog();
   void wireAdapterSignals();
   void applyTheme();
   void toggleTheme();
@@ -65,4 +68,5 @@ private:
   QDockWidget *engineLogDock = nullptr;
 
   MainToolBar *toolBar = nullptr;
+  EngineSettingsDialog *engineSettingsDialog = nullptr;
 };

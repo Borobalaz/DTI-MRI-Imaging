@@ -19,11 +19,13 @@
 #endif
 
 #include "qt-adapters/QTSceneInspector.h"
+#include "qt-adapters/QTEngineSettingsAdapter.h"
 #include "controllers/MainWindowShortcuts.h"
 #include "styles/StyleSheetComposer.h"
 #include "widgets/DockTitleBarWidget.h"
 #include "widgets/OpenGLViewportWidget.h"
 #include "widgets/EngineLogWidget.h"
+#include "widgets/EngineSettingsDialog.h"
 #include "widgets/InspectorWidget.h"
 #include "widgets/MainToolBar.h"
 #include "widgets/RenderStatisticsWidget.h"
@@ -55,6 +57,9 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
 
   // Build the toolbar
   setupToolBar();
+
+  // Build the non-modal engine settings window
+  setupEngineSettingsDialog();
 
   // Wire signals between the QTSceneInspector, the scene object list
   //  and inspector widgets, to synchronize state between them
@@ -207,6 +212,26 @@ void WidgetsMainWindow::setupToolBar()
   addToolBar(Qt::TopToolBarArea, toolBar);
 }
 
+void WidgetsMainWindow::setupEngineSettingsDialog()
+{
+  engineSettingsDialog = new EngineSettingsDialog(this);
+
+  QObject::connect(toolBar, &MainToolBar::engineSettingsRequested, this, [this]() { showEngineSettingsDialog(); });
+  QObject::connect(shortcuts.get(), &MainWindowShortcuts::engineSettingsRequested, this, [this]() { showEngineSettingsDialog(); });
+}
+
+void WidgetsMainWindow::showEngineSettingsDialog()
+{
+  if (!engineSettingsDialog->isVisible())
+  {
+    const QRect mainGeometry = frameGeometry();
+    engineSettingsDialog->move(mainGeometry.center() - QPoint(engineSettingsDialog->width() / 2, engineSettingsDialog->height() / 2));
+  }
+  engineSettingsDialog->show();
+  engineSettingsDialog->raise();
+  engineSettingsDialog->activateWindow();
+}
+
 QString WidgetsMainWindow::currentThemeName() const
 {
   return useDarkTheme ? QStringLiteral("dark") : QStringLiteral("light");
@@ -245,6 +270,7 @@ void WidgetsMainWindow::applyTheme()
   inspectorWidget->refreshLayoutMetrics();
   renderStatisticsWidget->refreshLayoutMetrics();
   engineLogWidget->refreshLayoutMetrics();
+  engineSettingsDialog->refreshLayoutMetrics();
 
   applyTitleBarTheme();
   recordActiveStyleModTime();
@@ -359,10 +385,23 @@ void WidgetsMainWindow::wireAdapterSignals()
     engineLogWidget->SetLogService(viewportWidget->logService());
   });
 
+  QTEngineSettingsAdapter &settingsAdapter = viewportWidget->settingsAdapter();
+
+  QObject::connect(&settingsAdapter, &QTEngineSettingsAdapter::fieldsChanged, this, [this]()
+  {
+    engineSettingsDialog->settingsWidget()->setFields(viewportWidget->settingsAdapter().fields());
+  });
+
+  QObject::connect(&settingsAdapter, &QTEngineSettingsAdapter::fieldRevisionChanged, this, [this]()
+  {
+    engineSettingsDialog->settingsWidget()->refreshBoundEditors();
+  });
+
   // Initial synchronization
   refreshObjectList();
   syncObjectSelection();
   inspectorWidget->setFields(viewportWidget->inspectAdapter().fields());
+  engineSettingsDialog->settingsWidget()->setFields(viewportWidget->settingsAdapter().fields());
 }
 
 void WidgetsMainWindow::refreshObjectList()

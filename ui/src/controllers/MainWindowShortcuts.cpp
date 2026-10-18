@@ -14,4 +14,8 @@ MainWindowShortcuts::MainWindowShortcuts(QWidget *parent)
   {
     emit toggleThemeRequested();
   });
+
+  engineSettingsShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+S")), parent);
+  engineSettingsShortcut->setContext(Qt::WindowShortcut);
+  QObject::connect(engineSettingsShortcut, &QShortcut::activated, this, [this]() { emit engineSettingsRequested(); });
 }

@@ -6,6 +6,7 @@
 #include "Renderer/Passes/MeshGeometryPass.h"
 #include "Renderer/Passes/SkyboxPass.h"
 #include "Renderer/Passes/VolumePass.h"
+#include "Settings/EngineSettings.h"
 
 ForwardRenderer::ForwardRenderer()
   : descriptor{
@@ -35,7 +36,8 @@ void ForwardRenderer::Draw(const RenderFrame& frame)
 {
   RenderExecutionContext executionContext(GetDescriptor());
 
-  const bool usePostProcessing = HasPostProcessingPasses() && viewportWidth > 0 && viewportHeight > 0;
+  const bool usePostProcessing = EngineSettings::GetBool("postprocessing.enabled", true)
+      && HasPostProcessingPasses() && viewportWidth > 0 && viewportHeight > 0;
   GLint originalFbo = 0;
 
   if (usePostProcessing)

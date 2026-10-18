@@ -13,7 +13,9 @@ public:
 
 signals:
   void toggleThemeRequested();
+  void engineSettingsRequested();
 
 private:
   QShortcut *toggleThemeShortcut = nullptr;
+  QShortcut *engineSettingsShortcut = nullptr;
 };

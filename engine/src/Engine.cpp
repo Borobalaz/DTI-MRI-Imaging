@@ -10,6 +10,8 @@
 #include "Input/InputState.h"
 #include "Inspection/SceneInspectionService.h"
 #include "Log/EngineLogService.h"
+#include "Settings/SettingsService.h"
+#include "Settings/EngineSettingsCatalog.h"
 #include "DtiVolumeScene.h"
 
 Engine::Engine()
@@ -17,8 +19,10 @@ Engine::Engine()
     extractionRegistry(std::make_unique<ExtractionRegistry>()),
     renderFrameBuilder(std::make_unique<RenderFrameBuilder>()),
     inputState(std::make_unique<InputState>()),
-    logService(std::make_unique<EngineLogService>())
+    logService(std::make_unique<EngineLogService>()),
+    settingsService(std::make_unique<SettingsService>())
 {
+  RegisterEngineSettingsCatalog();
 }
 
 Engine::~Engine() = default;
@@ -55,6 +59,11 @@ void Engine::Update(float deltaSeconds)
   if (logService)
   {
     logService->PollForEntryChanges();
+  }
+
+  if (settingsService)
+  {
+    settingsService->PollForSettingsChanges();
   }
 
   if (!scene)
@@ -118,6 +127,11 @@ IInspectionService& Engine::GetInspectionService()
 ILogService& Engine::GetLogService()
 {
   return *logService;
+}
+
+ISettingsService& Engine::GetSettingsService()
+{
+  return *settingsService;
 }
 
 Engine::Ray Engine::ScreenPointToRay(float ndcX, float ndcY) const

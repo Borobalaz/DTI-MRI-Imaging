@@ -90,12 +90,14 @@ add_executable(app_qt
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/InspectorWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/EngineLogWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/EngineLogEntryWidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/EngineSettingsDialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/state/RenderStatistics.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/RenderStatisticsWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/SceneObjectListWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/widgets/inspect_fields/InspectNumberFieldWidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/windows/WidgetsMainWindow.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/qt-adapters/QTSceneInspector.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/qt-adapters/QTEngineSettingsAdapter.h
 )
 
 target_include_directories(app_qt PRIVATE
