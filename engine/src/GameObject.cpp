@@ -229,7 +229,7 @@ std::vector<InspectFieldPtr> GameObject::GetInspectFields()
   {
     auto instanceCountField = MakeInspectField(
       "instanceCount", "Instance Count", "Rendering", InspectFieldType::Number,
-      static_cast<int>(GetInstanceCount()));
+      static_cast<double>(GetInstanceCount()));
     instanceCountField->readOnly = true;
     fields.push_back(instanceCountField);
   }

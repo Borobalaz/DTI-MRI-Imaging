@@ -34,10 +34,6 @@ DtiVolumeScene::DtiVolumeScene()
   currentRequest.dwiVolumePath = "assets/volumes/dwi/human/HARDI150_hdbet_masked4d.nii.gz";
   currentRequest.bvalPath = "assets/volumes/dwi/human/HARDI150.bval";
   currentRequest.bvecPath = "assets/volumes/dwi/human/HARDI150.bvec";
-
-  // TEMPORARY DEBUG HOOK: auto-trigger a reload on startup so the seed-point instancing crash
-  // can be reproduced without manual UI interaction. Remove before committing.
-  datasetReloadRequested = true;
 }
 
 /**
@@ -201,20 +197,16 @@ bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
   // way to visually verify seed placement/density as tractography settings change.
   if (!lastPreprocessingResult.seedPoints.empty())
   {
-    std::cout << "[DEBUG] seedPoints count = " << lastPreprocessingResult.seedPoints.size() << std::endl;
     std::shared_ptr<Shader> seedPointShader = std::make_shared<Shader>(
         "dti_seed_point_shader",
         "shaders/vertex_instanced.glsl",
         "shaders/pbr_fragment.glsl");
-    std::cout << "[DEBUG] seedPointShader created" << std::endl;
     this->RegisterShader("dti_seed_point_shader", seedPointShader);
-    std::cout << "[DEBUG] seedPointShader registered" << std::endl;
 
     std::shared_ptr<Material> seedPointMaterial = std::make_shared<Material>(seedPointShader);
     seedPointMaterial->SetBaseColor(glm::vec3(1.0f, 0.05f, 0.05f));
     seedPointMaterial->SetRoughness(0.5f);
     seedPointMaterial->SetMetallic(0.0f);
-    std::cout << "[DEBUG] seedPointMaterial created" << std::endl;
 
     // Nearest-neighbor seed spacing in the same normalized object space as seedPoints (mirrors
     // DtiFiberTractographyStage::VoxelToObjectSpace's normalization), so the sphere radius
@@ -223,8 +215,6 @@ bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
     const VolumeMetadata &seedMetadata = lastPreprocessingResult.dtiChannels.FA.GetMetadata();
     const glm::ivec3 seedDims = seedMetadata.dimensions;
     const glm::vec3 seedSpacing = seedMetadata.spacing;
-    std::cout << "[DEBUG] seedDims=" << seedDims.x << "," << seedDims.y << "," << seedDims.z
-               << " seedSpacing=" << seedSpacing.x << "," << seedSpacing.y << "," << seedSpacing.z << std::endl;
     const glm::vec3 seedExtent = glm::vec3(std::max(seedDims.x - 1, 1),
                                            std::max(seedDims.y - 1, 1),
                                            std::max(seedDims.z - 1, 1)) *
@@ -236,22 +226,17 @@ bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
                                               ? (static_cast<float>(seedStride) * seedMinAxisSpacing) / seedMaxExtent
                                               : 0.01f;
     const float seedPointRadius = std::max(seedSpacingObjectSpace * 0.35f, 1e-4f);
-    std::cout << "[DEBUG] seedPointRadius=" << seedPointRadius << std::endl;
 
     std::shared_ptr<Geometry> seedPointGeometry = std::make_shared<SphereGeometry>(seedPointRadius, 12, 8);
-    std::cout << "[DEBUG] seedPointGeometry created" << std::endl;
     std::shared_ptr<Mesh> seedPointMesh = std::make_shared<Mesh>(seedPointGeometry, seedPointMaterial);
-    std::cout << "[DEBUG] seedPointMesh created" << std::endl;
 
     seedPointsObject = std::make_shared<GameObject>("dti_seed_points");
     seedPointsObject->AddMesh(seedPointMesh);
-    std::cout << "[DEBUG] seedPointsObject created + mesh added" << std::endl;
     // The instanced path applies this GameObject's own transform as a shared outer/group
     // transform on top of every instance, same as the volume/surface/streamlines above - so
     // this rotation (and Update()'s continuous spin below) affects the whole batch without
     // needing to touch the per-instance matrices.
     seedPointsObject->SetRotation(glm::vec3(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f));
-    std::cout << "[DEBUG] seedPointsObject rotated" << std::endl;
 
     // Per-instance matrices are translation-only; the shared rotation above is applied once as
     // a group, not baked into each seed.
@@ -261,17 +246,12 @@ bool DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result)
     {
       seedTransforms.push_back(glm::translate(glm::mat4(1.0f), seedPosition));
     }
-    std::cout << "[DEBUG] seedTransforms built, count=" << seedTransforms.size() << std::endl;
     seedPointsObject->SetInstanceTransforms(seedTransforms);
-    std::cout << "[DEBUG] SetInstanceTransforms done" << std::endl;
 
     AddGameObject(seedPointsObject);
-    std::cout << "[DEBUG] seedPointsObject added to scene" << std::endl;
   }
 
-  std::cout << "[DEBUG] about to RebuildInspectProviders" << std::endl;
   RebuildInspectProviders();
-  std::cout << "[DEBUG] ApplyPreprocessingResult done" << std::endl;
   return true;
 }
 

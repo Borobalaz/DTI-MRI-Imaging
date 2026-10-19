@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <vector>
@@ -541,27 +540,21 @@ void DtiFiberTractographyStage::Execute(MriPreprocessingContext &context) const
   }
 
   const TractographySettings settings = BuildTractographySettings(context);
-  std::cout << "[DEBUG] tractography settings built" << std::endl;
   const std::vector<glm::vec3> seedsVoxelSpace =
       SelectSeedPoints(context.outputDtiChannels.FA, context.outputDtiChannels.L1, settings);
-  std::cout << "[DEBUG] seedsVoxelSpace count=" << seedsVoxelSpace.size() << std::endl;
 
   // Seed positions are exposed for visualization independently of whether a streamline was
   // successfully traced from each one, so convert and store them regardless of the tracing
   // outcome below.
   const VolumeMetadata &metadata = context.outputDtiChannels.FA.GetMetadata();
-  std::cout << "[DEBUG] FA metadata dims=" << metadata.dimensions.x << "," << metadata.dimensions.y << ","
-             << metadata.dimensions.z << std::endl;
   context.outputSeedPoints.clear();
   context.outputSeedPoints.reserve(seedsVoxelSpace.size());
   for (const glm::vec3 &seedVoxel : seedsVoxelSpace)
   {
     context.outputSeedPoints.push_back(VoxelToObjectSpace(seedVoxel, metadata.dimensions, metadata.spacing));
   }
-  std::cout << "[DEBUG] outputSeedPoints populated, count=" << context.outputSeedPoints.size() << std::endl;
 
   const std::shared_ptr<Mesh> streamlineMesh = BuildStreamlineMesh(context, settings, seedsVoxelSpace);
-  std::cout << "[DEBUG] BuildStreamlineMesh returned" << std::endl;
   if (!streamlineMesh)
   {
     context.report.warnings.push_back("Fiber tractography stage produced no streamlines.");
