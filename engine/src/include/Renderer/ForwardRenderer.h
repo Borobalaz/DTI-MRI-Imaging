@@ -13,6 +13,7 @@ public:
   const RendererDescriptor& GetDescriptor() const override;
   void Draw(const RenderFrame& frame) override;
   void Resize(int width, int height) override;
+  void InitializeGLState() override;
 
   void SetFillColor(const glm::vec3& color);
 

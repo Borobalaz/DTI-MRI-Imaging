@@ -60,7 +60,6 @@ protected:
   std::shared_ptr<Shader> shader;
 
   glm::mat4 BuildModelMatrix() const;
-  void Draw(const UniformProvider &frameUniforms) const;
 
   // Only derived classes can construct Volume. 
   // The reason is that only derived classes can be instantiated, 

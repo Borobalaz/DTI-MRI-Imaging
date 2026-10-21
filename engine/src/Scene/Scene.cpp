@@ -65,66 +65,10 @@ Scene::Scene()
       "shaders/normal_fragment.glsl");
 
   // ------------- MATERIALS -------------
-  std::shared_ptr<Material> boneMaterial = std::make_shared<Material>(defaultShader);
-  boneMaterial->SetAlbedoTextureFromFile("assets/materials/bone/bone_albedo.png");
-  boneMaterial->SetNormalTextureFromFile("assets/materials/bone/bone_normal-ogl.png");
-  boneMaterial->SetRoughnessTextureFromFile("assets/materials/bone/bone_roughness.png");
-  boneMaterial->SetMetallicTextureFromFile("assets/materials/bone/bone_metallic.png");
-
-  std::shared_ptr<Material> donutMaterial = std::make_shared<Material>(defaultShader);
-  donutMaterial->SetAlbedoTextureFromFile("assets/materials/donut/Poliigon_FoodPastryDonut_10737_BaseColor.jpg");
-  donutMaterial->SetNormalTextureFromFile("assets/materials/donut/Poliigon_FoodPastryDonut_10737_Normal.png");
-  donutMaterial->SetRoughnessTextureFromFile("assets/materials/donut/Poliigon_FoodPastryDonut_10737_Roughness.jpg");
-  donutMaterial->SetMetallicTextureFromFile("assets/materials/donut/Poliigon_FoodPastryDonut_10737_Metallic.jpg");
-
-  std::shared_ptr<Material> dragonMaterial = std::make_shared<Material>(defaultShader);
-  dragonMaterial->SetAlbedoTextureFromFile("assets/materials/dragon/DefaultMaterial_albedo.jpg");
-  dragonMaterial->SetNormalTextureFromFile("assets/materials/dragon/DefaultMaterial_normal.png");
-  dragonMaterial->SetRoughnessTextureFromFile("assets/materials/dragon/DefaultMaterial_roughness.jpg");
-  dragonMaterial->SetMetallicTextureFromFile("assets/materials/dragon/DefaultMaterial_metallic.jpg");
-
-  std::shared_ptr<Material> assasinMaterial = std::make_shared<Material>(defaultShader);
-  assasinMaterial->SetAlbedoTextureFromFile("assets/materials/assasin/Royalshadowassassin3dmodel_basecolor.jpeg");
 
   std::shared_ptr<Material> normalDebugMaterial = std::make_shared<Material>(normalShader);
   // ------------- GAME OBJECTS -------------
-  auto sphere2 = std::make_shared<GameObject>(
-      std::make_shared<SphereGeometry>(0.2f, 64, 32),
-      donutMaterial,
-      "sphere2");
-  sphere2->SetPosition(glm::vec3(0.5f, 0.0f, 0.0f));
 
-  auto floor = std::make_shared<GameObject>(
-      std::make_shared<QuadGeometry>(),
-      boneMaterial,
-      "floor");
-  floor->SetPosition(glm::vec3(0.0f, -0.2f, 0.0f));
-  floor->SetRotation(glm::vec3(-glm::half_pi<float>(), 0.0f, 0.0f));
-  floor->SetScale(glm::vec3(10.0f));
-
-  auto dragon = ModelLoader::LoadGameObject("assets/models/dragon.dae", defaultShader);
-  dragon->SetMaterial(dragonMaterial);
-  dragon->SetPosition(glm::vec3(-0.5f, -0.2f, 0.0f));
-  dragon->SetRotation(glm::vec3(0.0f, glm::pi<float>() / 3.0f, 0.0f));
-  dragon->SetScale(glm::vec3(0.01f));
-
-  auto assasin = ModelLoader::LoadGameObject("assets/models/assasin.fbx", defaultShader);
-  assasin->SetMaterial(assasinMaterial);
-  assasin->SetPosition(glm::vec3(0.0f, -0.2f, 0.0f));
-  assasin->SetRotation(glm::vec3(0.0f, glm::pi<float>() / 2.0f, 0.0f));
-  assasin->SetScale(glm::vec3(0.01f));
-
-  auto bunny = ModelLoader::LoadGameObject("assets/models/stanford_bunny.obj", normalShader);
-  bunny->SetMaterial(normalDebugMaterial);
-  bunny->SetPosition(glm::vec3(0.0f, -0.2f, 0.0f));
-  bunny->SetRotation(glm::vec3(0.0f, glm::pi<float>() / 2.0f, 0.0f));
-  bunny->SetScale(glm::vec3(0.01f));
-
-  AddGameObject(bunny);
-  AddGameObject(assasin);
-  AddGameObject(sphere2);
-  AddGameObject(dragon);
-  AddGameObject(floor);
   // ------------- VOLUME -------------
 
   // ------------- LIGHTS -------------
@@ -136,14 +80,6 @@ Scene::Scene()
       glm::vec3(-1.0f, -1.0f, -1.0f));
   AddLight(directionalLight);
 
-  std::shared_ptr<DirectionalLight> directionalLight2 = std::make_shared<DirectionalLight>(
-      "dirLight2",
-      glm::vec3(1.0f, 0.0f, 0.0f),
-      glm::vec3(0.5f, 0.5f, 0.5f),
-      glm::vec3(1.0f, 1.0f, 1.0f),
-      glm::vec3(-1.0f, -1.0f, -1.0f));
-  AddLight(directionalLight2);
-
   // SetSkybox(SkyboxFaces{
   //   "assets/textures/skybox/pz.png",
   //   "assets/textures/skybox/nz.png",
@@ -152,19 +88,6 @@ Scene::Scene()
   //   "assets/textures/skybox/px.png",
   //   "assets/textures/skybox/nx.png"
   // });
-}
-
-/**
- * @brief Initialize the scene,
- *        enable depth testing, set clear color, set depth function,
- *        enable seamless cubemap sampling
- *
- */
-void Scene::Init()
-{
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LESS);
-  glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 }
 
 /**

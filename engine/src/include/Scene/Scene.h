@@ -37,8 +37,7 @@ class Scene : public UniformProvider, InspectProvider
 public:
   Scene();
   ~Scene();
-  
-  void Init();
+
   virtual void Update(float deltaTime);
   void Render();
   void Destroy();

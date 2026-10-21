@@ -34,6 +34,13 @@ void ForwardRenderer::Resize(int width, int height)
   viewportHeight = height;
 }
 
+void ForwardRenderer::InitializeGLState()
+{
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+}
+
 void ForwardRenderer::Draw(const RenderFrame& frame)
 {
   RenderExecutionContext executionContext(GetDescriptor());

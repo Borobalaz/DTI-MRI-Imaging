@@ -19,6 +19,11 @@ public:
   // resources (e.g. ForwardRenderer's offscreen postprocessing framebuffers).
   virtual void Resize(int width, int height) {}
 
+  // One-time global GL state setup. Invoked exactly once by
+  // Engine::InitializeOpenGL, after GLAD function pointers are confirmed
+  // loaded and before any frame is drawn.
+  virtual void InitializeGLState() {}
+
   void AddRenderPass(std::unique_ptr<IRenderPass> pass)
   {
     if (pass)

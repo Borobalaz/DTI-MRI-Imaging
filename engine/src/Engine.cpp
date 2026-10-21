@@ -29,13 +29,17 @@ Engine::~Engine() = default;
 
 bool Engine::InitializeOpenGL(GLADloadproc loadProc)
 {
-  return InitializeEngineOpenGL(loadProc);
+  if (!InitializeEngineOpenGL(loadProc))
+  {
+    return false;
+  }
+  renderer->InitializeGLState();
+  return true;
 }
 
 void Engine::CreateScene()
 {
   scene = std::make_unique<DtiVolumeScene>();
-  scene->Init();
   scene->RebuildInspectProviders();
   inspectionService = std::make_unique<SceneInspectionService>(*scene);
 }

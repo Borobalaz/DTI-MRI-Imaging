@@ -68,45 +68,6 @@ void Volume::BuildRenderProxy(RenderProxy& renderProxy) const
 }
 
 /**
- * @brief Draw the volume using the provided uniform values.
- *
- * @param frameUniforms The uniform values for the current frame.
- */
-void Volume::Draw(const UniformProvider &frameUniforms) const
-{
-  if (!IsValid() || !visible)
-  {
-    EngineLog::WarningOnce("Volume skipped: invalid or not visible", "Volume");
-    return;
-  }
-
-  GLboolean previousBlendEnabled = glIsEnabled(GL_BLEND);
-  GLboolean previousDepthWriteMask = GL_TRUE;
-  glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthWriteMask);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glDepthMask(GL_FALSE);
-
-  shader->Use();
-  frameUniforms.Apply(*shader);
-  shader->Apply(*shader);
-  Apply(*shader);
-  const glm::mat4 modelMatrix = BuildModelMatrix();
-  const glm::mat4 inverseModelMatrix = glm::inverse(modelMatrix);
-  shader->SetMat4("volumeObject.modelMatrix", modelMatrix);
-  shader->SetMat4("volumeObject.inverseModelMatrix", inverseModelMatrix);
-  GetTextureSet().Bind(*shader, "volumeTextures");
-  geometry->Draw(*shader);
-
-  if (!previousBlendEnabled)
-  {
-    glDisable(GL_BLEND);
-  }
-  glDepthMask(previousDepthWriteMask);
-}
-
-/**
  * @brief Check if the volume is valid based on the presence of geometry, shader, and valid dimensions and textures.
  *
  * @return True if the volume is valid, false otherwise.
