@@ -9,12 +9,12 @@
 #include "IDrawable.h"
 #include "Renderer/RenderProxy.h"
 #include "IUpdateable.h"
-#include "Shader.h"
+#include "Render/Shader.h"
 #include "Transform.h"
-#include "Uniform/UniformProvider.h"
+#include "Render/Uniform/UniformProvider.h"
 #include "Volume/VolumeData.h"
 #include "Geometry/VolumeGeometry.h"
-#include "Volume/VolumeTextureSet.h"
+#include "Render/VolumeTextureSet.h"
 #include "Inspection/InspectField.h"
 
 class Volume : public UniformProvider, public IDrawable, public IUpdateable, public InspectProvider
@@ -22,7 +22,7 @@ class Volume : public UniformProvider, public IDrawable, public IUpdateable, pub
 public:
   virtual ~Volume() = default;
 
-  void Apply(Shader &shader) const override;
+  void Apply(IUniformSink &shader) const override;
   void BuildRenderProxy(RenderProxy& renderProxy) const override;
   bool IsValid() const;
 

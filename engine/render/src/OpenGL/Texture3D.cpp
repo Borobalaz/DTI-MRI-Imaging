@@ -1,0 +1,77 @@
+#include "Render/Texture/Texture3D.h"
+
+#include <iostream>
+
+#include "Log/EngineLog.h"
+#include "OpenGL/TextureGL.h"
+
+Texture3D::Texture3D(int width,
+                     int height,
+                     int depth,
+                     TextureFormat format,
+                     const void* data,
+                     bool linearFiltering)
+  : id(0),
+    valid(false)
+{
+  GLint maxTextureSize = 0;
+  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &maxTextureSize);
+
+  if (width <= 0 || height <= 0 || depth <= 0 ||
+      width > maxTextureSize || height > maxTextureSize || depth > maxTextureSize)
+  {
+    std::cout << "Invalid 3D texture size: " << width << "x" << height << "x" << depth << std::endl;
+    EngineLog::Error("Invalid 3D texture size: " + std::to_string(width) + "x" + std::to_string(height) +
+                      "x" + std::to_string(depth), "Texture3D");
+    return;
+  }
+
+  glGenTextures(1, &id);
+  if (id == 0)
+  {
+    std::cout << "Failed to allocate 3D texture." << std::endl;
+    EngineLog::Error("Failed to allocate 3D texture.", "Texture3D");
+    return;
+  }
+
+  glBindTexture(GL_TEXTURE_3D, id);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, linearFiltering ? GL_LINEAR : GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, linearFiltering ? GL_LINEAR : GL_NEAREST);
+
+  const GLTextureFormat glFormat = ToGLTextureFormat(format);
+  glTexImage3D(GL_TEXTURE_3D, 0, glFormat.internalFormat, width, height, depth, 0, glFormat.format, glFormat.type, data);
+  glBindTexture(GL_TEXTURE_3D, 0);
+  valid = (glGetError() == GL_NO_ERROR);
+}
+
+Texture3D::~Texture3D()
+{
+  if (id != 0)
+  {
+    glDeleteTextures(1, &id);
+  }
+}
+
+void Texture3D::Bind(unsigned int unit) const
+{
+  if (!valid || id == 0)
+  {
+    return;
+  }
+
+  glActiveTexture(GL_TEXTURE0 + unit);
+  glBindTexture(GL_TEXTURE_3D, id);
+}
+
+bool Texture3D::IsValid() const
+{
+  return valid;
+}
+
+unsigned int Texture3D::GetId() const
+{
+  return id;
+}

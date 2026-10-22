@@ -32,6 +32,14 @@ find_path(STB_INCLUDE_DIR
     REQUIRED
 )
 
+file(GLOB_RECURSE FOUNDATION_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/foundation/src/*.cpp"
+)
+
+file(GLOB_RECURSE RENDER_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/render/src/*.cpp"
+)
+
 file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/core/src/*.cpp"
@@ -45,6 +53,44 @@ file(GLOB_RECURSE UI_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/styles/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/state/*.cpp"
 )
+
+# Dependency-free utilities (logging, stable type ids) shared by the render layer and the engine.
+add_library(engine_foundation STATIC ${FOUNDATION_SOURCES})
+set_target_properties(engine_foundation PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(engine_foundation PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/foundation/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
+)
+
+# The render layer: the only target allowed to touch the graphics API. glad and
+# OpenGL are linked PRIVATE so no code outside engine/render/src can include or call them.
+add_library(engine_render STATIC ${RENDER_SOURCES})
+set_target_properties(engine_render PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(engine_render PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/render/include
+)
+
+target_include_directories(engine_render PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/render/src
+    ${STB_INCLUDE_DIR}
+)
+
+target_compile_definitions(engine_render PRIVATE
+    "CONNECTOMICS_SHADER_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/engine\""
+)
+
+target_link_libraries(engine_render PUBLIC
+    engine_foundation
+    glm::glm
+)
+
+target_link_libraries(engine_render PRIVATE
+    glad::glad
+    OpenGL::GL
+)
+
 add_library(engine SHARED ${ENGINE_SOURCES})
 set_target_properties(engine PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
@@ -55,21 +101,16 @@ target_include_directories(engine PUBLIC
 target_include_directories(engine PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/src/include
     ${CMAKE_CURRENT_SOURCE_DIR}/core/include
-    ${STB_INCLUDE_DIR}
-)
-
-target_compile_definitions(engine PRIVATE
-    "CONNECTOMICS_SHADER_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/engine\""
 )
 
 target_link_libraries(engine PUBLIC
-    OpenGL::GL
     glm::glm
-    glad::glad
     assimp::assimp
 )
 
 target_link_libraries(engine PRIVATE
+    engine_render
+    engine_foundation
     nlohmann_json::nlohmann_json
 )
 

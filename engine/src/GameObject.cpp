@@ -8,7 +8,7 @@
 #include <cmath>
 
 #include "Renderer/RenderProxy.h"
-#include "Uniform/CompositeUniformProvider.h"
+#include "Render/Uniform/CompositeUniformProvider.h"
 
 GameObject::GameObject(const std::string& id)
   : id(id)
@@ -161,8 +161,7 @@ void GameObject::BuildInstancedRenderProxy(RenderProxy& context) const
     MeshInstancedRenderCommand command;
     command.geometry = geometry;
     command.material = material;
-    command.instanceVBO = instanceBuffer.GetHandle();
-    command.instanceCount = instanceBuffer.GetInstanceCount();
+    command.instances = &instanceBuffer;
     command.modelMatrix = BuildModelMatrix();
     command.frameUniforms = context.frameUniforms;
     batch.draws.push_back(std::move(command));
@@ -180,7 +179,7 @@ void GameObject::BuildInstancedRenderProxy(RenderProxy& context) const
  *
  * @param shader
  */
-void GameObject::Apply(Shader &shader) const
+void GameObject::Apply(IUniformSink &shader) const
 {
   const glm::mat4 modelMatrix = BuildModelMatrix();
   shader.SetMat4(ComposeUniformName("gameObject", "modelMatrix"), modelMatrix);

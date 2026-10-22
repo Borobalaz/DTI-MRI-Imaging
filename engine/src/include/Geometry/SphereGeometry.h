@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Geometry.h"
+#include "Render/Geometry/Geometry.h"
 
 class SphereGeometry : public Geometry
 {

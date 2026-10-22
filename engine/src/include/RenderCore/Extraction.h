@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "RenderCore/RenderDataStore.h"
-#include "RenderCore/RendererDescriptor.h"
+#include "Render/Core/RenderDataStore.h"
+#include "Render/Core/RendererDescriptor.h"
 #include "RenderCore/SceneSnapshot.h"
 
 class Diagnostics

@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Uniform/UniformProvider.h"
+#include "Render/Uniform/UniformProvider.h"
 #include "Camera/BaseMovement.h"
 #include "Transform.h"
 #include "Inspection/InspectField.h"
@@ -18,7 +18,7 @@ public:
 
   virtual glm::mat4 GetViewMatrix() const = 0;
   virtual glm::mat4 GetProjectionMatrix() const = 0;
-  void Apply(Shader& shader) const override;
+  void Apply(IUniformSink& shader) const override;
   std::string GetInspectDisplayName() const override;
   std::vector<InspectFieldPtr> GetInspectFields() override;
 

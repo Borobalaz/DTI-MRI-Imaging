@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Geometry/Geometry.h"
+#include "Render/Geometry/Geometry.h"
 
 class Triangle : public Geometry
 {

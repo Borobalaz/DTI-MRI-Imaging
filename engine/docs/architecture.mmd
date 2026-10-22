@@ -5,27 +5,35 @@ flowchart TD
     end
 
     subgraph Engine[engine DLL]
-        Init[InitializeEngineOpenGL]
+        Facade[Engine::InitializeOpenGL]
         Scene[Scene]
         Input[InputState and camera movement]
         Snapshot[SceneSnapshot: typed render commands]
-        Passes[ExtractionRegistry and insertion-ordered Renderer pass vector]
+        Extraction[ExtractionRegistry]
         Builder[RenderFrameBuilder]
-        Frame[RenderFrame and RenderDataStore]
-        Renderer[Renderer / ForwardRenderer]
-        Resources[Shader, Material, Texture, Model, Volume resources]
+        Resources[Model, Volume and concrete geometry resources]
         Inspect[InspectProvider and InspectField]
     end
 
-    Context --> Init
+    subgraph Render[engine_render static lib - engine/render]
+        Init[InitializeGraphicsApi]
+        Frame[RenderFrame and RenderDataStore]
+        Passes[Insertion-ordered render pass vector via RenderBackend]
+        Renderer[Renderer / ForwardRenderer]
+        GpuResources[Shader, Material, Texture, Geometry, InstanceBuffer]
+    end
+
+    Context --> Facade
+    Facade --> Init
     Context --> Scene
     UI -. input events .-> Input
     Input --> Scene
     Scene --> Resources
+    Resources --> GpuResources
     Scene --> Inspect
     Scene --> Snapshot
     Snapshot --> Builder
-    Passes --> Builder
+    Extraction --> Builder
     Builder --> Frame
     Passes --> Renderer
     Frame --> Renderer
@@ -33,4 +41,6 @@ flowchart TD
     Inspect --> Adapter
     Adapter -. field edits .-> Inspect
 
+    Passes --> GpuResources
     Assets[(engine/assets and engine/shaders)] --> Resources
+    Assets --> GpuResources

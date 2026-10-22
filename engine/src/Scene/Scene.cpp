@@ -7,7 +7,7 @@
 #include "Geometry/ModelLoader.h"
 #include "Geometry/SphereGeometry.h"
 #include "Texture/Skybox.h"
-#include "Texture/Texture2D.h"
+#include "Render/Texture/Texture2D.h"
 #include "Volume/FloatVolume.h"
 #include "Volume/VolumeFileLoader.h"
 #include <cmath>
@@ -126,7 +126,7 @@ void Scene::Update(float deltaTime)
  *
  * @param shader The shader to apply uniforms to
  */
-void Scene::Apply(Shader &shader) const
+void Scene::Apply(IUniformSink &shader) const
 {
   const int enabledCount = static_cast<int>(std::count_if(lights.begin(), lights.end(),
                                                           [](const auto &lightEntry)

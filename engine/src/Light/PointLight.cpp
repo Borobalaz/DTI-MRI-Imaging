@@ -3,7 +3,7 @@
 #include <cmath>
 #include <string>
 
-#include "Shader.h"
+#include "Render/Shader.h"
 
 /**
  * @brief Construct a new Point Light:: Point Light object
@@ -37,7 +37,7 @@ PointLight::PointLight(const std::string& id,
  * 
  * @param shader 
  */
-void PointLight::Apply(Shader& shader) const
+void PointLight::Apply(IUniformSink& shader) const
 {
   if (uniformIndex < 0 || !enabled)
   {

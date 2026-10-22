@@ -76,7 +76,7 @@ int Light::GetUniformIndex() const
   return uniformIndex;
 }
 
-void Light::Apply(Shader& shader) const
+void Light::Apply(IUniformSink& shader) const
 {
   // Base Light class doesn't apply any uniforms
   // Derived classes (PointLight, DirectionalLight) override this method

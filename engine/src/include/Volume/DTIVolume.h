@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "Volume/Volume.h"
-#include "Volume/VolumeTextureSet.h"
+#include "Render/VolumeTextureSet.h"
 
 struct DTIVolumeChannels
 {
@@ -42,7 +42,7 @@ public:
                      DTIVolumeChannels channels,
                      std::shared_ptr<Shader> shader);
 
-  void Apply(Shader &shader) const override;
+  void Apply(IUniformSink &shader) const override;
   
   int GetSelectedRenderModeIndex() const { return selectedRenderMode; }
   int GetSelectedChannelIndex() const { return selectedChannel; }

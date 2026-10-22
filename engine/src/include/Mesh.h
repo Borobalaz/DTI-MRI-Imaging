@@ -4,9 +4,9 @@
 
 #include "IDrawable.h"
 #include "Renderer/RenderProxy.h"
-#include "Geometry/Geometry.h"
-#include "Material.h"
-#include "Uniform/UniformProvider.h"
+#include "Render/Geometry/Geometry.h"
+#include "Render/Material.h"
+#include "Render/Uniform/UniformProvider.h"
 
 class Mesh: public IDrawable
 {

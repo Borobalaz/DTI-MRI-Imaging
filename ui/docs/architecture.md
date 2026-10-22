@@ -22,7 +22,7 @@ Primary build evidence: `CMakeLists.txt` (`add_executable(app_qt ...)`). The app
 
 1. `ui/src/app/main.cpp` configures a 3.3 core OpenGL surface and creates `QApplication`.
 2. `WidgetsMainWindow` docks the viewport alongside the inspector, object list, and statistics widgets as dockable panels the user can rearrange, resize, float, or close; the arrangement is persisted across sessions via `QSettings`.
-3. `OpenGLViewportWidget::initializeGL` receives the current Qt context and calls the engine's `InitializeEngineOpenGL` entry point.
+3. `OpenGLViewportWidget::initializeGL` receives the current Qt context and calls `Engine::InitializeOpenGL` with a `GLProcLoader` backed by the Qt context.
 4. The viewport constructs and initializes an engine `Scene`, registers render extractors, attaches camera movement, and gives the scene's providers to `QTSceneInspector`.
 5. On each `paintGL`, the viewport synchronizes inspector providers, updates camera/scene state, builds a render frame from typed render commands, invokes its renderer, and publishes frame statistics.
 6. `QTSceneInspector` adapts engine-neutral inspection fields into Qt field widgets. Qt edits invoke engine field setters; engine state remains owned by the engine DLL.

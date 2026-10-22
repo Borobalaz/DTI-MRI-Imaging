@@ -6,17 +6,17 @@
 
 #include "Geometry/Triangle.h"
 #include "Geometry/QuadGeometry.h"
-#include "Shader.h"
+#include "Render/Shader.h"
 #include "Camera/Camera.h"
 #include "Camera/PerspectiveCamera.h"
-#include "Uniform/CompositeUniformProvider.h"
+#include "Render/Uniform/CompositeUniformProvider.h"
 #include "Light/PointLight.h"
 #include "Light/DirectionalLight.h"
 #include "Light/Light.h"
 #include "GameObject.h"
-#include "Material.h"
-#include "Texture/TextureCube.h"
-#include "Uniform/UniformProvider.h"
+#include "Render/Material.h"
+#include "Render/Texture/TextureCube.h"
+#include "Render/Uniform/UniformProvider.h"
 #include "Volume/Volume.h"
 #include "Input/InputState.h"
 #include "IDrawable.h"
@@ -41,7 +41,7 @@ public:
   virtual void Update(float deltaTime);
   void Render();
   void Destroy();
-  void Apply(Shader& shader) const override;
+  void Apply(IUniformSink& shader) const override;
 
   // Skybox management
   void SetSkybox(std::shared_ptr<TextureCube> cubemap);

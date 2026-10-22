@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "IUpdateable.h"
-#include "Uniform/UniformProvider.h"
+#include "Render/Uniform/UniformProvider.h"
 #include "Inspection/InspectField.h"
 
 class Light : public UniformProvider, public IUpdateable, public InspectProvider
@@ -26,7 +26,7 @@ public:
 
   void SetUniformIndex(int index);
   int GetUniformIndex() const;
-  void Apply(Shader& shader) const override;
+  void Apply(IUniformSink& shader) const override;
 
   std::string GetInspectDisplayName() const override;
   std::vector<InspectFieldPtr> GetInspectFields() override;

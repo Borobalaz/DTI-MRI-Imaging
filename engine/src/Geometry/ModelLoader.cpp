@@ -13,9 +13,9 @@
 
 #include "Geometry/ImportedGeometry.h"
 #include "Log/EngineLog.h"
-#include "Material.h"
+#include "Render/Material.h"
 #include "Mesh.h"
-#include "Texture/Texture2D.h"
+#include "Render/Texture/Texture2D.h"
 
 namespace
 {

@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "Shader.h"
+#include "Render/Shader.h"
 
 DirectionalLight::DirectionalLight(const std::string& id,
                                    const glm::vec3& direction,
@@ -14,7 +14,7 @@ DirectionalLight::DirectionalLight(const std::string& id,
 {
 }
 
-void DirectionalLight::Apply(Shader& shader) const
+void DirectionalLight::Apply(IUniformSink& shader) const
 {
   if (uniformIndex < 0 || !enabled)
   {

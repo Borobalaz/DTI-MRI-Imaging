@@ -8,7 +8,7 @@
 #include <stdexcept>
 
 #include "Log/EngineLog.h"
-#include "Texture/Texture3D.h"
+#include "Render/Texture/Texture3D.h"
 #include "Scene/Scene.h"
 
 namespace
@@ -172,9 +172,7 @@ DTIVolume::DTIVolume(const std::string& id,
       width,
       height,
       depth,
-      GL_RGB32F,
-      GL_RGB,
-      GL_FLOAT,
+      TextureFormat::RGB32F,
       tensorDiagRgb.data(),
       true));
 
@@ -187,9 +185,7 @@ DTIVolume::DTIVolume(const std::string& id,
       width,
       height,
       depth,
-      GL_RGB32F,
-      GL_RGB,
-      GL_FLOAT,
+      TextureFormat::RGB32F,
       tensorOffDiagRgb.data(),
       true));
 
@@ -202,9 +198,7 @@ DTIVolume::DTIVolume(const std::string& id,
       width,
       height,
       depth,
-      GL_RGB32F,
-      GL_RGB,
-      GL_FLOAT,
+      TextureFormat::RGB32F,
       principalEigenvectorRgb.data(),
       true));
 
@@ -217,9 +211,7 @@ DTIVolume::DTIVolume(const std::string& id,
       width,
       height,
       depth,
-      GL_RGB32F,
-      GL_RGB,
-      GL_FLOAT,
+      TextureFormat::RGB32F,
       eigenvaluesRgb.data(),
       true));
 
@@ -233,9 +225,7 @@ DTIVolume::DTIVolume(const std::string& id,
       width,
       height,
       depth,
-      GL_RGBA32F,
-      GL_RGBA,
-      GL_FLOAT,
+      TextureFormat::RGBA32F,
       scalarMetricsRgba.data(),
       true));
 
@@ -247,10 +237,10 @@ DTIVolume::DTIVolume(const std::string& id,
  *
  * @param shader
  */
-void DTIVolume::Apply(Shader &shader) const
+void DTIVolume::Apply(IUniformSink &shader) const
 {
   Volume::Apply(shader);
-  shader["shader.selectedChannel"] = selectedChannel;
+  shader.SetInt("shader.selectedChannel", selectedChannel);
 }
 
 /**
@@ -267,7 +257,7 @@ void DTIVolume::InitializeRenderModes()
       "dti_channel_slice_shader",
       "shaders/volume/volume_vertex.glsl",
       "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl");
-  if (channelSliceShader && channelSliceShader->ID != 0)
+  if (channelSliceShader && channelSliceShader->IsValid())
   {
     (*channelSliceShader)["shader.sliceZ"] = sliceZValue;
     renderModes.push_back(RenderMode{"Channel Slice", channelSliceShader});
@@ -283,7 +273,7 @@ void DTIVolume::InitializeRenderModes()
       "shaders/volume/volume_vertex.glsl",
       "shaders/dti_fragment_shaders/volume_dti_ev_slice_fragment.glsl");
 
-  if (principalDirectionShader && principalDirectionShader->ID != 0)
+  if (principalDirectionShader && principalDirectionShader->IsValid())
   {
     (*principalDirectionShader)["shader.sliceZ"] = sliceZValue;
     (*principalDirectionShader)["shader.density"] = 1.0f;
@@ -300,7 +290,7 @@ void DTIVolume::InitializeRenderModes()
       "shaders/volume/volume_vertex.glsl",
       "shaders/dti_fragment_shaders/volume_dti_fa_raymarch_fragment.glsl");
 
-  if (faRaymarchShader && faRaymarchShader->ID != 0)
+  if (faRaymarchShader && faRaymarchShader->IsValid())
   {
     (*faRaymarchShader)["shader.threshold"] = 0.15f;
     (*faRaymarchShader)["shader.density"] = 1.0f;
@@ -319,7 +309,7 @@ void DTIVolume::InitializeRenderModes()
       "shaders/volume/volume_vertex.glsl",
       "shaders/dti_fragment_shaders/volume_dti_direction_raymarch_fragment.glsl");
 
-  if (directionRaymarchShader && directionRaymarchShader->ID != 0)
+  if (directionRaymarchShader && directionRaymarchShader->IsValid())
   {
     (*directionRaymarchShader)["shader.threshold"] = 0.15f;
     (*directionRaymarchShader)["shader.density"] = 1.0f;
@@ -338,7 +328,7 @@ void DTIVolume::InitializeRenderModes()
       "shaders/volume/volume_vertex.glsl",
       "shaders/dti_fragment_shaders/volume_dti_surface_lit_fragment.glsl");
 
-  if (surfaceLitShader && surfaceLitShader->ID != 0)
+  if (surfaceLitShader && surfaceLitShader->IsValid())
   {
     (*surfaceLitShader)["shader.threshold"] = 0.1f;
     (*surfaceLitShader)["shader.stepSize"] = 0.0f;
@@ -386,7 +376,7 @@ bool DTIVolume::SetActiveRenderMode(int modeIndex)
   }
 
   const RenderMode &mode = renderModes[static_cast<size_t>(modeIndex)];
-  if (!mode.shader || mode.shader->ID == 0)
+  if (!mode.shader || !mode.shader->IsValid())
   {
     EngineLog::Warning("SetActiveRenderMode: render mode '" + mode.label + "' has no built shader",
                         "DTIVolume");

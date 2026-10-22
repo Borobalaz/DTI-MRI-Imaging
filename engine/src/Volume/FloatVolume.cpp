@@ -1,6 +1,6 @@
 #include "Volume/FloatVolume.h"
 
-#include "Texture/Texture3D.h"
+#include "Render/Texture/Texture3D.h"
 
 FloatVolume::FloatVolume(const std::string& id,
                          const VolumeData& volumeData,
@@ -12,9 +12,7 @@ FloatVolume::FloatVolume(const std::string& id,
     dimensions.x,
     dimensions.y,
     dimensions.z,
-    GL_R32F,
-    GL_RED,
-    GL_FLOAT,
+    TextureFormat::R32F,
     volumeData.GetVoxels().data(),
     true));
 }

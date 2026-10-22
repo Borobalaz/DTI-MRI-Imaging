@@ -8,7 +8,7 @@
 
 #include "Log/EngineLog.h"
 #include "Renderer/RenderProxy.h"
-#include "Volume/VolumeTextureSet.h"
+#include "Render/VolumeTextureSet.h"
 
 /**
  * @brief Construct a new Volume:: Volume object
@@ -37,7 +37,7 @@ Volume::Volume(const std::string &id,
  *
  * @param shader The shader to apply the uniforms to.
  */
-void Volume::Apply(Shader &shader) const
+void Volume::Apply(IUniformSink &shader) const
 {
   shader.SetVec3("volume.dimensions", glm::vec3(dimensions));
   shader.SetInt("volume.textureCount", static_cast<int>(GetTextureSet().Size()));
@@ -75,7 +75,7 @@ void Volume::BuildRenderProxy(RenderProxy& renderProxy) const
 bool Volume::IsValid() const
 {
   return dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0 &&
-         geometry != nullptr && shader != nullptr && shader->ID != 0 &&
+         geometry != nullptr && shader != nullptr && shader->IsValid() &&
          GetTextureSet().IsValid();
 }
 

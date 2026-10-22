@@ -9,11 +9,11 @@
 #include "Mesh.h"
 #include "IDrawable.h"
 #include "IUpdateable.h"
-#include "Shader.h"
+#include "Render/Shader.h"
 #include "Transform.h"
-#include "Uniform/UniformProvider.h"
+#include "Render/Uniform/UniformProvider.h"
 #include "Inspection/InspectField.h"
-#include "Geometry/InstanceBuffer.h"
+#include "Render/Geometry/InstanceBuffer.h"
 
 struct RenderProxy;
 
@@ -28,7 +28,7 @@ public:
   void SetMaterial(std::shared_ptr<Material> material);
 
   void BuildRenderProxy(RenderProxy& context) const override;
-  void Apply(Shader& shader) const override;
+  void Apply(IUniformSink& shader) const override;
 
   void SetPosition(const glm::vec3& pos) { transform.SetPosition(pos); }
   void SetRotation(const glm::vec3& rot) { transform.SetRotation(rot); }

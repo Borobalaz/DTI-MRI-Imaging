@@ -17,7 +17,7 @@ public:
              float linear,
              float quadratic);
 
-  void Apply(Shader& shader) const override;
+  void Apply(IUniformSink& shader) const override;
   std::vector<InspectFieldPtr> GetInspectFields() override;
 
   float constant;

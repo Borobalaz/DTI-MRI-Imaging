@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "Geometry/Geometry.h"
+#include "Render/Geometry/Geometry.h"
 
 class TubeGeometry final : public Geometry
 {

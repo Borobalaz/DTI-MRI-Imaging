@@ -13,7 +13,7 @@ public:
                    const glm::vec3& diffuse,
                    const glm::vec3& specular);
 
-  void Apply(Shader& shader) const override;
+  void Apply(IUniformSink& shader) const override;
 
   glm::vec3 direction;
 };

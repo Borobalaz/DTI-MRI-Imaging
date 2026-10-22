@@ -3,13 +3,14 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 #include "Scene/Scene.h"
-#include "EngineOpenGL.h"
-#include "Renderer/ForwardRenderer.h"
+#include "Render/GraphicsApi.h"
+#include "Render/Renderer/ForwardRenderer.h"
 #include "RenderCore/ExtractionRegistry.h"
 #include "RenderCore/RenderFrameBuilder.h"
 #include "Input/InputState.h"
 #include "Inspection/SceneInspectionService.h"
 #include "Log/EngineLogService.h"
+#include "Settings/EngineSettings.h"
 #include "Settings/SettingsService.h"
 #include "Settings/EngineSettingsCatalog.h"
 #include "DtiVolumeScene.h"
@@ -27,9 +28,9 @@ Engine::Engine()
 
 Engine::~Engine() = default;
 
-bool Engine::InitializeOpenGL(GLADloadproc loadProc)
+bool Engine::InitializeOpenGL(GLProcLoader loadProc)
 {
-  if (!InitializeEngineOpenGL(loadProc))
+  if (!InitializeGraphicsApi(loadProc))
   {
     return false;
   }
@@ -94,6 +95,7 @@ void Engine::Render()
 
   const SceneSnapshot snapshot = scene->CreateSnapshot();
   const RenderFrame frame = renderFrameBuilder->Build(snapshot, renderer->GetDescriptor(), *extractionRegistry);
+  renderer->SetPostProcessingEnabled(EngineSettings::GetBool("postprocessing.enabled", true));
   renderer->Draw(frame);
   inputState->ResetFrameTransientState();
 }

@@ -3,7 +3,6 @@
 #include <memory>
 #include <vector>
 
-#include <glad/glad.h>
 #include <glm/glm.hpp>
 
 #include "Inspection/InspectField.h"
@@ -27,6 +26,10 @@ class SettingsService;
 class Engine
 {
 public:
+  // OpenGL function-pointer resolver supplied by the windowing layer
+  // (signature-compatible with GLADloadproc).
+  using GLProcLoader = void* (*)(const char*);
+
   struct Ray
   {
     glm::vec3 origin;
@@ -40,7 +43,7 @@ public:
   Engine& operator=(const Engine&) = delete;
 
   // Lifecycle
-  bool InitializeOpenGL(GLADloadproc loadProc);
+  bool InitializeOpenGL(GLProcLoader loadProc);
   void CreateScene();
 
   // Per-frame

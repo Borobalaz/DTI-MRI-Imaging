@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-#include "Shader.h"
+#include "Render/Shader.h"
 
 /**
  * @brief Construct a new Camera:: Camera object
@@ -32,7 +32,7 @@ Camera::~Camera()
  * 
  * @param shader 
  */
-void Camera::Apply(Shader& shader) const
+void Camera::Apply(IUniformSink& shader) const
 {
   const std::string viewUniformName =
     ComposeUniformName("camera", "viewMatrix");

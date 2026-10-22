@@ -3,7 +3,7 @@
 #include <limits>
 #include <vector>
 
-#include "Geometry/Geometry.h"
+#include "Render/Geometry/Geometry.h"
 
 class StreamlineGeometry final : public Geometry
 {
@@ -14,5 +14,4 @@ public:
                      std::vector<unsigned int> indices);
 
   void Generate() override;
-  void Draw(Shader &shader) const override;
 };

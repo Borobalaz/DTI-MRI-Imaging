@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 C++17 Qt 6 Widgets + OpenGL application for DTI/MRI visualization (diffusion tensor imaging, tractography, volume rendering). Built with CMake, dependencies via vcpkg.
 
-Two CMake targets, one process:
+Two shipped CMake targets, one process:
 
-- `engine` — Qt-independent `SHARED` library: rendering, scene graph, geometry, textures, volumes, input, inspection contracts.
+- `engine` — Qt-independent `SHARED` library: scene graph, geometry, volumes, input, inspection contracts. Privately links two internal `STATIC` targets:
+  - `engine_render` (`engine/render/`) — the render layer: GPU resources, renderer, passes. The only code allowed to make graphics-API calls.
+  - `engine_foundation` (`engine/foundation/`) — dependency-free utilities shared by both (`EngineLog`, `StableTypeId`).
 - `app_qt` — Qt Widgets executable: application shell, viewport, inspector, object list, styling.
 
 `app_qt` links `engine`; both `engine.dll` and `app_qt.exe` land in the same build output directory so the exe can load the engine at runtime. Shaders (`engine/shaders`) and assets (`engine/assets`) are copied next to the executable post-build (see `CMakeLists.txt`).
@@ -41,7 +43,7 @@ There is no automated test suite in this repo (no test target, no test framework
 
 ### Engine/UI boundary is deliberately narrow
 
-`engine`'s public headers (`CMakeLists.txt`: `target_include_directories(engine PUBLIC engine/include)`) are just `engine/include/Engine.h` and `engine/include/Inspection/*.h`. Everything under `engine/src/include/**` (Scene, Renderer, RenderCore, Camera, Volume, Material, Texture, Light, Geometry, Uniform, Input, Postprocessing) is `PRIVATE` to the `engine` target and **not visible to `app_qt`**.
+`engine`'s public headers (`CMakeLists.txt`: `target_include_directories(engine PUBLIC engine/include)`) are just `engine/include/Engine.h` and `engine/include/Inspection/*.h`. Everything under `engine/src/include/**` (Scene, Renderer/RenderProxy, RenderCore extraction, Camera, Volume, Light, concrete Geometry, Input, …) is `PRIVATE` to the `engine` target and **not visible to `app_qt`**. The same goes for the render layer's headers (`engine/render/include/Render/**`), which `engine` links privately.
 
 `Engine.h` is explicit about this: *"Public façade for the engine library. This is the only class UI code should depend on; all other engine headers are private implementation details."* In practice `ui/include/widgets/OpenGLViewportWidget.h` includes only `Engine.h` (plus Qt headers) — confirm this when adding new engine functionality: expose it through `Engine`'s facade methods/structs rather than reaching into engine-private headers from UI code.
 
@@ -49,15 +51,27 @@ Crossing the boundary happens through:
 - `Engine` facade methods: lifecycle (`InitializeOpenGL`, `CreateScene`), per-frame (`Update`, `Render`, `SetViewportSize`), input (`OnKeyChanged`, `OnMouseButtonChanged`, `OnMousePositionChanged`, `OnScroll`), picking (`ScreenPointToRay`).
 - The **inspection contract** (`IInspectionService`, `InspectField`, `InspectHandle`): a Qt-free way for the engine to describe editable scene state. `ui/src/qt-adapters/QTSceneInspector.cpp` adapts these neutral fields into Qt widgets (`ui/include/widgets/inspect_fields/`) and routes edits back through field setters/callbacks.
 
-> The root `docs/` folder (an old ImGui+GLFW prototype's docs) has been removed. `engine/docs/architecture.md` and `ui/docs/architecture.md` are the maintained sources of truth for cross-boundary/subsystem architecture.
+> The root `docs/` folder (an old ImGui+GLFW prototype's docs) has been removed. `engine/docs/architecture.md`, `engine/render/docs/architecture.md` and `ui/docs/architecture.md` are the maintained sources of truth for cross-boundary/subsystem architecture.
+
+### Render layer (`engine/render/`, target `engine_render`)
+
+The only place graphics-API calls may happen; see `engine/render/docs/architecture.md`.
+- **Layout**:
+  - `engine/render/include/Render/**` is the layer's public API, visible to `engine`/`core` via the `Render/` include prefix. It covers `Shader`, `Texture*`, `TextureFormat`, `Geometry` base, `InstanceBuffer`, `Material`, `VolumeTextureSet`, the `Uniform/` contract, the `Core/` render commands/frame/data store, and the `Renderer`/`ForwardRenderer`/`IRenderPass`/`IPostProcessingPass` interfaces.
+  - `engine/render/src/**` is private to the target. It holds `RenderBackend` and `OpenGL/` (the GL implementations, `Framebuffer`, `TextureGL.h`, `GraphicsApi.cpp`), plus `Passes/`, `Postprocessing/` and `Renderer/`.
+- **Access gate (friend gateway)**: GPU-only members are private, and `RenderBackend` (`engine/render/src/RenderBackend.h`, static forwarders: `Use`, `Uniforms`, `Bind`, `Handle`, `Draw`, `DrawInstanced`) is their only friend. Those members are `Shader::Use`/setters/`programId`, `Texture::Bind`/`GetId`, `Geometry::Draw`/`DrawInstanced`/`VAO`, and `InstanceBuffer::GetHandle`. Don't add other friends or widen access; route new needs through `RenderBackend`.
+- **Scene code stays GL-free**:
+  - `UniformProvider::Apply(IUniformSink&)` writes uniforms, and `IUniformSink::SetTexture(name, texture, unit)` binds textures.
+  - Texture formats use `TextureFormat`, never GL enums.
+  - `glad` may only be included under `engine/render/src/`. Note that this is held by convention plus grep, not the build, because vcpkg's shared include dir makes `<glad/glad.h>` resolvable from `engine` too.
 
 ### Engine internals (private, under `engine/src/include` + `engine/src`)
 
 - **Scene** coordinates camera, lights, drawables/updateables, shader registry, input, and inspection providers; it also constructs default scene content. It builds a `SceneSnapshot` of typed render commands per frame.
-- **Render pipeline**: `RenderFrameBuilder` turns a `SceneSnapshot` into a `RenderFrame`/`RenderDataStore` via a registry of `IRenderExtractor`s. `ForwardRenderer` (the current `Renderer` implementation) runs a vector of `IRenderPass`es in registration order — currently `MeshGeometryPass`, `VolumePass`, `SkyboxPass` (`engine/src/include/Renderer/Passes`, `engine/src/Renderer/Passes`). New render features (e.g. particles) add a typed render command + a new pass registered via `Renderer::AddRenderPass`, without touching existing passes.
-- **Postprocessing**: when any postprocessing passes are registered, `ForwardRenderer` renders the scene passes into an offscreen `sceneFramebuffer` instead of the default framebuffer, then runs the registered `IPostProcessingPass` chain (ping-ponging between two scratch `Framebuffer`s) before blitting to the original target framebuffer. Passes implement `IPostProcessingPass` (`engine/src/include/Postprocessing/`) and never bind a framebuffer or set the viewport themselves — that's the orchestrator's (`Renderer::ExecutePostProcessingPasses`) job. Currently one pass is registered: `AntiAliasingPass` (FXAA-style), added via `Renderer::AddPostProcessingPass` in `ForwardRenderer`'s constructor.
+- **Render pipeline**: `RenderFrameBuilder` turns a `SceneSnapshot` into a `RenderFrame`/`RenderDataStore` via a registry of `IRenderExtractor`s. `ForwardRenderer` (the current `Renderer` implementation) runs a vector of `IRenderPass`es in registration order — currently `MeshGeometryPass`, `InstancedMeshGeometryPass`, `VolumePass`, `SkyboxPass` (`engine/render/src/Passes`). New render features (e.g. particles) add a typed render command (`engine/render/include/Render/Core/RenderCommands.h`) + a new pass in `engine/render/src/Passes` registered via `Renderer::AddRenderPass`, without touching existing passes.
+- **Postprocessing**: when any postprocessing passes are registered, `ForwardRenderer` renders the scene passes into an offscreen `sceneFramebuffer` instead of the default framebuffer, then runs the registered `IPostProcessingPass` chain (ping-ponging between two scratch `Framebuffer`s) before blitting to the original target framebuffer. Passes implement `IPostProcessingPass` (`engine/render/include/Render/Postprocessing/`; implementations in `engine/render/src/Postprocessing/`) and never bind a framebuffer or set the viewport themselves — that's the orchestrator's (`Renderer::ExecutePostProcessingPasses`) job. Currently one pass is registered: `AntiAliasingPass` (FXAA-style), added via `Renderer::AddPostProcessingPass` in `ForwardRenderer`'s constructor.
 - **Volume hierarchy**: abstract `Volume` (owns transform, `VolumeGeometry`, `Shader`, `VolumeTextureSet`; implements `UniformProvider`, `IDrawable`, `InspectProvider`) has two concrete subclasses: `FloatVolume` (single scalar channel) and `DTIVolume` (17 `VolumeData` channels — 6 tensor components Dxx/Dyy/Dzz/Dxy/Dxz/Dyz, 3 eigenvector components, 3 eigenvalues L1-L3, 4 scalars FA/MD/AD/RD, 1 mask — packed into 5 RGB/RGBA 3D textures, with selectable render modes and a Z-slice parameter). See `engine/docs/architecture.md`/`architecture.mmd` for diagrams.
-- Everything renderable/updatable implements `UniformProvider` (binds uniforms to a `Shader`) and, where applicable, `IDrawable`/`IUpdateable`/`InspectProvider`.
+- Everything renderable/updatable implements `UniformProvider` (writes uniforms to an `IUniformSink`; only the render layer can obtain a `Shader` as a sink, via `RenderBackend::Uniforms`) and, where applicable, `IDrawable`/`IUpdateable`/`InspectProvider`.
 
 ### Staged MRI preprocessing pipeline (`core/`)
 
@@ -87,7 +101,7 @@ Theming is a QSS token composer, not a class hierarchy: `StyleSheetComposer` (`u
 
 ### Documentation conventions
 
-Subsystem docs are deliberately split and owned separately: engine architecture/diagrams live under `engine/docs/*.md` / `*.mmd`, UI under `ui/docs/*.md` / `*.mmd`. Cross-boundary behavior is documented on the owning side and linked from the other side — there is no combined root architecture doc. When updating these docs, keep code as ground truth and update docs to match code, not the reverse.
+Subsystem docs are deliberately split and owned separately: engine architecture/diagrams live under `engine/docs/*.md` / `*.mmd`, the render layer under `engine/render/docs/*.md`, UI under `ui/docs/*.md` / `*.mmd`. Cross-boundary behavior is documented on the owning side and linked from the other side — there is no combined root architecture doc. When updating these docs, keep code as ground truth and update docs to match code, not the reverse.
 
 ### `.claude/`
 

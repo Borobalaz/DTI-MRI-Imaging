@@ -1,7 +1,7 @@
 #include "Renderer/RenderProxy.h"
 #include "Mesh.h"
 
-#include "Uniform/CompositeUniformProvider.h"
+#include "Render/Uniform/CompositeUniformProvider.h"
 
 Mesh::Mesh(std::shared_ptr<Geometry> geometry,
            std::shared_ptr<Material> material)

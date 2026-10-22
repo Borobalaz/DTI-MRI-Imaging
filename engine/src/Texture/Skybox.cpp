@@ -1,7 +1,7 @@
 #include "Texture/Skybox.h"
 
 #include "Renderer/RenderProxy.h"
-#include "Shader.h"
+#include "Render/Shader.h"
 
 Skybox::Skybox(std::shared_ptr<TextureCube> cubemap)
   : cubemap(std::move(cubemap)),
@@ -12,7 +12,7 @@ Skybox::Skybox(std::shared_ptr<TextureCube> cubemap)
 
 bool Skybox::IsValid() const
 {
-  return cubemap != nullptr && cubemap->IsValid() && shader != nullptr && shader->ID != 0;
+  return cubemap != nullptr && cubemap->IsValid() && shader != nullptr && shader->IsValid();
 }
 
 void Skybox::BuildRenderProxy(RenderProxy& renderProxy) const
