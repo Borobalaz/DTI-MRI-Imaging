@@ -102,18 +102,32 @@ void SceneInspectionService::SetVisible(const InspectHandle& handle, bool visibl
 
 void SceneInspectionService::OnProvidersChanged(ProvidersChangedCallback callback)
 {
+  std::lock_guard<std::mutex> lock(callbackMutex);
   providersChangedCallback = std::move(callback);
 }
 
-void SceneInspectionService::PollForProviderChanges()
+bool SceneInspectionService::PollForProviderChanges()
 {
   const int generation = scene.GetProviderGeneration();
-  if (generation != lastSeenGeneration)
+  if (generation == lastSeenGeneration)
   {
-    lastSeenGeneration = generation;
-    if (providersChangedCallback)
-    {
-      providersChangedCallback();
-    }
+    return false;
+  }
+
+  lastSeenGeneration = generation;
+  return true;
+}
+
+void SceneInspectionService::NotifyChanged()
+{
+  ProvidersChangedCallback callback;
+  {
+    std::lock_guard<std::mutex> lock(callbackMutex);
+    callback = providersChangedCallback;
+  }
+
+  if (callback)
+  {
+    callback();
   }
 }

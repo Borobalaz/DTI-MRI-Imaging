@@ -3,7 +3,6 @@
 QuadGeometry::QuadGeometry() 
 {
   this->Generate();
-  this->Upload();
 }
 
 void QuadGeometry::Generate()

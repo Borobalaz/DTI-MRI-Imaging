@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <memory>
 #include <vector>
 #include <QObject>
@@ -18,6 +19,8 @@ class QTEngineSettingsAdapter : public QObject
 public:
   explicit QTEngineSettingsAdapter(QObject *parent = nullptr);
   void SetSettingsService(ISettingsService *service);
+  // Stops polling field values; used before detaching from a shutting-down engine.
+  void StopSyncTimer();
   QObjectList fields() const;
   int fieldRevision() const;
 
@@ -28,10 +31,12 @@ signals:
 
 private:
   void HandleSettingsChanged();
+  void HandleQueuedSettingsChanged();
   void RebuildFieldObjects();
   void SyncSnapshots();
 
   ISettingsService *settingsService = nullptr;
+  std::atomic<bool> settingsChangedPending{false}; // set on the engine thread, cleared on the GUI thread
   int revision = 0;
   std::vector<std::shared_ptr<IInspectWidget>> currentFields;
   QObjectList fieldObjects;

@@ -146,6 +146,27 @@ void Scene::ClearGameObjects()
 {
   RemoveElementsOfType<GameObject>(drawables);
   RemoveElementsOfType<GameObject>(updateables);
+  ++providerGeneration;
+}
+
+/**
+ * @brief Clear all lights from the scene
+ *
+ */
+void Scene::ClearLights()
+{
+  lights.clear();
+  ++providerGeneration;
+}
+
+/**
+ * @brief Clear all drawables from the scene
+ *
+ */
+void Scene::ClearDrawables()
+{
+  drawables.clear();
+  ++providerGeneration;
 }
 
 /**
@@ -156,6 +177,7 @@ void Scene::ClearVolumes()
 {
   RemoveElementsOfType<Volume>(drawables);
   RemoveElementsOfType<Volume>(updateables);
+  ++providerGeneration;
 }
 
 /**
@@ -171,6 +193,7 @@ void Scene::SetSkybox(std::shared_ptr<TextureCube> cubemap)
     if (skybox)
     {
       RemoveElementsOfType<Skybox>(drawables);
+      ++providerGeneration;
     }
 
     skybox = std::make_shared<Skybox>(std::move(cubemap));
@@ -201,6 +224,7 @@ void Scene::ClearSkybox()
 {
   RemoveElementsOfType<Skybox>(drawables);
   skybox.reset();
+  ++providerGeneration;
 }
 
 /**

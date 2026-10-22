@@ -9,7 +9,8 @@
 
 namespace
 {
-  std::string g_lastMeshLoaderError;
+  // thread_local: loaders run on preprocessing workers and the engine thread concurrently.
+  thread_local std::string g_lastMeshLoaderError;
 
   void SetMeshLoaderError(const std::string &message)
   {

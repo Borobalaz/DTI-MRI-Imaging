@@ -1,33 +1,47 @@
 flowchart TD
-    subgraph UI[Qt UI executable]
-        Context[QOpenGLWidget context]
+    subgraph UI[Qt UI executable - GUI thread]
+        Provider[QtGraphicsContextProvider]
+        Viewport[OpenGLViewportWidget: displays ScreenFrame pixels]
         Adapter[QTSceneInspector]
     end
 
     subgraph Engine[engine DLL]
-        Facade[Engine::InitializeOpenGL]
-        Scene[Scene]
-        Input[InputState and camera movement]
-        Snapshot[SceneSnapshot: typed render commands]
-        Extraction[ExtractionRegistry]
-        Builder[RenderFrameBuilder]
+        Facade[Engine facade: Start / Stop / screens / input / services]
+        subgraph EngineThread[Engine thread - EngineRuntime, GL thread]
+            InputQueue[InputEventQueue drain]
+            Scene[Scene / DtiVolumeScene Update]
+            Snapshot[SceneSnapshot: typed render commands]
+            Extraction[ExtractionRegistry]
+            Builder[RenderFrameBuilder]
+            Readback[Readback + publish ScreenFrame, callbacks - no lock held]
+        end
+        Locked[LockedInspectionService / LockedSettingsService - sceneMutex]
         Resources[Model, Volume and concrete geometry resources]
         Inspect[InspectProvider and InspectField]
     end
 
+    subgraph Worker[Preprocessing worker - BackgroundTask]
+        Pipeline[MriToDtiPreprocessor / dataset read-write]
+        Pack[PackDTIVolumeTextures: TextureData3D]
+    end
+
     subgraph Render[engine_render static lib - engine/render]
-        Init[InitializeGraphicsApi]
+        Init[InitializeGraphicsApi / CollectGraphicsGarbage / ShutdownGraphicsApi]
         Frame[RenderFrame and RenderDataStore]
         Passes[Insertion-ordered render pass vector via RenderBackend]
         Renderer[Renderer / ForwardRenderer]
-        GpuResources[Shader, Material, Texture, Geometry, InstanceBuffer]
+        Target[RenderTarget per screen]
+        GpuResources[Shader, Material, Texture, Geometry, InstanceBuffer - lazy upload]
     end
 
-    Context --> Facade
+    Viewport --> Facade
+    Provider -. context on engine thread .-> Facade
     Facade --> Init
-    Context --> Scene
-    UI -. input events .-> Input
-    Input --> Scene
+    Viewport -. queued input .-> InputQueue
+    InputQueue --> Scene
+    Scene -. starts / polls jobs .-> Pipeline
+    Pipeline --> Pack
+    Pack -. job outcome .-> Scene
     Scene --> Resources
     Resources --> GpuResources
     Scene --> Inspect
@@ -37,9 +51,12 @@ flowchart TD
     Builder --> Frame
     Passes --> Renderer
     Frame --> Renderer
-    Renderer --> Context
-    Inspect --> Adapter
-    Adapter -. field edits .-> Inspect
+    Renderer --> Target
+    Target --> Readback
+    Readback -. OnFrameReady, GetScreenFrame .-> Viewport
+    Inspect --> Locked
+    Locked --> Adapter
+    Adapter -. field edits .-> Locked
 
     Passes --> GpuResources
     Assets[(engine/assets and engine/shaders)] --> Resources

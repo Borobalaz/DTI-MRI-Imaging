@@ -9,18 +9,32 @@ std::vector<InspectFieldPtr> SettingsService::GetSettings() const
 
 void SettingsService::OnSettingsChanged(SettingsChangedCallback callback)
 {
+  std::lock_guard<std::mutex> lock(callbackMutex);
   settingsChangedCallback = std::move(callback);
 }
 
-void SettingsService::PollForSettingsChanges()
+bool SettingsService::PollForSettingsChanges()
 {
   const std::uint64_t generation = EngineSettings::Generation();
-  if (generation != lastSeenGeneration)
+  if (generation == lastSeenGeneration)
   {
-    lastSeenGeneration = generation;
-    if (settingsChangedCallback)
-    {
-      settingsChangedCallback();
-    }
+    return false;
+  }
+
+  lastSeenGeneration = generation;
+  return true;
+}
+
+void SettingsService::NotifyChanged()
+{
+  SettingsChangedCallback callback;
+  {
+    std::lock_guard<std::mutex> lock(callbackMutex);
+    callback = settingsChangedCallback;
+  }
+
+  if (callback)
+  {
+    callback();
   }
 }

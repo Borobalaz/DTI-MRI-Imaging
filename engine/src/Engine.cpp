@@ -1,178 +1,153 @@
 #include "Engine.h"
 
-#include <glm/gtc/matrix_inverse.hpp>
+#include "Input/InputEventQueue.h"
+#include "Runtime/EngineRuntime.h"
 
-#include "Scene/Scene.h"
-#include "Render/GraphicsApi.h"
-#include "Render/Renderer/ForwardRenderer.h"
-#include "RenderCore/ExtractionRegistry.h"
-#include "RenderCore/RenderFrameBuilder.h"
-#include "Input/InputState.h"
-#include "Inspection/SceneInspectionService.h"
-#include "Log/EngineLogService.h"
-#include "Settings/EngineSettings.h"
-#include "Settings/SettingsService.h"
-#include "Settings/EngineSettingsCatalog.h"
-#include "DtiVolumeScene.h"
+// Engine is a thin façade: all state, threading and locking live in EngineRuntime.
 
 Engine::Engine()
-  : renderer(std::make_unique<ForwardRenderer>()),
-    extractionRegistry(std::make_unique<ExtractionRegistry>()),
-    renderFrameBuilder(std::make_unique<RenderFrameBuilder>()),
-    inputState(std::make_unique<InputState>()),
-    logService(std::make_unique<EngineLogService>()),
-    settingsService(std::make_unique<SettingsService>())
+  : runtime(std::make_unique<EngineRuntime>())
 {
-  RegisterEngineSettingsCatalog();
 }
 
+// EngineRuntime's destructor stops the engine thread first.
 Engine::~Engine() = default;
+
+bool Engine::Start(std::shared_ptr<IGraphicsContextProvider> provider)
+{
+  return runtime->Start(std::move(provider));
+}
+
+void Engine::Stop()
+{
+  runtime->Stop();
+}
+
+bool Engine::IsRunning() const
+{
+  return runtime->IsRunning();
+}
+
+void Engine::SetPaused(bool paused)
+{
+  runtime->SetPaused(paused);
+}
+
+ScreenId Engine::CreateScreen()
+{
+  return runtime->CreateScreen();
+}
+
+void Engine::DestroyScreen(ScreenId id)
+{
+  runtime->DestroyScreen(id);
+}
+
+void Engine::SetScreenSize(ScreenId id, int width, int height)
+{
+  runtime->SetScreenSize(id, width, height);
+}
+
+bool Engine::GetScreenFrame(ScreenId id, ScreenFrame& out)
+{
+  return runtime->GetScreenFrame(id, out);
+}
+
+void Engine::OnFrameReady(FrameReadyCallback callback)
+{
+  runtime->OnFrameReady(std::move(callback));
+}
 
 bool Engine::InitializeOpenGL(GLProcLoader loadProc)
 {
-  if (!InitializeGraphicsApi(loadProc))
-  {
-    return false;
-  }
-  renderer->InitializeGLState();
-  return true;
+  return runtime->InitializeOpenGL(loadProc);
 }
 
 void Engine::CreateScene()
 {
-  scene = std::make_unique<DtiVolumeScene>();
-  scene->RebuildInspectProviders();
-  inspectionService = std::make_unique<SceneInspectionService>(*scene);
-}
-
-void Engine::SetViewportSize(int width, int height)
-{
-  if (scene && height > 0)
-  {
-    scene->SetCameraAspect(static_cast<float>(width) / static_cast<float>(height));
-  }
-  renderer->Resize(width, height);
-}
-
-void Engine::SetFillColor(const glm::vec3& color)
-{
-  renderer->SetFillColor(color);
+  runtime->CreateScene();
 }
 
 void Engine::Update(float deltaSeconds)
 {
-  if (logService)
-  {
-    logService->PollForEntryChanges();
-  }
-
-  if (settingsService)
-  {
-    settingsService->PollForSettingsChanges();
-  }
-
-  if (!scene)
-  {
-    return;
-  }
-
-  scene->ReloadShadersIfChanged();
-  scene->SetInputState(*inputState);
-  scene->Update(deltaSeconds);
-
-  if (inspectionService)
-  {
-    inspectionService->PollForProviderChanges();
-  }
+  runtime->Update(deltaSeconds);
 }
 
 void Engine::Render()
 {
-  if (!scene)
-  {
-    return;
-  }
+  runtime->Render();
+}
 
-  const SceneSnapshot snapshot = scene->CreateSnapshot();
-  const RenderFrame frame = renderFrameBuilder->Build(snapshot, renderer->GetDescriptor(), *extractionRegistry);
-  renderer->SetPostProcessingEnabled(EngineSettings::GetBool("postprocessing.enabled", true));
-  renderer->Draw(frame);
-  inputState->ResetFrameTransientState();
+void Engine::ShutdownGraphics()
+{
+  runtime->ShutdownGraphics();
+}
+
+void Engine::SetViewportSize(int width, int height)
+{
+  runtime->SetViewportSize(width, height);
+}
+
+void Engine::SetFillColor(const glm::vec3& color)
+{
+  runtime->SetFillColor(color);
 }
 
 void Engine::OnKeyChanged(int key, bool down)
 {
-  inputState->SetKeyDown(key, down);
+  InputEvent event;
+  event.kind = InputEventKind::Key;
+  event.code = key;
+  event.down = down;
+  runtime->PushInput(event);
 }
 
 bool Engine::IsKeyDown(int key) const
 {
-  return inputState->IsKeyDown(key);
+  return runtime->IsKeyDown(key);
 }
 
 void Engine::OnMouseButtonChanged(int button, bool down)
 {
-  inputState->SetMouseButtonDown(button, down);
+  InputEvent event;
+  event.kind = InputEventKind::MouseButton;
+  event.code = button;
+  event.down = down;
+  runtime->PushInput(event);
 }
 
 void Engine::OnMousePositionChanged(const glm::vec2& position)
 {
-  inputState->SetMousePosition(position);
+  InputEvent event;
+  event.kind = InputEventKind::MousePosition;
+  event.position = position;
+  runtime->PushInput(event);
 }
 
 void Engine::OnScroll(float delta)
 {
-  inputState->AddScrollDelta(delta);
+  InputEvent event;
+  event.kind = InputEventKind::Scroll;
+  event.scrollDelta = delta;
+  runtime->PushInput(event);
 }
 
 IInspectionService& Engine::GetInspectionService()
 {
-  return *inspectionService;
+  return runtime->GetInspectionService();
 }
 
 ILogService& Engine::GetLogService()
 {
-  return *logService;
+  return runtime->GetLogService();
 }
 
 ISettingsService& Engine::GetSettingsService()
 {
-  return *settingsService;
+  return runtime->GetSettingsService();
 }
 
 Engine::Ray Engine::ScreenPointToRay(float ndcX, float ndcY) const
 {
-  if (!scene)
-  {
-    return Ray{glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)};
-  }
-
-  std::shared_ptr<Camera> camera = scene->GetCamera();
-  if (!camera)
-  {
-    return Ray{glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)};
-  }
-
-  const glm::mat4 viewMatrix = camera->GetViewMatrix();
-  const glm::mat4 projectionMatrix = camera->GetProjectionMatrix();
-  const glm::mat4 inverseViewProjection = glm::inverse(projectionMatrix * viewMatrix);
-
-  const glm::vec4 nearClip(ndcX, ndcY, -1.0f, 1.0f);
-  const glm::vec4 farClip(ndcX, ndcY, 1.0f, 1.0f);
-
-  glm::vec4 nearWorld = inverseViewProjection * nearClip;
-  glm::vec4 farWorld = inverseViewProjection * farClip;
-  if (std::abs(nearWorld.w) > 1e-6f)
-  {
-    nearWorld /= nearWorld.w;
-  }
-  if (std::abs(farWorld.w) > 1e-6f)
-  {
-    farWorld /= farWorld.w;
-  }
-
-  Ray ray;
-  ray.origin = camera->GetPosition();
-  ray.direction = glm::normalize(glm::vec3(farWorld - nearWorld));
-  return ray;
+  return runtime->ScreenPointToRay(ndcX, ndcY);
 }

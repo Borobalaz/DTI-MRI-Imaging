@@ -1,6 +1,7 @@
 #include "widgets/EngineLogWidget.h"
 
 #include <QHBoxLayout>
+#include <QMetaObject>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QTimer>
@@ -105,22 +106,36 @@ void EngineLogWidget::refreshLayoutMetrics()
 
 void EngineLogWidget::SetLogService(ILogService *service)
 {
+  if (logService && logService != service)
+  {
+    logService->OnEntriesChanged({});
+  }
+
   logService = service;
 
   if (logService)
   {
+    // Fires on the engine thread: queue the handling onto the GUI thread, coalescing bursts
+    //  into a single pending call.
     logService->OnEntriesChanged([this]()
     {
-      handleEntriesChanged();
+      if (!entriesChangedPending.exchange(true))
+      {
+        QMetaObject::invokeMethod(this, [this]()
+        {
+          entriesChangedPending.store(false);
+          handleEntriesChanged();
+        }, Qt::QueuedConnection);
+      }
     });
   }
 
   handleEntriesChanged();
 }
 
-// Appends any entries newer than lastAppendedSequenceId. Since Engine::Update() runs on the
-//  GUI thread (OpenGLViewportWidget::paintGL()), this can call back into Qt directly - no
-//  queued connection needed (same assumption QTSceneInspector already relies on).
+// Appends any entries newer than lastAppendedSequenceId. Runs on the GUI thread only: engine
+//  notifications are marshalled here through a queued call (see SetLogService()), and a queued
+//  call that arrives after the service was detached finds logService null and does nothing.
 void EngineLogWidget::handleEntriesChanged()
 {
   if (!logService)

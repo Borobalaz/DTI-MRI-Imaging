@@ -2,6 +2,7 @@
 
 #include <glad/glad.h>
 
+#include "OpenGL/GpuDeletionQueue.h"
 #include "Render/Geometry/InstanceBuffer.h"
 #include "RenderBackend.h"
 
@@ -17,22 +18,41 @@ Geometry::Geometry()
 }
 
 /**
- * @brief Destroy the Geometry:: Geometry object
- * 
+ * @brief Destroy the Geometry:: Geometry object. May run on any thread, so the GPU
+ *        buffers are queued for deletion on the GL thread instead of deleted here.
+ *
  */
 Geometry::~Geometry()
 {
+  EnqueueGpuDeletion(GpuResourceKind::VertexArray, VAO);
+  EnqueueGpuDeletion(GpuResourceKind::Buffer, VBO);
+  EnqueueGpuDeletion(GpuResourceKind::Buffer, EBO);
+}
+
+void Geometry::MarkGpuDirty()
+{
+  gpuDirty = true;
 }
 
 /**
- * @brief Generate vertex arrays and bind buffers to the GPU
- * 
+ * @brief Create the vertex array and buffers on first use, and re-buffer the
+ *        CPU-side vertices/indices when they were marked dirty. GL thread only.
+ *
  */
-void Geometry::Upload()
+void Geometry::EnsureGpuResident() const
 {
-  glGenVertexArrays(1, &VAO);
-  glGenBuffers(1, &VBO);
-  glGenBuffers(1, &EBO);
+  const bool needsCreate = VAO == 0;
+  if (!needsCreate && !gpuDirty)
+  {
+    return;
+  }
+
+  if (needsCreate)
+  {
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+  }
 
   glBindVertexArray(VAO);
 
@@ -52,6 +72,21 @@ void Geometry::Upload()
     GL_STATIC_DRAW
   );
 
+  if (needsCreate)
+  {
+    ConfigureVertexAttributes();
+  }
+
+  glBindVertexArray(0);
+  gpuDirty = false;
+}
+
+/**
+ * @brief Describe the per-vertex layout (locations 0-3) on the currently bound VAO/VBO
+ *
+ */
+void Geometry::ConfigureVertexAttributes() const
+{
   // POSITION
   glVertexAttribPointer(
     0,
@@ -95,17 +130,16 @@ void Geometry::Upload()
     (void*)offsetof(Vertex, tangent)
   );
   glEnableVertexAttribArray(3);
-
-  glBindVertexArray(0);
 }
 
 /**
  * @brief Draw the geometry using the provided shader
- * 
- * @param shader 
+ *
+ * @param shader
  */
 void Geometry::Draw(Shader& shader) const
 {
+  EnsureGpuResident();
   RenderBackend::Use(shader);
 
   if (primitive == PrimitiveTopology::LineStrip)
@@ -133,6 +167,8 @@ void Geometry::Draw(Shader& shader) const
  */
 void Geometry::DrawInstanced(Shader& shader, const InstanceBuffer& instances) const
 {
+  EnsureGpuResident();
+
   const size_t instanceCount = instances.GetInstanceCount();
   if (instanceCount == 0)
   {
@@ -144,7 +180,7 @@ void Geometry::DrawInstanced(Shader& shader, const InstanceBuffer& instances) co
   glBindBuffer(GL_ARRAY_BUFFER, RenderBackend::Handle(instances));
 
   // Locations 4-7: per-instance model matrix (one vec4 per column, divisor 1).
-  // Locations 0-3 are the regular per-vertex layout set up in Upload().
+  // Locations 0-3 are the regular per-vertex layout set up in ConfigureVertexAttributes().
   // Must match vertex_instanced.glsl's layout(location = 4..7) declarations.
   for (unsigned int column = 0; column < 4; ++column)
   {
@@ -206,17 +242,6 @@ void Geometry::SetPrimitiveRestartIndex(unsigned int restartIndex)
 void Geometry::SetLineWidth(float width)
 {
   lineWidth = width;
-}
-
-/**
- * @brief Delete VAO, VBO and EBO buffers
- *
- */
-void Geometry::Destroy()
-{
-  glDeleteVertexArrays(1, &VAO);
-  glDeleteBuffers(1, &VBO);
-  glDeleteBuffers(1, &EBO);
 }
 
 void Geometry::ComputeNormals()

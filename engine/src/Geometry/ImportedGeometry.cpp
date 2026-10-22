@@ -23,7 +23,6 @@ ImportedGeometry::ImportedGeometry(std::vector<Vertex> importedVertices,
     importedIndices(std::move(importedIndices))
 {
   Generate();
-  Upload();
 }
 
 void ImportedGeometry::Generate()

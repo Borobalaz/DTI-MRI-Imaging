@@ -1,37 +1,29 @@
 #include "widgets/OpenGLViewportWidget.h"
 
-#include <iostream>
+#include <chrono>
 #include <memory>
 
 #include <algorithm>
 #include <cmath>
 
+#include <QColor>
+#include <QDebug>
+#include <QEvent>
 #include <QKeyEvent>
+#include <QMetaObject>
 #include <QMouseEvent>
-#include <QOpenGLContext>
+#include <QPainter>
+#include <QResizeEvent>
 #include <QWheelEvent>
 #include <QtGlobal>
 
 #include "qt-adapters/QTSceneInspector.h"
 #include "qt-adapters/QTEngineSettingsAdapter.h"
+#include "rendering/QtGraphicsContextProvider.h"
 #include "state/RenderStatistics.h"
 
-namespace
-{
-  void *QtGetProcAddress(const char *name)
-  {
-    QOpenGLContext *ctx = QOpenGLContext::currentContext();
-    if (!ctx)
-    {
-      return nullptr;
-    }
-
-    return reinterpret_cast<void *>(ctx->getProcAddress(name));
-  }
-}
-
 OpenGLViewportWidget::OpenGLViewportWidget(QWidget *parent)
-  : QOpenGLWidget(parent)
+  : QWidget(parent)
 {
   renderStatisticsObject = std::make_unique<RenderStatistics>();
   inspectAdapterObject = std::make_unique<QTSceneInspector>();
@@ -42,19 +34,18 @@ OpenGLViewportWidget::OpenGLViewportWidget(QWidget *parent)
     emit renderStatisticsChanged();
   });
 
+  // paintEvent always covers the whole widget (frame or fill color), so Qt needn't erase it first.
+  setAttribute(Qt::WA_OpaquePaintEvent);
   setFocusPolicy(Qt::StrongFocus);
   setMouseTracking(true);
-
-  frameTimer.setTimerType(Qt::PreciseTimer);
-  frameTimer.setInterval(0);
-  QObject::connect(&frameTimer, &QTimer::timeout, this, [this]()
-  {
-    update();
-  });
-  frameTimer.start();
 }
 
-OpenGLViewportWidget::~OpenGLViewportWidget() = default;
+// Members are destroyed in reverse declaration order, which would destroy the adapters while the
+//  engine thread could still reach them; shutting down explicitly first avoids that.
+OpenGLViewportWidget::~OpenGLViewportWidget()
+{
+  ShutdownEngine();
+}
 
 RenderStatistics *OpenGLViewportWidget::renderStatistics() const
 {
@@ -75,7 +66,7 @@ QTEngineSettingsAdapter &OpenGLViewportWidget::settingsAdapter() const
   return *settingsAdapterObject;
 }
 
-// Exposes the engine's log service to Qt widgets. Returns nullptr until the engine is initialized.
+// Exposes the engine's log service to Qt widgets. Returns nullptr while the engine isn't running.
 ILogService *OpenGLViewportWidget::logService() const
 {
   return engine ? &engine->GetLogService() : nullptr;
@@ -87,32 +78,46 @@ void OpenGLViewportWidget::SetFillColor(const glm::vec3& color)
   if (engine)
   {
     engine->SetFillColor(fillColor);
-    update();
   }
+  update();
 }
 
-/**
- * @brief Override of QOpenGLWidget::initializeGL. 
- *  This is called once when the OpenGL context is ready.
- * 
- */
-void OpenGLViewportWidget::initializeGL()
+void OpenGLViewportWidget::StartEngine()
 {
-  engine = std::make_unique<Engine>();
-  if (!engine->InitializeOpenGL(QtGetProcAddress))
+  if (engine)
   {
-    std::cout << "Failed to initialize GLAD in widgets OpenGL context.\n";
     return;
   }
 
-  initializeScene();
+  graphicsContextProvider = std::make_shared<QtGraphicsContextProvider>();
+  engine = std::make_unique<Engine>();
+
+  // Runs on the engine thread: only queue the pull, coalescing bursts into a single pending call.
+  engine->OnFrameReady([this](ScreenId)
+  {
+    if (!framePullPending.exchange(true))
+    {
+      QMetaObject::invokeMethod(this, [this]() { pullLatestFrame(); }, Qt::QueuedConnection);
+    }
+  });
+
+  if (!engine->Start(graphicsContextProvider))
+  {
+    qWarning() << "OpenGLViewportWidget: failed to start the engine.";
+    engine.reset();
+    graphicsContextProvider.reset();
+    return;
+  }
+
+  engine->SetFillColor(fillColor);
+  screenId = engine->CreateScreen();
+  updateScreenSize();
+
+  attachAdapters();
 }
 
-void OpenGLViewportWidget::initializeScene()
+void OpenGLViewportWidget::attachAdapters()
 {
-  engine->CreateScene();
-  engine->SetFillColor(fillColor);
-
   if (inspectAdapterObject)
   {
     inspectAdapterObject->SetInspectionService(&engine->GetInspectionService());
@@ -123,76 +128,126 @@ void OpenGLViewportWidget::initializeScene()
     settingsAdapterObject->SetSettingsService(&engine->GetSettingsService());
   }
 
-  elapsedTimer.start();
-  lastFrameTimeNs = 0;
-
   emit engineInitialized();
 }
 
-/**
- * @brief Override of QOpenGLWidget::resizeGL. This is called when the widget is resized.
- *  Set the camera aspect ratio to match the new viewport dimensions.
- * 
- * @param width 
- * @param height 
- */
-void OpenGLViewportWidget::resizeGL(int width, int height)
-{
-  if (engine)
-  {
-    const qreal dpr = devicePixelRatioF();
-    engine->SetViewportSize(static_cast<int>(width * dpr), static_cast<int>(height * dpr));
-  }
-}
-
-/**
- * @brief Override of QOpenGLWidget::paintGL. This is called every frame to render the scene.
- * 
- */
-void OpenGLViewportWidget::paintGL()
+void OpenGLViewportWidget::ShutdownEngine()
 {
   if (!engine)
   {
     return;
   }
 
-  if (height() > 0)
+  if (inspectAdapterObject)
   {
-    const qreal dpr = devicePixelRatioF();
-    engine->SetViewportSize(static_cast<int>(width() * dpr), static_cast<int>(height() * dpr));
+    inspectAdapterObject->StopSyncTimer();
+  }
+  if (settingsAdapterObject)
+  {
+    settingsAdapterObject->StopSyncTimer();
   }
 
-  // delta time
-  const qint64 nowNs = elapsedTimer.nsecsElapsed();
-  float deltaSeconds = 0.0f;
-  if (lastFrameTimeNs == 0)
+  if (inspectAdapterObject)
   {
-    deltaSeconds = 1.0f / 60.0f;
+    inspectAdapterObject->SetInspectionService(nullptr);
   }
-  else
+  if (settingsAdapterObject)
   {
-    deltaSeconds = static_cast<float>(nowNs - lastFrameTimeNs) / 1e9f;
+    settingsAdapterObject->SetSettingsService(nullptr);
   }
-  lastFrameTimeNs = nowNs;
+  // The log widget lives outside this widget; its owner detaches it from this signal.
+  emit engineShuttingDown();
 
-  const qint64 renderStartNs = elapsedTimer.nsecsElapsed();
+  engine->DestroyScreen(screenId);
+  screenId = kInvalidScreenId;
 
-  // update and render
-  engine->Update(deltaSeconds);
-  engine->Render();
+  engine->Stop();
+  engine.reset();
 
-  // Update render statistics
-  const qint64 renderDurationNs = elapsedTimer.nsecsElapsed() - renderStartNs;
-  const double renderTimeMs = static_cast<double>(renderDurationNs) / 1e6;
-  const double fps = deltaSeconds > 1e-6f ? 1.0 / static_cast<double>(deltaSeconds) : 0.0;
+  // Destroys the offscreen surface on the GUI thread, now that the engine thread is joined.
+  graphicsContextProvider.reset();
+
+  frameImage = QImage();
+  latestFrame = ScreenFrame{};
+}
+
+void OpenGLViewportWidget::pullLatestFrame()
+{
+  framePullPending.store(false);
+
+  if (!engine || screenId == kInvalidScreenId)
+  {
+    return;
+  }
+
+  if (!engine->GetScreenFrame(screenId, latestFrame))
+  {
+    return;
+  }
+
+  // The swap handed the previous pixel buffer back to the engine, so the image must stop
+  //  referencing it right away. Frames are top-down already; RGBX ignores the alpha channel.
+  const std::size_t expectedBytes = static_cast<std::size_t>(latestFrame.width) * static_cast<std::size_t>(latestFrame.height) * 4u;
+  if (latestFrame.width <= 0 || latestFrame.height <= 0 || latestFrame.pixels.size() < expectedBytes)
+  {
+    frameImage = QImage();
+    return;
+  }
+
+  frameImage = QImage(latestFrame.pixels.data(), latestFrame.width, latestFrame.height,
+                      latestFrame.width * 4, QImage::Format_RGBX8888);
 
   if (renderStatisticsObject)
   {
-    renderStatisticsObject->recordFrame(fps, renderTimeMs, elapsedTimer.nsecsElapsed());
+    const qint64 nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count();
+    renderStatisticsObject->recordFrame(latestFrame.fps, latestFrame.frameTimeMs, nowNs);
   }
 
-  // Keep requesting frames so the viewport animates continuously.
   update();
+}
+
+// Sends the widget's size in device pixels to the engine's screen.
+void OpenGLViewportWidget::updateScreenSize()
+{
+  if (!engine || screenId == kInvalidScreenId)
+  {
+    return;
+  }
+
+  const qreal dpr = devicePixelRatioF();
+  engine->SetScreenSize(screenId, static_cast<int>(width() * dpr), static_cast<int>(height() * dpr));
+}
+
+bool OpenGLViewportWidget::event(QEvent *event)
+{
+  // A floating dock moved to a monitor with a different scale changes the device-pixel size only.
+  if (event->type() == QEvent::DevicePixelRatioChange)
+  {
+    updateScreenSize();
+  }
+
+  return QWidget::event(event);
+}
+
+void OpenGLViewportWidget::resizeEvent(QResizeEvent *event)
+{
+  QWidget::resizeEvent(event);
+  updateScreenSize();
+}
+
+// Scales the latest frame to the widget, which also covers frames still rendered at the
+//  previous size while a resize is in flight.
+void OpenGLViewportWidget::paintEvent(QPaintEvent *)
+{
+  QPainter painter(this);
+  if (frameImage.isNull())
+  {
+    painter.fillRect(rect(), QColor::fromRgbF(fillColor.r, fillColor.g, fillColor.b));
+    return;
+  }
+
+  painter.drawImage(rect(), frameImage);
 }
 
 /************************************************** 
@@ -204,21 +259,27 @@ void OpenGLViewportWidget::paintGL()
 **************************************************/
 void OpenGLViewportWidget::keyPressEvent(QKeyEvent *event)
 {
-  engine->OnKeyChanged(event->key(), true);
+  if (engine)
+  {
+    engine->OnKeyChanged(event->key(), true);
+  }
 
   event->accept();
 }
 
 void OpenGLViewportWidget::keyReleaseEvent(QKeyEvent *event)
 {
-  engine->OnKeyChanged(event->key(), false);
+  if (engine)
+  {
+    engine->OnKeyChanged(event->key(), false);
+  }
 
   event->accept();
 }
 
 /**
  * @brief Handles mouse press events. 
- *        On left button press, cast a ray into the scene to select an object under the cursor.
+ *        On Ctrl + left button press, cast a ray into the scene to select an object under the cursor.
  *        Also updates the pending input state with the new mouse button state and position. 
  * 
  * @param event 
@@ -227,9 +288,15 @@ void OpenGLViewportWidget::mousePressEvent(QMouseEvent *event)
 {
   setFocus();
 
-  // if Ctrl is pressed
-  if (engine->IsKeyDown(Qt::Key_Control) &&
-    event &&
+  if (!engine)
+  {
+    event->accept();
+    return;
+  }
+
+  // The event's own modifiers, not the engine's key state: key events are replayed on the engine
+  //  thread asynchronously, and Ctrl may have been pressed while another widget had focus.
+  if (event->modifiers().testFlag(Qt::ControlModifier) &&
     event->button() == Qt::LeftButton)
   {
     const float viewportWidth = static_cast<float>(std::max(1, width()));
@@ -253,25 +320,34 @@ void OpenGLViewportWidget::mousePressEvent(QMouseEvent *event)
 
 void OpenGLViewportWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-  engine->OnMouseButtonChanged(static_cast<int>(event->button()), false);
-  engine->OnMousePositionChanged(glm::vec2(static_cast<float>(event->position().x()),
-                                           static_cast<float>(event->position().y())));
+  if (engine)
+  {
+    engine->OnMouseButtonChanged(static_cast<int>(event->button()), false);
+    engine->OnMousePositionChanged(glm::vec2(static_cast<float>(event->position().x()),
+                                             static_cast<float>(event->position().y())));
+  }
 
   event->accept();
 }
 
 void OpenGLViewportWidget::mouseMoveEvent(QMouseEvent *event)
 {
-  engine->OnMousePositionChanged(glm::vec2(static_cast<float>(event->position().x()),
-                                           static_cast<float>(event->position().y())));
+  if (engine)
+  {
+    engine->OnMousePositionChanged(glm::vec2(static_cast<float>(event->position().x()),
+                                             static_cast<float>(event->position().y())));
+  }
 
   event->accept();
 }
 
 void OpenGLViewportWidget::wheelEvent(QWheelEvent *event)
 {
-  const QPoint angleDelta = event->angleDelta();
-  engine->OnScroll(static_cast<float>(angleDelta.y()) / 120.0f);
+  if (engine)
+  {
+    const QPoint angleDelta = event->angleDelta();
+    engine->OnScroll(static_cast<float>(angleDelta.y()) / 120.0f);
+  }
 
   event->accept();
 }

@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "Log/EngineLog.h"
+#include "OpenGL/GpuDeletionQueue.h"
 #include "OpenGL/TextureGL.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -118,12 +119,11 @@ Texture2D::Texture2D(int width,
   valid = (glGetError() == GL_NO_ERROR);
 }
 
+// May run on any thread (e.g. the UI thread releasing the last owner), so the
+// handle is queued for deletion on the GL thread instead of deleted here.
 Texture2D::~Texture2D()
 {
-  if (id != 0)
-  {
-    glDeleteTextures(1, &id);
-  }
+  EnqueueGpuDeletion(GpuResourceKind::Texture, id);
 }
 
 void Texture2D::Bind(unsigned int unit) const

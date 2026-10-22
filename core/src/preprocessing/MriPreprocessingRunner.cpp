@@ -18,9 +18,12 @@ MriPreprocessingRunner::MriPreprocessingRunner() = default;
  *        (volume channels, meshes, and provenance metadata) to disk.
  *
  * @param request
+ * @param options cancellation/progress hooks forwarded to the pipeline; a cancelled run throws
+ *        MriPreprocessingCancelled instead of returning a result
  * @return MriPreprocessingRunnerResult
  */
-MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingRunnerRequest &request) const
+MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingRunnerRequest &request,
+                                                         const MriPreprocessingExecutionOptions &options) const
 {
   // Validate request
   if (request.preprocessingRequest.dwiVolumePath.empty() ||
@@ -43,19 +46,22 @@ MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingR
   const std::string outputBaseName =
       request.outputBasename.empty() ? std::string("mri_proxy") : request.outputBasename;
 
-  // Run preprocessing pipeline
+  // Snapshot the tractography settings so the pipeline and the provenance below both see
+  // exactly the same values, even if the caller keeps editing its settings object meanwhile.
+  MriPreprocessingRequest preprocessingRequest = request.preprocessingRequest;
+  preprocessingRequest.tractographySettings = request.preprocessingRequest.tractographySettings
+      ? std::make_shared<MriTractographySettings>(*request.preprocessingRequest.tractographySettings)
+      : std::make_shared<MriTractographySettings>();
+
+  // Run preprocessing pipeline (MriPreprocessingCancelled propagates to the caller)
   MriToDtiPreprocessor preprocessor;
   MriPreprocessingRunnerResult runnerResult;
-  runnerResult.preprocessingResult = preprocessor.Process(request.preprocessingRequest);
+  runnerResult.preprocessingResult = preprocessor.Process(preprocessingRequest, options);
 
   // Save volume channels, meshes, and provenance metadata to disk
-  static const MriTractographySettings defaultTractographySettings;
-  const MriTractographySettings &tractographySettings = request.preprocessingRequest.tractographySettings
-      ? *request.preprocessingRequest.tractographySettings
-      : defaultTractographySettings;
-
+  const MriTractographySettings &tractographySettings = *preprocessingRequest.tractographySettings;
   const std::string parametersJson = BuildDtiPreprocessingParametersJson(
-      request.preprocessingRequest, tractographySettings, tractographySettings.GetMatchedPresetName());
+      preprocessingRequest, tractographySettings, tractographySettings.GetMatchedPresetName());
 
   const std::shared_ptr<IPreprocessingDatasetWriter> writer =
       GetDefaultPreprocessingDatasetFormatRegistry().FindWriter("dti");

@@ -10,7 +10,6 @@ StreamlineGeometry::StreamlineGeometry(std::vector<Vertex> vertices,
   SetPrimitive(PrimitiveTopology::LineStrip);
   SetPrimitiveRestartIndex(kRestartIndex);
   SetLineWidth(1.5f);
-  Upload();
 }
 
 void StreamlineGeometry::Generate()

@@ -3,7 +3,6 @@
 Triangle::Triangle() 
 {
   Generate();
-  Upload();
 }
 
 void Triangle::Generate()

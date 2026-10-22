@@ -11,6 +11,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Log/EngineLog.h"
+#include "OpenGL/GpuDeletionQueue.h"
 #include "RenderBackend.h"
 #include "Render/Texture/Texture.h"
 
@@ -754,9 +755,10 @@ void Shader::LogUniformTypeMismatch(const std::string& name,
  * @brief Destroy the Shader:: Shader object
  * 
  */
+// May run on any thread, so the program is queued for deletion on the GL thread.
 Shader::~Shader()
 {
-  glDeleteProgram(programId);
+  EnqueueGpuDeletion(GpuResourceKind::Program, programId);
 }
 
 /**

@@ -22,6 +22,11 @@ enum class PrimitiveTopology
   LineStrip
 };
 
+// Construction is GL-free, so geometry can be built on any thread (e.g. a
+// preprocessing worker). GPU buffers are created lazily on the first draw, on
+// the GL thread. The GPU upload only reads vertices/indices; once a Geometry has
+// been handed off to the GL thread, nothing may mutate them (that would be a
+// data race with the upload and with off-thread readers such as dataset saving).
 class Geometry
 {
   friend class RenderBackend;
@@ -32,8 +37,10 @@ public:
 
   // Core lifecycle
   virtual void Generate() = 0;
-  virtual void Upload();
-  virtual void Destroy();
+
+  // Requests a re-upload of vertices/indices on the next draw. Call on the GL
+  // thread (or before handoff) after changing the CPU-side data.
+  void MarkGpuDirty();
 
   // Geometry processing
   void ComputeNormals();
@@ -56,9 +63,15 @@ private:
   void DrawInstanced(Shader& shader, const InstanceBuffer& instances) const;
   void DrawLineStrip() const;
 
-  unsigned int VAO;
-  unsigned int VBO;
-  unsigned int EBO;
+  // Creates the GPU buffers on first use and re-buffers them when dirty.
+  void EnsureGpuResident() const;
+  void ConfigureVertexAttributes() const;
+
+  // Mutable: GPU residency is a cache of the CPU data, materialised from const Draw().
+  mutable unsigned int VAO;
+  mutable unsigned int VBO;
+  mutable unsigned int EBO;
+  mutable bool gpuDirty = false;
 
   PrimitiveTopology primitive = PrimitiveTopology::Triangles;
   bool hasPrimitiveRestart = false;

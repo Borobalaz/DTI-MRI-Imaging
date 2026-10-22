@@ -8,6 +8,8 @@
 #include "Passes/MeshGeometryPass.h"
 #include "Passes/SkyboxPass.h"
 #include "Passes/VolumePass.h"
+#include "Render/RenderTarget.h"
+#include "RenderBackend.h"
 
 ForwardRenderer::ForwardRenderer()
   : descriptor{
@@ -83,6 +85,15 @@ void ForwardRenderer::Draw(const RenderFrame& frame)
                                  *postProcessScratchA, *postProcessScratchB,
                                  static_cast<unsigned int>(originalFbo));
   }
+}
+
+void ForwardRenderer::Draw(const RenderFrame& frame, const RenderTarget& target)
+{
+  Resize(target.GetWidth(), target.GetHeight());
+  // Draw() treats the framebuffer bound on entry as its final output, so binding the
+  // target here is enough for both the direct and the postprocessed path.
+  RenderBackend::BindTarget(target);
+  Draw(frame);
 }
 
 void ForwardRenderer::SetFillColor(const glm::vec3& color)

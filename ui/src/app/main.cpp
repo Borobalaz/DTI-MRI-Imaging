@@ -9,15 +9,13 @@ int main(int argc, char *argv[])
   QCoreApplication::setOrganizationName("DTI-MRI-Imaging");
   QCoreApplication::setApplicationName("Engine");
 
-  QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-
-  // Set up the default OpenGL surface format for the application.
+  // Set up the default OpenGL surface format for the application. The engine's graphics context
+  //  provider (QtGraphicsContextProvider) creates its offscreen surface and context from it.
   QSurfaceFormat format;
   format.setDepthBufferSize(24);
   format.setStencilBufferSize(8);
   format.setVersion(3, 3);
   format.setProfile(QSurfaceFormat::CoreProfile);
-  format.setSwapInterval(0);  // disable vsync for lowest possible latency
   QSurfaceFormat::setDefaultFormat(format);
 
   // Use Fusion rather than the native Windows style: the native style ("windowsvista"/

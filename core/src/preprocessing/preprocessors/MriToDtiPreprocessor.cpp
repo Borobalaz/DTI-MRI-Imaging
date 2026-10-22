@@ -18,7 +18,8 @@ MriToDtiPreprocessor::MriToDtiPreprocessor()
     .AddStage(CreateDwiNormalizationStage());
 }
 
-MriPreprocessingResult MriToDtiPreprocessor::Process(const MriPreprocessingRequest& request) const
+MriPreprocessingResult MriToDtiPreprocessor::Process(const MriPreprocessingRequest& request,
+                                                     const MriPreprocessingExecutionOptions& options) const
 {
-  return pipeline.Execute(request);
+  return pipeline.Execute(request, options);
 }

@@ -16,6 +16,7 @@ public:
 
   const RendererDescriptor& GetDescriptor() const override;
   void Draw(const RenderFrame& frame) override;
+  void Draw(const RenderFrame& frame, const RenderTarget& target) override;
   void Resize(int width, int height) override;
   void InitializeGLState() override;
 

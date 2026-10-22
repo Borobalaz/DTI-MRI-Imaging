@@ -3,7 +3,6 @@
 FullscreenTriangleGeometry::FullscreenTriangleGeometry()
 {
   this->Generate();
-  this->Upload();
 }
 
 void FullscreenTriangleGeometry::Generate()

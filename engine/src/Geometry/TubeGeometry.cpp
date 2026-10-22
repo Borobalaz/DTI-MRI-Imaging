@@ -13,7 +13,6 @@ TubeGeometry::TubeGeometry(std::vector<Vertex> vertices,
   this->radialSegments = radialSegments;
 
   Generate();
-  Upload();
 }
 
 void TubeGeometry::Generate()

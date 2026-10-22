@@ -3,7 +3,6 @@
 CubeGeometry::CubeGeometry()
 {
   Generate();
-  Upload();
 }
 
 void CubeGeometry::Generate()

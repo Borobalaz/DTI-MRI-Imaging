@@ -4,23 +4,40 @@
 
 std::vector<LogEntry> EngineLogService::GetEntries() const
 {
+  std::lock_guard<std::mutex> lock(mutex);
   return EngineLog::Snapshot();
 }
 
 void EngineLogService::OnEntriesChanged(EntriesChangedCallback callback)
 {
+  std::lock_guard<std::mutex> lock(mutex);
   entriesChangedCallback = std::move(callback);
 }
 
-void EngineLogService::PollForEntryChanges()
+bool EngineLogService::PollForEntryChanges()
 {
   const std::uint64_t generation = EngineLog::Generation();
-  if (generation != lastSeenGeneration)
+
+  std::lock_guard<std::mutex> lock(mutex);
+  if (generation == lastSeenGeneration)
   {
-    lastSeenGeneration = generation;
-    if (entriesChangedCallback)
-    {
-      entriesChangedCallback();
-    }
+    return false;
+  }
+
+  lastSeenGeneration = generation;
+  return true;
+}
+
+void EngineLogService::NotifyChanged()
+{
+  EntriesChangedCallback callback;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    callback = entriesChangedCallback;
+  }
+
+  if (callback)
+  {
+    callback();
   }
 }

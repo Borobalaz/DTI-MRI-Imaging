@@ -1,21 +1,23 @@
 flowchart TD
-    subgraph App[app_qt executable]
+    subgraph App[app_qt executable - GUI thread]
         Main[ui/src/app/main.cpp]
         Window[WidgetsMainWindow]
-        Viewport[OpenGLViewportWidget]
+        Viewport[OpenGLViewportWidget: plain QWidget]
+        Provider[QtGraphicsContextProvider]
         Inspector[InspectorWidget]
         ObjectList[SceneObjectListWidget]
         Adapter[QTSceneInspector]
+        Settings[QTEngineSettingsAdapter]
+        Log[EngineLogWidget]
         Fields[Qt inspect field widgets]
         Stats[RenderStatisticsWidget]
         Styles[Theme styles]
     end
 
     subgraph Engine[engine DLL]
-        Scene[Scene]
-        Input[InputState]
-        Render[Typed commands, RenderFrameBuilder, ForwardRenderer]
-        Contracts[InspectProvider and InspectField]
+        Facade[Engine facade]
+        EngineThread[Engine thread: input drain, Update, render, readback]
+        Services[Locked inspection / settings services, log service]
     end
 
     Main --> Window
@@ -23,17 +25,26 @@ flowchart TD
     Window --> Inspector
     Window --> ObjectList
     Window --> Stats
+    Window --> Log
     Window --> Styles
+    Window -. singleShot: StartEngine / closeEvent: ShutdownEngine .-> Viewport
+    Viewport --> Provider
+    Viewport --> Facade
+    Provider -. context created / current on engine thread .-> EngineThread
+    Facade --> EngineThread
+    Viewport -. input, SetScreenSize .-> Facade
+    EngineThread -. OnFrameReady, queued + coalesced .-> Viewport
+    Viewport -. GetScreenFrame: top-down RGBA8 .-> Facade
     Viewport --> Adapter
-    Viewport --> Scene
-    Viewport --> Render
-    Viewport --> Input
-    Adapter --> Contracts
+    Viewport --> Settings
+    Adapter --> Services
+    Settings --> Services
+    Log --> Services
+    Services -. change callbacks, queued + coalesced .-> Adapter
+    Services -. queued .-> Settings
+    Services -. queued .-> Log
     Adapter --> Fields
     ObjectList --> Adapter
     Inspector --> Fields
     Fields -. edit callbacks .-> Adapter
-    Adapter -. field setters .-> Contracts
-    Viewport -. input translation .-> Input
-    Scene --> Contracts
-    Scene --> Render
+    Adapter -. field setters .-> Services

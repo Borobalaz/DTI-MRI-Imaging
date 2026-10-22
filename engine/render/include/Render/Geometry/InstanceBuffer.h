@@ -22,16 +22,20 @@ public:
 
   // (Re)uploads the full instance-transform list (GL_DYNAMIC_DRAW), creating
   // the GL buffer lazily on first call. An empty list resets to not-instanced.
-  // Must run on the engine/GL thread, same constraint as Geometry::Upload.
+  // Must run on the engine/GL thread (unlike Geometry, this uploads eagerly).
   void Upload(const std::vector<glm::mat4>& transforms);
 
-  void Reset(); // deletes the GL buffer, returns to the empty/not-instanced state
+  void Reset(); // deletes the GL buffer, returns to the empty/not-instanced state (GL thread)
 
   bool IsValid() const { return vbo != 0 && instanceCount > 0; }
   size_t GetInstanceCount() const { return instanceCount; }
 
 private:
   unsigned int GetHandle() const { return vbo; }
+
+  // Like Reset(), but queues the buffer for deletion on the GL thread; used where the
+  // calling thread is unknown (destructor, move-assignment).
+  void ReleaseDeferred();
 
   unsigned int vbo = 0;
   size_t instanceCount = 0;

@@ -75,11 +75,21 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
 
   // Restore the user's last dock/geometry arrangement, if any
   restoreLayoutState();
+
+  // Start the engine once the event loop runs, i.e. after main() has shown this window (the
+  //  engine's offscreen surface needs a running event loop). Deliberately not tied to the
+  //  viewport's showEvent: a restored layout may keep the viewport dock hidden, and the
+  //  inspector/log panels still need the engine.
+  QTimer::singleShot(0, this, [this]()
+  {
+    viewportWidget->StartEngine();
+  });
 }
 
 void WidgetsMainWindow::closeEvent(QCloseEvent *event)
 {
   saveLayoutState();
+  viewportWidget->ShutdownEngine();
   QMainWindow::closeEvent(event);
 }
 
@@ -383,6 +393,12 @@ void WidgetsMainWindow::wireAdapterSignals()
   QObject::connect(viewportWidget, &OpenGLViewportWidget::engineInitialized, this, [this]()
   {
     engineLogWidget->SetLogService(viewportWidget->logService());
+  });
+
+  // Detach it again before the engine stops.
+  QObject::connect(viewportWidget, &OpenGLViewportWidget::engineShuttingDown, this, [this]()
+  {
+    engineLogWidget->SetLogService(nullptr);
   });
 
   QTEngineSettingsAdapter &settingsAdapter = viewportWidget->settingsAdapter();

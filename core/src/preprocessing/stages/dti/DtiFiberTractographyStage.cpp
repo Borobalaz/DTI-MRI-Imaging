@@ -13,6 +13,12 @@
 #include "Geometry/TubeGeometry.h"
 #include "Volume/VolumeData.h"
 
+namespace
+{
+  // Seed selection is a cheap strided scan; tracing dominates the stage's run time.
+  constexpr float kSeedSelectionFractionShare = 0.1f;
+}
+
 struct DtiFiberTractographyStage::TractographySettings
 {
   float faSeedThreshold = 0.4f;
@@ -192,12 +198,14 @@ glm::vec3 DtiFiberTractographyStage::SampleTrilinearDirection(const glm::vec3 &v
 /**
  * @brief Select seed points for streamline tracing using interpolated FA and L1 values.
  * 
+ * @param context Used for cancellation checks and progress reporting only.
  * @param faVolume FA volume.
  * @param l1Volume L1 volume.
  * @param settings Tractography settings.
  * @return Seed positions in voxel coordinates.
  */
-std::vector<glm::vec3> DtiFiberTractographyStage::SelectSeedPoints(const VolumeData &faVolume,
+std::vector<glm::vec3> DtiFiberTractographyStage::SelectSeedPoints(const MriPreprocessingContext &context,
+                                                                    const VolumeData &faVolume,
                                                                     const VolumeData &l1Volume,
                                                                     const TractographySettings &settings)
 {
@@ -211,6 +219,10 @@ std::vector<glm::vec3> DtiFiberTractographyStage::SelectSeedPoints(const VolumeD
   const int stride = std::max(settings.seedStride, 1);
   for (int z = 0; z < dims.z; z += stride)
   {
+    context.ThrowIfCancelled();
+    context.ReportStageFraction(
+        kSeedSelectionFractionShare * static_cast<float>(z) / static_cast<float>(dims.z));
+
     for (int y = 0; y < dims.y; y += stride)
     {
       for (int x = 0; x < dims.x; x += stride)
@@ -413,8 +425,19 @@ std::shared_ptr<Mesh> DtiFiberTractographyStage::BuildStreamlineMesh(const MriPr
   indices.reserve(seeds.size() * settings.minPointsPerStreamline);
 
   // Trace streamlines from each seed point and build geometry.
+  constexpr size_t kSeedsPerProgressCheck = 64;
+  size_t tracedSeedCount = 0;
   for (const glm::vec3 &seed : seeds)
   {
+    if (tracedSeedCount % kSeedsPerProgressCheck == 0)
+    {
+      context.ThrowIfCancelled();
+      context.ReportStageFraction(
+          kSeedSelectionFractionShare +
+          (1.0f - kSeedSelectionFractionShare) * static_cast<float>(tracedSeedCount) / static_cast<float>(seeds.size()));
+    }
+    ++tracedSeedCount;
+
     const std::vector<glm::vec3> streamline = TraceStreamlineFromSeed(
         seed,
         dims,
@@ -541,7 +564,7 @@ void DtiFiberTractographyStage::Execute(MriPreprocessingContext &context) const
 
   const TractographySettings settings = BuildTractographySettings(context);
   const std::vector<glm::vec3> seedsVoxelSpace =
-      SelectSeedPoints(context.outputDtiChannels.FA, context.outputDtiChannels.L1, settings);
+      SelectSeedPoints(context, context.outputDtiChannels.FA, context.outputDtiChannels.L1, settings);
 
   // Seed positions are exposed for visualization independently of whether a streamline was
   // successfully traced from each one, so convert and store them regardless of the tracing

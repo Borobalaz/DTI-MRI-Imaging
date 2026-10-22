@@ -3,7 +3,6 @@
 VolumeGeometry::VolumeGeometry()
 {
   Generate();
-  Upload();
 }
 
 void VolumeGeometry::Generate()

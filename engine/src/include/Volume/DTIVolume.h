@@ -8,6 +8,8 @@
 
 #include "Volume/Volume.h"
 #include "Render/VolumeTextureSet.h"
+#include "Render/Texture/TextureData3D.h"
+#include "Threading/Cancellation.h"
 
 struct DTIVolumeChannels
 {
@@ -35,12 +37,38 @@ struct DTIVolumeChannels
   VolumeData RD;
 };
 
+// CPU-packed DTIVolume textures, ready for the lazy Texture3D ctor. Graphics-API free.
+struct DTIVolumeTextureData
+{
+  glm::ivec3 dimensions{0};
+  glm::vec3 spacing{1.0f};
+  std::array<TextureData3D, 5> textures; // index i == volumeTextures[i] == texture unit 8 + i
+};
+
+// Pure CPU, safe on any thread (e.g. the preprocessing worker). Validates that all channels share
+// dimensions/spacing and hold finite voxels (std::invalid_argument otherwise), then packs them per
+// the shader contract: [0] (Dxx,Dyy,Dzz), [1] (Dxy,Dxz,Dyz), [2] (EVx,EVy,EVz), [3] (L1,L2,L3) as
+// RGB32F and [4] (FA,MD,AD,RD) as RGBA32F. Throws OperationCancelled between textures on request.
+DTIVolumeTextureData PackDTIVolumeTextures(const DTIVolumeChannels& channels,
+                                           const CancellationToken& cancellation = {});
+
 class DTIVolume final : public Volume
 {
 public:
-  explicit DTIVolume(const std::string& id,
-                     DTIVolumeChannels channels,
-                     std::shared_ptr<Shader> shader);
+  struct RenderMode
+  {
+    std::string label;
+    std::shared_ptr<Shader> shader;
+  };
+
+  // GL thread only: compiles one shader per render mode and returns the modes whose shader built.
+  static std::vector<RenderMode> CreateRenderModes();
+
+  // No GL calls and no heavy CPU work: the textures upload lazily at first bind. Throws
+  // std::runtime_error when renderModes is empty.
+  DTIVolume(const std::string& id,
+            DTIVolumeTextureData textures,
+            std::vector<RenderMode> renderModes);
 
   void Apply(IUniformSink &shader) const override;
   
@@ -49,27 +77,15 @@ public:
   bool SetSelectedRenderModeIndex(int modeIndex);
   void SetSelectedChannelIndex(int channelIndex) { selectedChannel = channelIndex; }
 
-  // Register this volume's shaders with a scene for hot reload tracking
-  void RegisterShadersWithScene(class Scene* scene);
-
   std::vector<InspectFieldPtr> GetInspectFields() override;
   
 private:
-  struct RenderMode
-  {
-    std::string label;
-    std::shared_ptr<Shader> shader;
-  };
-
-  void InitializeRenderModes();
   bool SetActiveRenderMode(int modeIndex);
 
   const RenderMode *GetActiveRenderMode() const;
 
-  DTIVolumeChannels channels;
   int selectedChannel = 0;
   int selectedRenderMode = 0;
-  float sliceZValue = 0.5f;
   std::vector<RenderMode> renderModes;
 
   enum SelectedChannelIndex

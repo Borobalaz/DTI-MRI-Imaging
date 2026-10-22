@@ -25,7 +25,8 @@ private:
                                             const std::vector<float> &evx,
                                             const std::vector<float> &evy,
                                             const std::vector<float> &evz);
-  static std::vector<glm::vec3> SelectSeedPoints(const VolumeData &faVolume,
+  static std::vector<glm::vec3> SelectSeedPoints(const MriPreprocessingContext &context,
+                                                 const VolumeData &faVolume,
                                                  const VolumeData &l1Volume,
                                                  const TractographySettings &settings);
   static glm::vec3 SamplePrincipalDirection(const glm::vec3 &voxelPosition,

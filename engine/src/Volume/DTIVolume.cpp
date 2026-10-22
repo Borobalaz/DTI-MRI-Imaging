@@ -6,10 +6,10 @@
 #include <iostream>
 #include <string>
 #include <stdexcept>
+#include <utility>
 
 #include "Log/EngineLog.h"
 #include "Render/Texture/Texture3D.h"
-#include "Scene/Scene.h"
 
 namespace
 {
@@ -96,48 +96,49 @@ namespace
 
     return packed;
   }
+
+  TextureData3D MakeTextureData(const glm::ivec3 &dimensions, TextureFormat format, std::vector<float> texels)
+  {
+    TextureData3D textureData;
+    textureData.dimensions = dimensions;
+    textureData.format = format;
+    textureData.texels = std::move(texels);
+    return textureData;
+  }
 }
 
 /**
- * @brief Construct a new DTIVolume object from the provided DTI channels and shader.
- *    The constructor validates the input channels for metadata consistency and finite voxel values,
- *    and uploads available metrics to the GPU as textures.
+ * @brief Validate the DTI channels and pack them into the five CPU texture payloads of the
+ *        DTIVolume shader contract. Pure CPU, so it runs on the preprocessing worker.
  *
  * @param channels
- * @param shader
+ * @param cancellation checked before validation and before each packed texture
  */
-DTIVolume::DTIVolume(const std::string& id,
-                     DTIVolumeChannels channels,
-                     std::shared_ptr<Shader> shader)
-    : Volume(id, channels.Dxx.GetDimensions(), channels.Dxx.GetSpacing(), std::move(shader)),
-      channels(std::move(channels))
+DTIVolumeTextureData PackDTIVolumeTextures(const DTIVolumeChannels &channels,
+                                           const CancellationToken &cancellation)
 {
-  // Must read from this->channels, not the constructor parameter `channels`: the member
-  // initializer list above already std::move'd the parameter into this->channels, so by
-  // this point the parameter is moved-from and uploading textures from it silently produced
-  // an empty volume render.
-  const DTIVolumeChannels &gpuChannels = this->channels;
+  cancellation.ThrowIfCancellationRequested();
 
   const std::array<const VolumeData *, 16> metadataValidatedChannels = {
-      &gpuChannels.Dxx,
-      &gpuChannels.Dyy,
-      &gpuChannels.Dzz,
-      &gpuChannels.Dxy,
-      &gpuChannels.Dxz,
-      &gpuChannels.Dyz,
-      &gpuChannels.EVx,
-      &gpuChannels.EVy,
-      &gpuChannels.EVz,
-      &gpuChannels.FA,
-      &gpuChannels.MD,
-      &gpuChannels.AD,
-      &gpuChannels.RD,
-      &gpuChannels.L1,
-      &gpuChannels.L2,
-      &gpuChannels.L3};
+      &channels.Dxx,
+      &channels.Dyy,
+      &channels.Dzz,
+      &channels.Dxy,
+      &channels.Dxz,
+      &channels.Dyz,
+      &channels.EVx,
+      &channels.EVy,
+      &channels.EVz,
+      &channels.FA,
+      &channels.MD,
+      &channels.AD,
+      &channels.RD,
+      &channels.L1,
+      &channels.L2,
+      &channels.L3};
 
-  const glm::ivec3 &referenceDimensions = gpuChannels.Dxx.GetDimensions();
-  const glm::vec3 &referenceSpacing = gpuChannels.Dxx.GetSpacing();
+  const glm::ivec3 &referenceDimensions = channels.Dxx.GetDimensions();
+  const glm::vec3 &referenceSpacing = channels.Dxx.GetSpacing();
 
   // Validate metadata consistency across channels
   for (const VolumeData *channel : metadataValidatedChannels)
@@ -159,77 +160,69 @@ DTIVolume::DTIVolume(const std::string& id,
     }
   }
 
-  const int width = referenceDimensions.x;
-  const int height = referenceDimensions.y;
-  const int depth = referenceDimensions.z;
+  DTIVolumeTextureData packed;
+  packed.dimensions = referenceDimensions;
+  packed.spacing = referenceSpacing;
 
   // Texture 0 (RGB): (Dxx, Dyy, Dzz)
-  const std::vector<float> tensorDiagRgb = PackRgbChannels(
-      gpuChannels.Dxx,
-      gpuChannels.Dyy,
-      gpuChannels.Dzz);
-  textureSet.AddTexture(std::make_shared<Texture3D>(
-      width,
-      height,
-      depth,
-      TextureFormat::RGB32F,
-      tensorDiagRgb.data(),
-      true));
+  cancellation.ThrowIfCancellationRequested();
+  packed.textures[0] = MakeTextureData(referenceDimensions, TextureFormat::RGB32F,
+                                       PackRgbChannels(channels.Dxx, channels.Dyy, channels.Dzz));
 
   // Texture 1 (RGB): (Dxy, Dxz, Dyz)
-  const std::vector<float> tensorOffDiagRgb = PackRgbChannels(
-      gpuChannels.Dxy,
-      gpuChannels.Dxz,
-      gpuChannels.Dyz);
-  textureSet.AddTexture(std::make_shared<Texture3D>(
-      width,
-      height,
-      depth,
-      TextureFormat::RGB32F,
-      tensorOffDiagRgb.data(),
-      true));
+  cancellation.ThrowIfCancellationRequested();
+  packed.textures[1] = MakeTextureData(referenceDimensions, TextureFormat::RGB32F,
+                                       PackRgbChannels(channels.Dxy, channels.Dxz, channels.Dyz));
 
   // Texture 2 (RGB): (EVx, EVy, EVz)
-  const std::vector<float> principalEigenvectorRgb = PackRgbChannels(
-      gpuChannels.EVx,
-      gpuChannels.EVy,
-      gpuChannels.EVz);
-  textureSet.AddTexture(std::make_shared<Texture3D>(
-      width,
-      height,
-      depth,
-      TextureFormat::RGB32F,
-      principalEigenvectorRgb.data(),
-      true));
+  cancellation.ThrowIfCancellationRequested();
+  packed.textures[2] = MakeTextureData(referenceDimensions, TextureFormat::RGB32F,
+                                       PackRgbChannels(channels.EVx, channels.EVy, channels.EVz));
 
   // Texture 3 (RGB): (L1, L2, L3)
-  const std::vector<float> eigenvaluesRgb = PackRgbChannels(
-      gpuChannels.L1,
-      gpuChannels.L2,
-      gpuChannels.L3);
-  textureSet.AddTexture(std::make_shared<Texture3D>(
-      width,
-      height,
-      depth,
-      TextureFormat::RGB32F,
-      eigenvaluesRgb.data(),
-      true));
+  cancellation.ThrowIfCancellationRequested();
+  packed.textures[3] = MakeTextureData(referenceDimensions, TextureFormat::RGB32F,
+                                       PackRgbChannels(channels.L1, channels.L2, channels.L3));
 
-  // Texture 4: (FA, MD, AD, RD)
-  const std::vector<float> scalarMetricsRgba = PackRgbaChannels(
-      gpuChannels.FA,
-      gpuChannels.MD,
-      gpuChannels.AD,
-      gpuChannels.RD);
-  textureSet.AddTexture(std::make_shared<Texture3D>(
-      width,
-      height,
-      depth,
-      TextureFormat::RGBA32F,
-      scalarMetricsRgba.data(),
-      true));
+  // Texture 4 (RGBA): (FA, MD, AD, RD)
+  cancellation.ThrowIfCancellationRequested();
+  packed.textures[4] = MakeTextureData(referenceDimensions, TextureFormat::RGBA32F,
+                                       PackRgbaChannels(channels.FA, channels.MD, channels.AD, channels.RD));
 
-  InitializeRenderModes();
+  return packed;
+}
+
+/**
+ * @brief Construct a new DTIVolume from already packed textures and already built render modes.
+ *        Makes no GL calls: the textures upload lazily at their first bind on the GL thread.
+ *
+ * @param id
+ * @param textures packed by PackDTIVolumeTextures
+ * @param renderModes built by CreateRenderModes; must not be empty
+ */
+DTIVolume::DTIVolume(const std::string& id,
+                     DTIVolumeTextureData textures,
+                     std::vector<RenderMode> renderModes)
+    : Volume(id, textures.dimensions, textures.spacing, renderModes.empty() ? nullptr : renderModes.front().shader)
+{
+  if (renderModes.empty())
+  {
+    EngineLog::Error("DTIVolume could not initialize any valid render mode shader.", "DTIVolume");
+    throw std::runtime_error("DTIVolume could not initialize any valid render mode shader.");
+  }
+
+  for (TextureData3D &textureData : textures.textures)
+  {
+    textureSet.AddTexture(std::make_shared<Texture3D>(std::move(textureData), true));
+  }
+
+  this->renderModes = std::move(renderModes);
+
+  EngineLog::Message(
+    "DTIVolume ready: " + std::to_string(this->renderModes.size()) + "/5 render modes available",
+    "DTIVolume");
+
+  SetActiveRenderMode(0);
 }
 
 /**
@@ -244,13 +237,15 @@ void DTIVolume::Apply(IUniformSink &shader) const
 }
 
 /**
- * @brief Initialize the available render modes for the DTI volume.
+ * @brief Build the available render modes for a DTI volume. GL thread only (compiles shaders).
  *        Each render mode corresponds to a different shader that visualizes the DTI data in a specific way (e.g. channel slice, principal eigenvector RGB).
+ *        Modes whose shader fails to build are skipped with a warning.
  *
  */
-void DTIVolume::InitializeRenderModes()
+std::vector<DTIVolume::RenderMode> DTIVolume::CreateRenderModes()
 {
-  renderModes.clear();
+  constexpr float kDefaultSliceZ = 0.5f;
+  std::vector<RenderMode> renderModes;
 
   // Channel Slice Mode
   std::shared_ptr<Shader> channelSliceShader = std::make_shared<Shader>(
@@ -259,7 +254,7 @@ void DTIVolume::InitializeRenderModes()
       "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl");
   if (channelSliceShader && channelSliceShader->IsValid())
   {
-    (*channelSliceShader)["shader.sliceZ"] = sliceZValue;
+    (*channelSliceShader)["shader.sliceZ"] = kDefaultSliceZ;
     renderModes.push_back(RenderMode{"Channel Slice", channelSliceShader});
   }
   else
@@ -275,7 +270,7 @@ void DTIVolume::InitializeRenderModes()
 
   if (principalDirectionShader && principalDirectionShader->IsValid())
   {
-    (*principalDirectionShader)["shader.sliceZ"] = sliceZValue;
+    (*principalDirectionShader)["shader.sliceZ"] = kDefaultSliceZ;
     (*principalDirectionShader)["shader.density"] = 1.0f;
     renderModes.push_back(RenderMode{"Principal EV RGB", principalDirectionShader});
   }
@@ -347,17 +342,7 @@ void DTIVolume::InitializeRenderModes()
 
   // Additional render modes can be added here following the same pattern.
 
-  if (renderModes.empty())
-  {
-    EngineLog::Error("DTIVolume could not initialize any valid render mode shader.", "DTIVolume");
-    throw std::runtime_error("DTIVolume could not initialize any valid render mode shader.");
-  }
-
-  EngineLog::Message(
-    "DTIVolume ready: " + std::to_string(renderModes.size()) + "/5 render modes available",
-    "DTIVolume");
-
-  SetActiveRenderMode(0);
+  return renderModes;
 }
 
 /**
@@ -406,31 +391,6 @@ const DTIVolume::RenderMode *DTIVolume::GetActiveRenderMode() const
   }
 
   return &renderModes[static_cast<size_t>(selectedRenderMode)];
-}
-
-/**
- * @brief Register all render mode shaders with a scene for hot reload tracking.
- *        This allows shader changes to be detected and reloaded at runtime.
- *
- * @param scene The scene to register shaders with
- */
-void DTIVolume::RegisterShadersWithScene(Scene* scene)
-{
-  if (!scene)
-  {
-    return;
-  }
-
-  for (size_t i = 0; i < renderModes.size(); ++i)
-  {
-    const auto& mode = renderModes[i];
-    if (mode.shader)
-    {
-      // Use render mode label as a unique identifier for the shader
-      std::string shaderId = "DTIVolume/" + mode.label;
-      scene->RegisterShader(shaderId, mode.shader);
-    }
-  }
 }
 
 /**

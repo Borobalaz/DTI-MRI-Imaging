@@ -43,7 +43,17 @@ const char *DtiTensorSynthesisStage::Name() const
  */
 void DtiTensorSynthesisStage::Execute(MriPreprocessingContext &context) const
 {
-  const auto dwiSeries = VolumeFileLoader::LoadSeries(context.selectedDwiVolumePath).value();
+  // The DWI read is not interruptible and has no meaningful fraction; check right after it.
+  const auto loadedSeries = VolumeFileLoader::LoadSeries(context.selectedDwiVolumePath);
+  if (!loadedSeries.has_value())
+  {
+    throw std::runtime_error(
+      "Failed to load DWI series from '" + context.selectedDwiVolumePath +
+      "'. loaderError='" + VolumeFileLoader::GetLastError() + "'.");
+  }
+  context.ThrowIfCancelled();
+
+  const auto &dwiSeries = *loadedSeries;
   const int frameCount = dwiSeries.GetFrameCount();
   std::cout << "DWI series loaded with " << frameCount << " frames." << std::endl;
 
@@ -77,6 +87,9 @@ void DtiTensorSynthesisStage::Execute(MriPreprocessingContext &context) const
   // OLS fit a tensor to each voxel's signal profile across the diffusion-weighted volumes
   for (int z = 0; z < depth; ++z)
   {
+    context.ThrowIfCancelled();
+    context.ReportStageFraction(static_cast<float>(z) / static_cast<float>(depth));
+
     for (int y = 0; y < height; ++y)
     {
       for (int x = 0; x < width; ++x)

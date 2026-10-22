@@ -134,9 +134,16 @@ void DtiPrincipalEigenvectorStage::Execute(MriPreprocessingContext& context) con
   std::vector<float>& evyOut = evy.GetVoxels();
   std::vector<float>& evzOut = evz.GetVoxels();
 
+  constexpr size_t kVoxelsPerProgressCheck = 1u << 20;
   const size_t voxelCount = dxx.size();
   for (size_t i = 0; i < voxelCount; ++i)
   {
+    if (i % kVoxelsPerProgressCheck == 0)
+    {
+      context.ThrowIfCancelled();
+      context.ReportStageFraction(static_cast<float>(i) / static_cast<float>(voxelCount));
+    }
+
     // Null bad voxels (NaN, inf, ...)
     if (!std::isfinite(dxx[i]) || !std::isfinite(dyy[i]) || !std::isfinite(dzz[i]) ||
         !std::isfinite(dxy[i]) || !std::isfinite(dxz[i]) || !std::isfinite(dyz[i]))

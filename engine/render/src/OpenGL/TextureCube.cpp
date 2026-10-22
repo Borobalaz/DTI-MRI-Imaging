@@ -5,6 +5,7 @@
 #include <stb_image.h>
 
 #include "Log/EngineLog.h"
+#include "OpenGL/GpuDeletionQueue.h"
 #include "OpenGL/TextureGL.h"
 
 namespace
@@ -57,12 +58,11 @@ TextureCube::TextureCube(const SkyboxFaces& faces)
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
+// May run on any thread (e.g. the UI thread releasing the last owner), so the
+// handle is queued for deletion on the GL thread instead of deleted here.
 TextureCube::~TextureCube()
 {
-  if (id != 0)
-  {
-    glDeleteTextures(1, &id);
-  }
+  EnqueueGpuDeletion(GpuResourceKind::Texture, id);
 }
 
 void TextureCube::Bind(unsigned int unit) const

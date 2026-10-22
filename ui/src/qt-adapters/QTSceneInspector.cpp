@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QHash>
+#include <QMetaObject>
 
 #include "qt-adapters/QtInspectFieldAdapter.h"
 
@@ -18,16 +19,48 @@ QTSceneInspector::QTSceneInspector(QObject *parent)
   syncTimer.start();
 }
 
-// Attaches the engine's inspection service and performs the initial provider sync.
-//  Subscribes to push-based provider-list-changed notifications instead of per-frame polling.
+// Attaches the engine's inspection service (or detaches it, for nullptr) and performs the
+//  initial provider sync. Subscribes to push-based provider-list-changed notifications instead
+//  of per-frame polling.
 void QTSceneInspector::SetInspectionService(IInspectionService *service)
 {
+  if (IInspectionService *previousService = session.Service(); previousService && previousService != service)
+  {
+    previousService->OnProvidersChanged({});
+  }
+
   session.SetService(service);
 
   if (service)
   {
+    // Fires on the engine thread: queue the handling onto this object's (GUI) thread,
+    //  coalescing bursts into a single pending call.
     service->OnProvidersChanged([this]()
-                                 { HandleProvidersChanged(); });
+                                 {
+                                   if (!providersChangedPending.exchange(true))
+                                   {
+                                     QMetaObject::invokeMethod(this, [this]()
+                                                               { HandleQueuedProvidersChanged(); }, Qt::QueuedConnection);
+                                   }
+                                 });
+  }
+
+  HandleProvidersChanged();
+}
+
+void QTSceneInspector::StopSyncTimer()
+{
+  syncTimer.stop();
+}
+
+void QTSceneInspector::HandleQueuedProvidersChanged()
+{
+  providersChangedPending.store(false);
+
+  // The service may have been detached while this call was queued.
+  if (!session.Service())
+  {
+    return;
   }
 
   HandleProvidersChanged();

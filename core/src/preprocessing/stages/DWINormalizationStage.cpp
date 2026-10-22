@@ -74,9 +74,12 @@ void DWINormalizationStage::Execute(MriPreprocessingContext &context) const
       &channels.FA, &channels.MD, &channels.AD, &channels.RD,
       &channels.L1, &channels.L2, &channels.L3};
 
-  for (VolumeData *channel : allChannels)
+  // One channel is a few linear passes, so per-channel granularity is fine-grained enough.
+  for (size_t channelIndex = 0; channelIndex < allChannels.size(); ++channelIndex)
   {
-    NormalizeMinMaxChannel(channel->GetVoxels());
+    context.ThrowIfCancelled();
+    context.ReportStageFraction(static_cast<float>(channelIndex) / static_cast<float>(allChannels.size()));
+    NormalizeMinMaxChannel(allChannels[channelIndex]->GetVoxels());
   }
 }
 

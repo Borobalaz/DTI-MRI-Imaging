@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 
 #include "Log/EngineLog.h"
+#include "OpenGL/GpuDeletionQueue.h"
 #include "RenderBackend.h"
 
 Framebuffer::Framebuffer(bool withDepth)
@@ -12,9 +13,11 @@ Framebuffer::Framebuffer(bool withDepth)
 {
 }
 
+// May run on any thread, so the FBO is queued for deletion on the GL thread (the
+// attachment textures queue themselves from their own destructors).
 Framebuffer::~Framebuffer()
 {
-  Destroy();
+  EnqueueGpuDeletion(GpuResourceKind::Framebuffer, fbo);
 }
 
 void Framebuffer::Allocate(int w, int h)

@@ -27,7 +27,8 @@
 
 namespace
 {
-  std::string g_lastVolumeLoaderError;
+  // thread_local: loaders run on preprocessing workers and the engine thread concurrently.
+  thread_local std::string g_lastVolumeLoaderError;
 
   void SetVolumeLoaderError(const std::string &message)
   {

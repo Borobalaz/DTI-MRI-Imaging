@@ -62,10 +62,10 @@ public:
 
   // Scene content management
   void AddLight(std::shared_ptr<Light> light) { lights.push_back(light); }
-  void ClearLights()  { lights.clear(); }
+  void ClearLights();
 
   void AddDrawable(std::shared_ptr<IDrawable> drawable) { drawables.push_back(drawable); }
-  void ClearDrawables() { drawables.clear(); }
+  void ClearDrawables();
 
   void AddUpdateable(std::shared_ptr<IUpdateable> updateable) { updateables.push_back(updateable); }
   void ClearUpdateables() { updateables.clear(); }
@@ -100,7 +100,10 @@ public:
   };
   std::vector<InspectProviderEntry> GetInspectProviderEntries() const { return inspectProviderEntries; }
 
-  // Increments every time RebuildInspectProviders() runs; lets consumers detect structural changes cheaply.
+  // Increments every time RebuildInspectProviders() runs and every time a method removes objects
+  // that may be inspect providers (Clear*, SetSkybox replacing a skybox). Lets consumers detect
+  // structural changes cheaply, and lets LockedInspectionService retire fields whose provider
+  // may be gone. Any new method that removes providers must bump it too.
   int GetProviderGeneration() const { return providerGeneration; }
 
   // Inspect provider implementation

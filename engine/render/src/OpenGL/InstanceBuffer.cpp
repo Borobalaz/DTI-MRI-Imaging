@@ -4,9 +4,11 @@
 
 #include <utility>
 
+#include "OpenGL/GpuDeletionQueue.h"
+
 InstanceBuffer::~InstanceBuffer()
 {
-  Reset();
+  ReleaseDeferred();
 }
 
 InstanceBuffer::InstanceBuffer(InstanceBuffer&& other) noexcept
@@ -21,7 +23,7 @@ InstanceBuffer& InstanceBuffer::operator=(InstanceBuffer&& other) noexcept
 {
   if (this != &other)
   {
-    Reset();
+    ReleaseDeferred();
     vbo = other.vbo;
     instanceCount = other.instanceCount;
     other.vbo = 0;
@@ -60,6 +62,13 @@ void InstanceBuffer::Reset()
   {
     glDeleteBuffers(1, &vbo);
   }
+  vbo = 0;
+  instanceCount = 0;
+}
+
+void InstanceBuffer::ReleaseDeferred()
+{
+  EnqueueGpuDeletion(GpuResourceKind::Buffer, vbo);
   vbo = 0;
   instanceCount = 0;
 }

@@ -2,6 +2,7 @@
 
 #include "Render/Geometry/Geometry.h"
 #include "Render/Geometry/InstanceBuffer.h"
+#include "Render/RenderTarget.h"
 #include "Render/Shader.h"
 #include "Render/Texture/Texture.h"
 
@@ -38,4 +39,9 @@ void RenderBackend::Draw(const Geometry& geometry, Shader& shader)
 void RenderBackend::DrawInstanced(const Geometry& geometry, Shader& shader, const InstanceBuffer& instances)
 {
   geometry.DrawInstanced(shader, instances);
+}
+
+void RenderBackend::BindTarget(const RenderTarget& target)
+{
+  target.Bind();
 }

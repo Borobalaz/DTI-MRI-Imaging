@@ -341,9 +341,13 @@ namespace
    * 
    * @param source 
    * @param isoValue represents the threshold for the surface extraction. 
+   * @param context used for cancellation checks and progress reporting only.
    * @return std::shared_ptr<Mesh> 
    */
-  std::shared_ptr<Mesh> ExtractSurfaceMeshFromVolume(const VolumeData &source, float isoValue)
+  std::shared_ptr<Mesh> ExtractSurfaceMeshFromVolume(
+      const VolumeData &source,
+      float isoValue,
+      const MriPreprocessingContext &context)
   {
     const VolumeMetadata &metadata = source.GetMetadata();
     const glm::ivec3 dims = metadata.dimensions;
@@ -357,9 +361,15 @@ namespace
     buffers.vertices.reserve(static_cast<size_t>(dims.x) * static_cast<size_t>(dims.y) * 4U);
     buffers.indices.reserve(static_cast<size_t>(dims.x) * static_cast<size_t>(dims.y) * 12U);
 
-    // Core algorithm
-    for (int z = 0; z < dims.z - 1; ++z)
+    // Core algorithm; reports [0, 0.8] of the stage, smoothing takes the rest.
+    constexpr float kExtractionFractionShare = 0.8f;
+    const int sliceCount = dims.z - 1;
+    for (int z = 0; z < sliceCount; ++z)
     {
+      context.ThrowIfCancelled();
+      context.ReportStageFraction(
+          kExtractionFractionShare * static_cast<float>(z) / static_cast<float>(sliceCount));
+
       for (int y = 0; y < dims.y - 1; ++y)
       {
         for (int x = 0; x < dims.x - 1; ++x)
@@ -439,8 +449,11 @@ namespace
     }
 
     // Surface smoothing and surface normal computation.
+    context.ThrowIfCancelled();
+    context.ReportStageFraction(kExtractionFractionShare);
     ApplyTaubinSmoothing(buffers.vertices, buffers.indices, 10, 0.5f, -0.53f);
     ComputeVertexNormals(buffers.vertices, buffers.indices);
+    context.ReportStageFraction(1.0f);
 
     // Output
     std::shared_ptr<ImportedGeometry> geometry = std::make_shared<ImportedGeometry>(
@@ -489,7 +502,7 @@ void DWIBrainSurfaceMeshStage::Execute(MriPreprocessingContext &context) const
   }
 
   // Run marching tetrahedra to extract surface mesh from the volume data
-  const std::shared_ptr<Mesh> extractedMesh = ExtractSurfaceMeshFromVolume(*sourceVolume, isoValue);
+  const std::shared_ptr<Mesh> extractedMesh = ExtractSurfaceMeshFromVolume(*sourceVolume, isoValue, context);
   if (!extractedMesh)
   {
     context.report.warnings.push_back("Brain surface mesh stage produced no triangles.");

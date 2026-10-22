@@ -26,7 +26,9 @@ class MriPreprocessingRunner
 public:
   MriPreprocessingRunner();
 
-  MriPreprocessingRunnerResult Run(const MriPreprocessingRunnerRequest& request) const;
+  // Throws MriPreprocessingCancelled (not success=false) when options.cancellation is signalled.
+  MriPreprocessingRunnerResult Run(const MriPreprocessingRunnerRequest& request,
+                                   const MriPreprocessingExecutionOptions& options = {}) const;
 
   static std::string BuildSummary(const MriPreprocessingRunnerResult& result);
 };

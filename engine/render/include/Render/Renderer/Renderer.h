@@ -8,13 +8,19 @@
 #include "Render/Renderer/RenderPass.h"
 
 class Framebuffer;
+class RenderTarget;
 
 class Renderer
 {
 public:
   Renderer() = default;
   virtual const RendererDescriptor& GetDescriptor() const = 0;
+  // Draws into whatever framebuffer is bound on entry (the caller sets the viewport).
   virtual void Draw(const RenderFrame& frame) = 0;
+
+  // Draws into `target` at the target's size; postprocessing composites into it too.
+  // Precondition: target.Resize() has succeeded at least once.
+  virtual void Draw(const RenderFrame& frame, const RenderTarget& target) = 0;
 
   // Default no-op; overridden by renderers that own viewport-sized GL
   // resources (e.g. ForwardRenderer's offscreen postprocessing framebuffers).

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -27,6 +28,8 @@ public:
   explicit QTSceneInspector(QObject* parent = nullptr);
 
   void SetInspectionService(IInspectionService* service);
+  // Stops polling field values; used before detaching from a shutting-down engine.
+  void StopSyncTimer();
 
   std::string selectedObjectName() const;
   void setSelectedObjectName(const std::string& id);
@@ -56,9 +59,11 @@ private:
   void RebuildFieldObjects();
   void SyncSnapshots();
   void HandleProvidersChanged();
+  void HandleQueuedProvidersChanged();
   std::shared_ptr<IInspectWidget> FindField(const QString& fieldId) const;
 
   InspectionSession session;
+  std::atomic<bool> providersChangedPending{false}; // set on the engine thread, cleared on the GUI thread
   int revision = 0;
   std::vector<std::shared_ptr<IInspectWidget>> currentFields; // fields of the currently selected object
   QObjectList fieldObjects;

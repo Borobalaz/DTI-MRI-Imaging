@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
@@ -22,8 +23,8 @@ class EngineLogWidget : public QFrame
 public:
   explicit EngineLogWidget(QWidget *parent = nullptr);
 
-  // Attaches the engine's log service and performs the initial sync. Subscribes to push-based
-  //  "entries changed" notifications instead of per-frame polling.
+  // Attaches the engine's log service (or detaches it, for nullptr) and performs the initial
+  //  sync. Subscribes to push-based "entries changed" notifications instead of per-frame polling.
   void SetLogService(ILogService *service);
 
   // Re-reads layout metrics (margin/spacing/min-width) from tokens/common.ini and re-applies
@@ -40,6 +41,7 @@ private:
   void setSeverityFilterVisible(LogSeverity severity, bool visible);
 
   ILogService *logService = nullptr;
+  std::atomic<bool> entriesChangedPending{false}; // set on the engine thread, cleared on the GUI thread
   std::uint64_t lastAppendedSequenceId = 0;
 
   bool showMessage = true;

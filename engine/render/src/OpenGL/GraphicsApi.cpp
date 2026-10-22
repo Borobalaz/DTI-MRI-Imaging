@@ -2,7 +2,26 @@
 
 #include <glad/glad.h>
 
+#include "OpenGL/GpuDeletionQueue.h"
+
 bool InitializeGraphicsApi(GraphicsProcLoader loadProc)
 {
-  return gladLoadGLLoader(loadProc) != 0;
+  if (gladLoadGLLoader(loadProc) == 0)
+  {
+    return false;
+  }
+
+  SetGpuDeletionAccepting(true);
+  return true;
+}
+
+void CollectGraphicsGarbage()
+{
+  FlushGpuDeletions();
+}
+
+void ShutdownGraphicsApi()
+{
+  FlushGpuDeletions();
+  SetGpuDeletionAccepting(false);
 }

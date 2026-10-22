@@ -11,7 +11,6 @@ SphereGeometry::SphereGeometry(float radius_, unsigned int sectors_, unsigned in
   : radius(radius_), sectors(sectors_), stacks(stacks_)
 {
   Generate();
-  Upload();
 }
 
 SphereGeometry::~SphereGeometry()

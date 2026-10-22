@@ -1,6 +1,6 @@
 #include "qt-adapters/QTEngineSettingsAdapter.h"
 
-#include <QCoreApplication>
+#include <QMetaObject>
 
 #include "qt-adapters/QtInspectFieldAdapter.h"
 
@@ -14,10 +14,45 @@ QTEngineSettingsAdapter::QTEngineSettingsAdapter(QObject *parent)
   syncTimer.start();
 }
 
+// Attaches the engine's settings service (or detaches it, for nullptr) and performs the initial sync.
 void QTEngineSettingsAdapter::SetSettingsService(ISettingsService *service)
 {
+  if (settingsService && settingsService != service)
+  {
+    settingsService->OnSettingsChanged({});
+  }
+
   settingsService = service;
-  if (settingsService) settingsService->OnSettingsChanged([this]() { HandleSettingsChanged(); });
+  if (settingsService)
+  {
+    // Fires on the engine thread: queue the handling onto this object's (GUI) thread,
+    //  coalescing bursts into a single pending call.
+    settingsService->OnSettingsChanged([this]()
+    {
+      if (!settingsChangedPending.exchange(true))
+      {
+        QMetaObject::invokeMethod(this, [this]() { HandleQueuedSettingsChanged(); }, Qt::QueuedConnection);
+      }
+    });
+  }
+  HandleSettingsChanged();
+}
+
+void QTEngineSettingsAdapter::StopSyncTimer()
+{
+  syncTimer.stop();
+}
+
+void QTEngineSettingsAdapter::HandleQueuedSettingsChanged()
+{
+  settingsChangedPending.store(false);
+
+  // The service may have been detached while this call was queued.
+  if (!settingsService)
+  {
+    return;
+  }
+
   HandleSettingsChanged();
 }
 
@@ -52,11 +87,6 @@ void QTEngineSettingsAdapter::RebuildFieldObjects()
     }
 
     auto *obj = dynamic_cast<QObject *>(field.get());
-    if (QCoreApplication::instance() && obj && obj->thread() != QCoreApplication::instance()->thread())
-    {
-      obj->moveToThread(QCoreApplication::instance()->thread());
-    }
-
     if (obj)
     {
       fieldObjects.push_back(obj);

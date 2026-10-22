@@ -1,7 +1,8 @@
 #include "Render/VolumeTextureSet.h"
 
 /**
- * @brief Push back a new texture into the set. The texture must be already initialized and valid.
+ * @brief Push back a new texture into the set. The texture may be pending upload (lazy Texture3D);
+ *        it is then uploaded on the GL thread the first time the set is bound.
  * 
  * @param texture 
  */

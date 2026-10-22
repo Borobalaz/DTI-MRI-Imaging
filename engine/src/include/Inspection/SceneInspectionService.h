@@ -1,6 +1,7 @@
 #pragma once
 
 #include <limits>
+#include <mutex>
 
 #include "Inspection/IInspectionService.h"
 
@@ -28,12 +29,17 @@ public:
 
   void OnProvidersChanged(ProvidersChangedCallback callback) override;
 
-  // Not part of IInspectionService: called once per Engine::Update() tick to detect
-  // provider-list changes (via Scene's generation counter) and fire the push notification.
-  void PollForProviderChanges();
+  // Not part of IInspectionService: called once per engine tick, under the scene lock, to
+  // detect provider-list changes (via Scene's generation counter). Returns true on a change;
+  // the caller then calls NotifyChanged() after releasing the scene lock.
+  bool PollForProviderChanges();
+
+  // Invokes the registered callback (if any). Must not be called with the scene lock held.
+  void NotifyChanged();
 
 private:
   Scene& scene;
   int lastSeenGeneration = -1;
+  std::mutex callbackMutex; // guards providersChangedCallback (registered from the host thread)
   ProvidersChangedCallback providersChangedCallback;
 };
