@@ -46,9 +46,9 @@ public:
   // instanceMatrix), so the whole batch can be moved or animated as a group
   // (e.g. per-frame rotation) while each instance matrix stays a local offset
   // within that group. SetInstanceTransforms with an empty vector is
-  // equivalent to ClearInstanceTransforms(). Must be called from engine/GL-
-  // thread code, same constraint as any call that creates GL resources in
-  // this engine. The material assigned to an instanced GameObject must use a
+  // equivalent to ClearInstanceTransforms(). Both only store CPU state (the
+  // GPU buffer is uploaded lazily at the next draw), so they may run on any
+  // thread that doesn't race this object's rendering. The material assigned to an instanced GameObject must use a
   // vertex shader that reads the instance attributes (locations 4-7, e.g.
   // vertex_instanced.glsl) - otherwise no model matrix is applied and the
   // object renders collapsed/degenerate.

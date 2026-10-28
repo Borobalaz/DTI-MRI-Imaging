@@ -87,6 +87,7 @@ private:
     std::shared_ptr<Shader> brainSurface;
     std::shared_ptr<Shader> streamline;
     std::shared_ptr<Shader> seedPoint;
+    std::shared_ptr<Shader> shGlyph;
   };
   void EnsureShaderCache();
 
@@ -111,6 +112,7 @@ private:
   std::shared_ptr<GameObject> brainSurfaceObject;
   std::shared_ptr<GameObject> streamlineObject;
   std::shared_ptr<GameObject> seedPointsObject;
+  std::shared_ptr<SHGlyphField> shGlyphField;
   // Shared with running jobs; its stages are const and stateless.
   std::shared_ptr<const MriToDtiPreprocessor> preprocessor;
   std::string lastLoadError;

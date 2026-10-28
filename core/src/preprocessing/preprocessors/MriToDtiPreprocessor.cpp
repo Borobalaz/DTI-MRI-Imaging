@@ -13,6 +13,8 @@ MriToDtiPreprocessor::MriToDtiPreprocessor()
     .AddStage(CreateDtiTensorSynthesisStage())
     .AddStage(CreateDtiPrincipalEigenvectorStage())
     .AddStage(CreateDtiScalarSynthesisStage())
+    // Needs the raw tensor, so it must precede DwiNormalizationStage.
+    .AddStage(CreateDtiTensorShStage())
     .AddStage(CreateDwiBrainSurfaceMeshStage())
     .AddStage(CreateDtiFiberTractographyStage())
     .AddStage(CreateDwiNormalizationStage());

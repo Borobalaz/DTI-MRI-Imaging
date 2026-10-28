@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+
+struct InstanceAttributeBinding;
 class Geometry;
 class InstanceBuffer;
 class RenderTarget;
@@ -21,7 +24,11 @@ public:
 
   static void Bind(const Texture& texture, unsigned int unit);
   static unsigned int Handle(const Texture& texture);
-  static unsigned int Handle(const InstanceBuffer& instances);
+  static unsigned int Handle(const InstanceBuffer& instances); // the transform VBO (locations 4-7)
+
+  // Uploads the instance buffer's missing/dirty VBOs; call before reading its handle/bindings.
+  static void EnsureResident(const InstanceBuffer& instances);
+  static const std::vector<InstanceAttributeBinding>& AttributeBindings(const InstanceBuffer& instances);
 
   static void Draw(const Geometry& geometry, Shader& shader);
   static void DrawInstanced(const Geometry& geometry, Shader& shader, const InstanceBuffer& instances);

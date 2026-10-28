@@ -31,6 +31,7 @@ void InstancedMeshGeometryPass::Execute(const RenderFrame& frame, RenderExecutio
       uniforms.SetMat4("gameObject.modelMatrix", command.modelMatrix);
       command.material->Apply(uniforms);
       shader.Apply(uniforms);
+      command.instances->Apply(uniforms);
       RenderBackend::DrawInstanced(*command.geometry, shader, *command.instances);
     }
   }

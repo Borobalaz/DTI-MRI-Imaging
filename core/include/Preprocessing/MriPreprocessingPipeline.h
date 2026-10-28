@@ -8,6 +8,7 @@
 
 #include <glm/glm.hpp>
 
+#include "Glyphs/SHVolume.h"
 #include "Mesh.h"
 #include "Threading/Cancellation.h"
 #include "Volume/VolumeData.h"
@@ -41,6 +42,8 @@ struct MriPreprocessingResult
   // vertices (see DtiFiberTractographyStage::VoxelToObjectSpace), for visualizing seed
   // placement independently of whether a streamline was successfully traced from it.
   std::vector<glm::vec3> seedPoints;
+  // DTI-derived SH (tensor ODF), live runs only; not persisted by dataset I/O.
+  std::shared_ptr<const SHVolume> shVolume;
   MriPreprocessingReport report;
 };
 
@@ -106,6 +109,7 @@ struct MriPreprocessingContext
   std::shared_ptr<Mesh> outputSurfaceMesh;
   std::shared_ptr<Mesh> outputStreamlineMesh;
   std::vector<glm::vec3> outputSeedPoints;
+  std::shared_ptr<const SHVolume> outputShVolume;
 };
 
 /**

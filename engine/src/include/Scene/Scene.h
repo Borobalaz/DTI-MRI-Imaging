@@ -14,6 +14,7 @@
 #include "Light/DirectionalLight.h"
 #include "Light/Light.h"
 #include "GameObject.h"
+#include "Glyphs/SHGlyphField.h"
 #include "Render/Material.h"
 #include "Render/Texture/TextureCube.h"
 #include "Render/Uniform/UniformProvider.h"
@@ -83,6 +84,13 @@ public:
     AddUpdateable(volume);
   }
   void ClearVolumes();
+
+  void AddGlyphField(std::shared_ptr<SHGlyphField> glyphField)
+  {
+    AddDrawable(glyphField);
+    AddUpdateable(glyphField);
+  }
+  void ClearGlyphFields();
 
   void RebuildInspectProviders();
 

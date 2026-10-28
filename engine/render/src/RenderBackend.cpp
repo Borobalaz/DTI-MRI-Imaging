@@ -28,7 +28,17 @@ unsigned int RenderBackend::Handle(const Texture& texture)
 
 unsigned int RenderBackend::Handle(const InstanceBuffer& instances)
 {
-  return instances.GetHandle();
+  return instances.GetTransformHandle();
+}
+
+void RenderBackend::EnsureResident(const InstanceBuffer& instances)
+{
+  instances.EnsureGpuResident();
+}
+
+const std::vector<InstanceAttributeBinding>& RenderBackend::AttributeBindings(const InstanceBuffer& instances)
+{
+  return instances.GetAttributeBindings();
 }
 
 void RenderBackend::Draw(const Geometry& geometry, Shader& shader)

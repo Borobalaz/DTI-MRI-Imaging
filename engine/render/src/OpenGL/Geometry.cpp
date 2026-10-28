@@ -160,21 +160,23 @@ void Geometry::Draw(Shader& shader) const
 
 /**
  * @brief Draw the geometry once per instance using the given instance buffer,
- *        with the per-instance model matrix supplied as vertex attributes 4-7.
+ *        with the per-instance model matrix supplied as vertex attributes 4-7 and any
+ *        attribute streams at their own locations (8-15). Buffer streams are bound by
+ *        InstanceBuffer::Apply, not here.
  *
  * @param shader
- * @param instances buffer holding one glm::mat4 per instance
+ * @param instances transforms (one glm::mat4 per instance) plus optional streams
  */
 void Geometry::DrawInstanced(Shader& shader, const InstanceBuffer& instances) const
 {
   EnsureGpuResident();
 
-  const size_t instanceCount = instances.GetInstanceCount();
-  if (instanceCount == 0)
+  if (!instances.IsValid())
   {
     return;
   }
 
+  RenderBackend::EnsureResident(instances);
   RenderBackend::Use(shader);
   glBindVertexArray(VAO);
   glBindBuffer(GL_ARRAY_BUFFER, RenderBackend::Handle(instances));
@@ -193,13 +195,38 @@ void Geometry::DrawInstanced(Shader& shader, const InstanceBuffer& instances) co
     glVertexAttribDivisor(location, 1);
   }
 
+  // Locations 8-15: optional per-instance attribute streams, tightly packed floats, divisor 1.
+  const std::vector<InstanceAttributeBinding>& attributeBindings = RenderBackend::AttributeBindings(instances);
+  for (const InstanceAttributeBinding& binding : attributeBindings)
+  {
+    glBindBuffer(GL_ARRAY_BUFFER, binding.vbo);
+    glEnableVertexAttribArray(binding.location);
+    glVertexAttribPointer(
+      binding.location, binding.components, GL_FLOAT, GL_FALSE,
+      static_cast<GLsizei>(binding.components * sizeof(float)),
+      nullptr);
+    glVertexAttribDivisor(binding.location, 1);
+  }
+
   glDrawElementsInstanced(
     GL_TRIANGLES,
     static_cast<GLsizei>(indices.size()),
     GL_UNSIGNED_INT,
     0,
-    static_cast<GLsizei>(instanceCount));
+    static_cast<GLsizei>(instances.GetInstanceCount()));
 
+  // The VAO is shared with this Geometry's non-instanced draws, which must not keep reading
+  // the instance locations.
+  for (unsigned int location = 4; location < 8; ++location)
+  {
+    glDisableVertexAttribArray(location);
+  }
+  for (const InstanceAttributeBinding& binding : attributeBindings)
+  {
+    glDisableVertexAttribArray(binding.location);
+  }
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 }
 

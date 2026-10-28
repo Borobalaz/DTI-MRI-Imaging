@@ -320,8 +320,10 @@ void DtiVolumeScene::ClearProcessedScene()
   brainSurfaceObject.reset();
   streamlineObject.reset();
   seedPointsObject.reset();
+  shGlyphField.reset();
   ClearGameObjects();
   ClearVolumes();
+  ClearGlyphFields();
 }
 
 namespace
@@ -390,6 +392,8 @@ void DtiVolumeScene::EnsureShaderCache()
                    "shaders/streamlines/streamline_vertex.glsl", "shaders/streamlines/streamline_fragment.glsl");
   EnsureMeshShader(*this, shaderCache.seedPoint, "dti_seed_point_shader",
                    "shaders/vertex_instanced.glsl", "shaders/pbr_fragment.glsl");
+  EnsureMeshShader(*this, shaderCache.shGlyph, "dti_sh_glyph_shader",
+                   "shaders/sh_glyph/sh_glyph_vertex.glsl", "shaders/sh_glyph/sh_glyph_fragment.glsl");
 }
 
 /**
@@ -473,6 +477,20 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
     newSeedPointsObject->SetInstanceTransforms(seedTransforms);
   }
 
+  // SH glyph field over the tensor ODFs. Its instance data builds on its own worker, so this
+  // only starts that build. Loaded datasets carry no SH (it isn't persisted), so they get none.
+  std::shared_ptr<SHGlyphField> newShGlyphField;
+  if (result.shVolume)
+  {
+    newShGlyphField = std::make_shared<SHGlyphField>(
+        "dti_sh_glyphs", result.shVolume, shaderCache.shGlyph, SHGlyphBuildSettings{3, 0.3f, 3});
+    newShGlyphField->SetRotation(kProcessedObjectRotation);
+  }
+  else
+  {
+    EngineLog::Message("Dataset has no spherical-harmonics data; SH glyphs unavailable", "DtiVolumeScene");
+  }
+
   // ---- Commit ----
   // Cache the result (moved, not copied) and the request/settings it was produced with, so
   // "Save current dataset" can persist it later without re-running preprocessing. The objects
@@ -486,6 +504,7 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   brainSurfaceObject = std::move(newBrainSurfaceObject);
   streamlineObject = std::move(newStreamlineObject);
   seedPointsObject = std::move(newSeedPointsObject);
+  shGlyphField = std::move(newShGlyphField);
 
   AddVolume(dtiVolume);
   if (brainSurfaceObject)
@@ -499,6 +518,10 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   if (seedPointsObject)
   {
     AddGameObject(seedPointsObject);
+  }
+  if (shGlyphField)
+  {
+    AddGlyphField(shGlyphField);
   }
 
   RebuildInspectProviders();
@@ -896,6 +919,10 @@ void DtiVolumeScene::Update(float deltaTime)
     if (seedPointsObject)
     {
       seedPointsObject->SetRotation(seedPointsObject->GetRotation() + rotationDelta);
+    }
+    if (shGlyphField)
+    {
+      shGlyphField->SetRotation(shGlyphField->GetRotation() + rotationDelta);
     }
   }
 }

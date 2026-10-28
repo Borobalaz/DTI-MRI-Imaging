@@ -118,7 +118,7 @@ void GameObject::BuildRenderProxy(RenderProxy& context) const
  */
 void GameObject::SetInstanceTransforms(const std::vector<glm::mat4>& transforms)
 {
-  instanceBuffer.Upload(transforms);
+  instanceBuffer.SetTransforms(transforms);
 }
 
 /**
@@ -127,7 +127,7 @@ void GameObject::SetInstanceTransforms(const std::vector<glm::mat4>& transforms)
  */
 void GameObject::ClearInstanceTransforms()
 {
-  instanceBuffer.Reset();
+  instanceBuffer.Clear();
 }
 
 /**

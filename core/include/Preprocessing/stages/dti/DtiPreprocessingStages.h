@@ -7,4 +7,5 @@
 std::unique_ptr<IMriPreprocessingStage> CreateDtiTensorSynthesisStage();
 std::unique_ptr<IMriPreprocessingStage> CreateDtiPrincipalEigenvectorStage();
 std::unique_ptr<IMriPreprocessingStage> CreateDtiScalarSynthesisStage();
+std::unique_ptr<IMriPreprocessingStage> CreateDtiTensorShStage();
 std::unique_ptr<IMriPreprocessingStage> CreateDtiFiberTractographyStage();

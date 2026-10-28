@@ -20,7 +20,7 @@ app_qt  -->  engine (SHARED)  -->  engine_render (STATIC)  -->  engine_foundatio
 
 | Location | Visibility | Contents |
 |---|---|---|
-| `engine/render/include/Render/` | PUBLIC include dir of `engine_render` (included as `"Render/..."`) | GL-free API: `GraphicsApi.h`, `RenderTarget.h`, `TextureFormat.h`, `Shader.h`, `Material.h`, `PBRTextureSlots.h`, `VolumeTextureSet.h`, `Texture/{Texture,Texture2D,Texture3D,TextureCube,TextureData3D}.h`, `Geometry/{Geometry,InstanceBuffer}.h`, `Uniform/{IUniformSink,UniformProvider,CompositeUniformProvider,TypedUniformProvider}.h`, `Core/{RenderCommands,RenderDataStore,RenderFrame,RendererDescriptor}.h`, `Renderer/{Renderer,ForwardRenderer,RenderPass}.h`, `Postprocessing/IPostProcessingPass.h` |
+| `engine/render/include/Render/` | PUBLIC include dir of `engine_render` (included as `"Render/..."`) | GL-free API: `GraphicsApi.h`, `RenderTarget.h`, `TextureFormat.h`, `Shader.h`, `Material.h`, `PBRTextureSlots.h`, `VolumeTextureSet.h`, `Texture/{Texture,Texture2D,Texture3D,TextureCube,TextureData3D,BufferTexture}.h`, `Geometry/{Geometry,InstanceBuffer}.h`, `Uniform/{IUniformSink,UniformProvider,CompositeUniformProvider,TypedUniformProvider}.h`, `Core/{RenderCommands,RenderDataStore,RenderFrame,RendererDescriptor}.h`, `Renderer/{Renderer,ForwardRenderer,RenderPass}.h`, `Postprocessing/IPostProcessingPass.h` |
 | `engine/render/src/` | PRIVATE include dir of `engine_render` (included relative to `src`, e.g. `"RenderBackend.h"`, `"OpenGL/Framebuffer.h"`, `"Passes/VolumePass.h"`) | `RenderBackend`, plus the implementations of `Material`, `VolumeTextureSet`, `TextureData3D` and the `Uniform/` providers |
 | `engine/render/src/OpenGL/` | private | The OpenGL implementations of the resources: `GraphicsApi.cpp` (glad loader, garbage collection, shutdown), `GpuDeletionQueue.h/.cpp`, `Shader.cpp`, `Texture*.cpp` with `TextureGL.h` (the `TextureFormat` to GL mapping and the stb channel-format helper), `Geometry.cpp`, `InstanceBuffer.cpp`, `Framebuffer.h/.cpp`, `RenderTarget.cpp`, `FullscreenTriangleGeometry.h/.cpp` |
 | `engine/render/src/Renderer/` | private | `Renderer.cpp` (the postprocessing chain orchestration) and `ForwardRenderer.cpp` |
@@ -38,7 +38,9 @@ static void          Use(Shader&);
 static IUniformSink& Uniforms(Shader&);           // Shader inherits IUniformSink privately
 static void          Bind(const Texture&, unsigned int unit);
 static unsigned int  Handle(const Texture&);      // e.g. framebuffer attachments
-static unsigned int  Handle(const InstanceBuffer&);
+static unsigned int  Handle(const InstanceBuffer&);   // transform VBO (locations 4-7)
+static void          EnsureResident(const InstanceBuffer&);
+static const std::vector<InstanceAttributeBinding>& AttributeBindings(const InstanceBuffer&);
 static void          Draw(const Geometry&, Shader&);
 static void          DrawInstanced(const Geometry&, Shader&, const InstanceBuffer&);
 static void          BindTarget(const RenderTarget&); // draw framebuffer + matching viewport
@@ -47,9 +49,9 @@ static void          BindTarget(const RenderTarget&); // draw framebuffer + matc
 | Class | Public (CPU) API | Private, reachable only through `RenderBackend` |
 |---|---|---|
 | `Shader` | constructor, `GetId`, `IsValid`, `ReloadIfChanged`, `operator[]` (stored uniforms), `GetStoredUniforms`, `Apply(IUniformSink&)` | `programId`, `Use`, the `IUniformSink` setters, uniform reflection (`GetUniformInfo(s)`, `HasUniform`) |
-| `Texture`, `Texture2D`, `Texture3D`, `TextureCube` | constructors, `IsValid` | `Bind`, `GetId` (private virtuals) |
+| `Texture`, `Texture2D`, `Texture3D`, `TextureCube`, `BufferTexture` | constructors, `IsValid` (`BufferTexture`: also `SetData`) | `Bind`, `GetId` (private virtuals) |
 | `Geometry` | `Generate`, `MarkGpuDirty`, `ComputeNormals`, `GetVertices`/`GetIndices`; protected `vertices`/`indices` and draw-mode setters | `Draw`, `DrawInstanced`, `VAO`/`VBO`/`EBO` |
-| `InstanceBuffer` | `Upload`, `Reset`, `IsValid`, `GetInstanceCount` | `GetHandle` |
+| `InstanceBuffer` | `SetTransforms`, `AddAttributeStream`, `AddBufferStream`, `SetStreamData`, `Clear`, `IsValid`, `GetInstanceCount`, `Apply(IUniformSink&)` | `EnsureGpuResident`, `GetTransformHandle`, `GetAttributeBindings` |
 | `RenderTarget` | constructor (GL-free), `Resize`, `GetWidth`/`GetHeight`, `IsValid`, `ReadPixelsRGBA8` | `Bind` |
 
 The resource implementations also go through the gateway when they use another resource's GPU members. For example, `Geometry::Draw` calls `RenderBackend::Use(shader)`, and `Shader::SetTexture` calls `RenderBackend::Bind`.
@@ -66,7 +68,7 @@ The resource implementations also go through the gateway when they use another r
 
 `Shader` is the concrete sink, but only `RenderBackend::Uniforms` hands it out. `Shader::Use()` activates the program and re-applies the shader's own stored (inspector-editable) uniforms via `Apply(*this)`.
 
-Fixed texture units: material slots 0-4 (`PBR::TextureSlot` order), skybox cubemap 5, volume textures `8 + index` (`VolumeTextureSet`), FXAA scene color 0.
+Fixed texture units: material slots 0-4 (`PBR::TextureSlot` order), skybox cubemap 5, volume textures `8 + index` (`VolumeTextureSet`), FXAA scene color 0. Instanced draws use units 8-11 for `InstanceBuffer` buffer streams (`InstanceBuffer::kFirstBufferStreamTextureUnit + i`, at most `kMaxBufferStreams` = 4) and 12-15 for per-draw providers (e.g. the SH glyph basis, unit 12). The volume and instanced ranges overlap but never meet in one draw.
 
 ## `TextureFormat`
 
@@ -76,7 +78,7 @@ Fixed texture units: material slots 0-4 (`PBR::TextureSlot` order), skybox cubem
 
 - The scene side builds typed render commands (`Render/Core/RenderCommands.h`: `MeshRenderCommand`/`MeshRenderBatch`, `MeshInstancedRenderCommand`/`MeshInstancedRenderBatch`, `VolumeRenderCommand`, `SkyboxRenderCommand`). It appends them to a `RenderDataStore` through the engine-side `RenderProxy` (`engine/src/include/Renderer/RenderProxy.h`), and the engine's `RenderFrameBuilder` assembles a `RenderFrame`.
 - The layer consumes that frame in `Renderer::Draw`.
-- `MeshInstancedRenderCommand::instances` is a non-owning `const InstanceBuffer*` owned by the submitting `GameObject`.
+- `MeshInstancedRenderCommand::instances` is a non-owning `const InstanceBuffer*` owned by the submitting object (a `GameObject` or an `SHGlyphField`). A submitter that needs extra per-draw resources (such as the glyph basis table) adds itself to the command's `frameUniforms` copy, as `Volume` does, instead of adding a command field.
 - Postprocessing is gated per frame through `ForwardRenderer::SetPostProcessingEnabled`. The engine runtime sets it each render from the `postprocessing.enabled` engine setting.
 - `Renderer::Draw(frame)` renders into whatever framebuffer is bound on entry. `Renderer::Draw(frame, const RenderTarget&)` (`ForwardRenderer`) resizes the renderer to the target, binds the target through `RenderBackend::BindTarget`, and runs the same `Draw`. Postprocessing already composites into the framebuffer bound on entry, so both paths behave the same.
 
@@ -106,9 +108,25 @@ At the first `Bind(unit)` of a pending texture:
 
 A failed or not-yet-resident texture binds 0 on its unit. `IsValid()` is `true` while a texture is pending, so an upload failure surfaces one frame after construction. A texture that is never bound, such as one on a hidden volume, keeps its CPU texels until it is.
 
+### `InstanceBuffer` streams
+
+An `InstanceBuffer` is a set of per-instance streams, all GL-free to fill, so it can be built on a worker and then moved into place on the engine thread:
+
+- **Transforms** (`SetTransforms`, mandatory): one `mat4` per instance at attribute locations 4-7. Its size defines the instance count.
+- **Attribute streams** (`AddAttributeStream({location, components})`): tightly packed floats, 1-4 components, at a location in 8-15, with divisor 1.
+- **Buffer streams** (`AddBufferStream({samplerName, format, floatsPerInstance})`): a `BufferTexture` (`samplerBuffer`, R32F or RGBA32F only, since RGB32F buffer textures need GL 4.0). The shader indexes it with `gl_InstanceID`. `InstanceBuffer::Apply` binds stream `i` to `samplerName` on unit `8 + i`, and `InstancedMeshGeometryPass` calls it before every instanced draw.
+
+Each stream is filled with `SetStreamData(id, floats)`, which must hold `count × floatsPerInstance` floats. A bad descriptor or stream id logs an error, returns `kInvalidInstanceStream`, and leaves the buffer invalid until `Clear()`. An invalid buffer (empty, wrong sizes, or a descriptor error) is skipped with the pass's `WarningOnce`.
+
+Upload is lazy. `Geometry::DrawInstanced` calls `RenderBackend::EnsureResident` and binds the transform and attribute streams. Buffer textures upload at their first bind. After the draw, `DrawInstanced` **disables every instance location it enabled**, because the VAO belongs to the `Geometry` and is shared with non-instanced draws. Transform and attribute data stay on the CPU after upload, like `Geometry` vertices. Buffer-stream texels are freed after upload, like `Texture3D`.
+
+The setters make no GL calls but have no locking, so they must not race a draw of the same buffer.
+
+`BufferTexture` checks `GL_MAX_TEXTURE_BUFFER_SIZE` (counted in texels) at upload and logs an error when it is exceeded. GL 3.3 only guarantees 65536 texels, so very large instance payloads depend on the driver.
+
 ### `GpuDeletionQueue`
 
-Destructors of every GPU-owning resource (`Texture2D/3D/Cube`, `Shader`, `Geometry`, `InstanceBuffer`, `Framebuffer`) may run on any thread. For example, the UI thread can drop the last `shared_ptr` to an inspectable provider. So these destructors never call the graphics API. They call `EnqueueGpuDeletion(kind, handle)` (`OpenGL/GpuDeletionQueue.h`, private, mutex-guarded), and the GL thread deletes the queued objects in `FlushGpuDeletions()`.
+Destructors of every GPU-owning resource (`Texture2D/3D/Cube`, `BufferTexture`, `Shader`, `Geometry`, `InstanceBuffer`, `Framebuffer`) may run on any thread. For example, the UI thread can drop the last `shared_ptr` to an inspectable provider. So these destructors never call the graphics API. They call `EnqueueGpuDeletion(kind, handle)` (`OpenGL/GpuDeletionQueue.h`, private, mutex-guarded), and the GL thread deletes the queued objects in `FlushGpuDeletions()`.
 
 The queue is process-global. That assumes one GL context per process, the same assumption glad's global function table makes. It accepts handles only between `InitializeGraphicsApi` and `ShutdownGraphicsApi`, so destructors that run after the context is gone don't grow it.
 

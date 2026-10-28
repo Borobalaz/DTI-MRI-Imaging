@@ -102,7 +102,7 @@ A screen is an engine-owned offscreen `RenderTarget` that is rendered every tick
 
 ### Provider-generation invariant
 
-Inspection field closures capture raw provider pointers. `Scene` therefore increments `providerGeneration` in **every** method that can release a provider: `ClearGameObjects`, `ClearLights`, `ClearDrawables`, `ClearVolumes`, `SetSkybox` (when replacing one), `ClearSkybox`, and `RebuildInspectProviders`. `LockedInspectionService::GetFields` stamps each wrapped field with that generation, plus an attach epoch so a re-created scene can't alias an old generation. Once either changes, the field's getter returns its `initialValue` and its setter does nothing. Hosts refetch fields from the providers-changed notification. Any new code that removes providers must bump the generation.
+Inspection field closures capture raw provider pointers. `Scene` therefore increments `providerGeneration` in **every** method that can release a provider: `ClearGameObjects`, `ClearLights`, `ClearDrawables`, `ClearVolumes`, `ClearGlyphFields`, `SetSkybox` (when replacing one), `ClearSkybox`, and `RebuildInspectProviders`. `LockedInspectionService::GetFields` stamps each wrapped field with that generation, plus an attach epoch so a re-created scene can't alias an old generation. Once either changes, the field's getter returns its `initialValue` and its setter does nothing. Hosts refetch fields from the providers-changed notification. Any new code that removes providers must bump the generation.
 
 ### Preprocessing jobs (`DtiVolumeScene`)
 
@@ -121,9 +121,10 @@ Inspection field closures capture raw provider pointers. `Scene` therefore incre
 - **Apply.** `Update` polls the jobs. A finished Run/Load is applied by `ApplyPreprocessingResult` on the engine thread.
   - It builds a new `DTIVolume` from the pre-packed textures. The ctor makes no GL calls, because each `Texture3D` uploads lazily at its first bind.
   - It builds the surface, streamline and seed `GameObject`s into locals, then commits: it swaps them into the scene and calls `RebuildInspectProviders` once.
+  - When the result carries an `shVolume` (live runs only), it also builds the `dti_sh_glyphs` [`SHGlyphField`](#sh-glyph-fields) with the volume's rotation. Loaded datasets carry no SH, so they log `Dataset has no spherical-harmonics data` and show no glyphs.
   - A failure or a non-finite dataset therefore leaves the previous scene shown.
   - The apply logs `DTI apply: <ms> ms (engine thread)`.
-- **Shader cache.** `EnsureShaderCache` compiles the five `DTIVolume` render-mode shaders (`DTIVolume::CreateRenderModes`) and the brain-surface, streamline and seed-point shaders once on the first `Update`, and registers them for hot reload. Every apply reuses them, so a rerun compiles nothing, and their stored (inspector-tuned) uniforms persist across reruns. A shader that failed to build is retried at the next apply, because hot reload skips invalid programs.
+- **Shader cache.** `EnsureShaderCache` compiles the five `DTIVolume` render-mode shaders (`DTIVolume::CreateRenderModes`) and the brain-surface, streamline, seed-point and SH-glyph shaders once on the first `Update`, and registers them for hot reload. Every apply reuses them, so a rerun compiles nothing, and their stored (inspector-tuned) uniforms persist across reruns. A shader that failed to build is retried at the next apply, because hot reload skips invalid programs.
 - **Destruction.** The scene's destructor cancels and joins its jobs. `Engine::Stop` destroys the scene outside `sceneMutex` for this reason.
 
 The pipeline itself (`core/`) stays thread-agnostic: it only exposes progress and cancellation hooks. `MriPreprocessingContext::ThrowIfCancelled`/`ReportStageFraction` are checked inside the long-running stages, and `MriPreprocessingCancelled` is reported as a cancellation, not as a failure. `VolumeFileLoader`/`MeshFileLoader` keep their last-error state `thread_local`, because workers and the engine thread load concurrently.
@@ -138,6 +139,25 @@ These are header-only, under `engine/foundation/include/Threading/`, and Qt- and
   - API: `Cancel`, `IsFinished`, and `TakeResult`, which joins and rethrows a stored exception.
   - The destructor cancels and then joins.
   - The work function and its captures are destroyed on the owning thread, never on the worker.
+
+### SH glyph fields
+
+`SHGlyphField` (`engine/src/include/Glyphs/SHGlyphField.h`) draws an instanced field of spherical-harmonics glyphs. It is a `UniformProvider`, `IDrawable`, `IUpdateable` and `InspectProvider`, registered with `Scene::AddGlyphField` and removed with `ClearGlyphFields`.
+
+- **Input.** An `SHVolume` (`Glyphs/SHVolume.h`) holds dense real SH coefficients per voxel (lmax ≤ 8, MRtrix3/tournier07 convention, `VolumeData::FlatIndex` order) and an optional mask volume. It is shared by `shared_ptr<const>`, never copied.
+- **SH math.** `SphericalHarmonics/RealSH.h` (`namespace RealSH`) provides the basis, the per-vertex basis table (Y and its tangential gradient, 45 RGBA32F texels per vertex), and the least-squares fit matrix. The same code serves the glyph renderer and the DTI fit, so the convention cannot drift between them.
+- **Mesh.** An `IcosphereGeometry` of unit radius. Its shared-vertex order is deterministic, so the vertex shader finds its basis row by `gl_VertexID`.
+- **Instances.** Built by the pure function `BuildSHGlyphField`:
+  - voxels are stepped by stride and kept when the mask passes the threshold and the coefficients are non-zero;
+  - each glyph gets a transform (Volume-space center, scale `0.5 · stride · min(spacing)/maxExtent`), a location-8 `aInstanceMaxRadius` attribute, and an `instanceCoefficients` buffer stream (RGBA32F, 48 floats);
+  - the field's own transform scale stays 1, so anisotropic voxels don't distort glyphs, and with the volume's rotation it overlays the `DTIVolume`.
+- **Rendering.** Through the generic `MeshInstancedRenderCommand`/`InstancedMeshGeometryPass`. The field adds itself to the command's uniforms to bind `shGlyph.basis` (unit 12), `scale`, `normalize` and `coefficientTexelsPerInstance`. `shaders/sh_glyph/sh_glyph_vertex.glsl` evaluates r(n) and its gradient, clamps r ≥ 0, and builds the normal as r·n − ∇r. `sh_glyph_fragment.glsl` is a copy of `pbr_fragment.glsl` with direction-RGB albedo; there is no `#include`, so PBR lighting changes must be mirrored there.
+- **Rebuilds.** Changes to stride, threshold or subdivision run `BuildSHGlyphField` as a `BackgroundTask`.
+  - Setters only store the new value and cancel the running build.
+  - `Update()` takes the finished result, swaps the buffer, mesh and basis into place, and only then starts the next pending build. The engine thread never joins.
+  - A superseded result is discarded, and a failed build keeps the old state.
+  - Scale and normalize are uniforms, so they apply immediately.
+- **DTI source.** `DtiTensorShStage` runs right after scalar synthesis and before `DWINormalizationStage`, which destroys the tensor. It fits the tensor ODF (uᵀD⁻¹u)^(−3/2), sampled on 642 directions, to lmax 8, normalized to unit integral. It publishes `MriPreprocessingResult::shVolume` with the raw FA as the mask. Dataset I/O does not persist it.
 
 ## Boundary Contract
 
@@ -196,6 +216,7 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 - Preprocessing jobs and shader cache: `core/include/DtiVolumeScene.h`, `core/src/DtiVolumeScene.cpp`
 - DTI volume texture packing: `engine/src/include/Volume/DTIVolume.h` (`PackDTIVolumeTextures`)
 - Scene orchestration: `engine/src/include/Scene/Scene.h`, `engine/src/Scene/Scene.cpp`
+- SH glyphs: `engine/src/include/Glyphs/{SHGlyphField,SHVolume}.h`, `engine/src/include/SphericalHarmonics/RealSH.h`, `engine/src/include/Geometry/IcosphereGeometry.h`, `engine/shaders/sh_glyph/`, and the DTI producer `core/src/preprocessing/stages/dti/DtiTensorShStage.cpp`
 - Neutral inspection: `engine/include/Inspection/InspectField.h`
 - Frame construction: `engine/src/include/RenderCore/RenderFrameBuilder.h`
 - Extraction registry: `engine/src/include/RenderCore/ExtractionRegistry.h`

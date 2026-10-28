@@ -23,7 +23,7 @@ namespace
 
   // Removes every element whose runtime type is TargetType from a vector of
   // base-class shared_ptrs. Shared by Scene::ClearGameObjects/ClearVolumes/
-  // SetSkybox/ClearSkybox, which all need to prune drawables/updateables by
+  // ClearGlyphFields/SetSkybox/ClearSkybox, which all need to prune drawables/updateables by
   // concrete type.
   template <typename TargetType, typename ElementType>
   void RemoveElementsOfType(std::vector<std::shared_ptr<ElementType>> &elements)
@@ -177,6 +177,17 @@ void Scene::ClearVolumes()
 {
   RemoveElementsOfType<Volume>(drawables);
   RemoveElementsOfType<Volume>(updateables);
+  ++providerGeneration;
+}
+
+/**
+ * @brief Clear all SH glyph fields from the scene
+ *
+ */
+void Scene::ClearGlyphFields()
+{
+  RemoveElementsOfType<SHGlyphField>(drawables);
+  RemoveElementsOfType<SHGlyphField>(updateables);
   ++providerGeneration;
 }
 
