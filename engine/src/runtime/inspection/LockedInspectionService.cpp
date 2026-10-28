@@ -1,6 +1,6 @@
-#include "Inspection/LockedInspectionService.h"
+#include "runtime/inspection/LockedInspectionService.h"
 
-#include "Inspection/SceneInspectionService.h"
+#include "runtime/inspection/SceneInspectionService.h"
 #include "scene/Scene.h"
 
 namespace

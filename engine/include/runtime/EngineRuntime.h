@@ -14,14 +14,14 @@
 #include <glm/glm.hpp>
 
 #include "Engine.h"
-#include "Input/InputEventQueue.h"
+#include "runtime/input/InputEventQueue.h"
 #include "scene/input/InputState.h"
-#include "Inspection/LockedInspectionService.h"
-#include "Log/EngineLogService.h"
+#include "runtime/inspection/LockedInspectionService.h"
+#include "runtime/log/EngineLogService.h"
 #include "render/GraphicsApi.h"
 #include "render/RenderTarget.h"
-#include "Settings/LockedSettingsService.h"
-#include "Settings/SettingsService.h"
+#include "runtime/settings/LockedSettingsService.h"
+#include "runtime/settings/SettingsService.h"
 
 class Scene;
 class ForwardRenderer;

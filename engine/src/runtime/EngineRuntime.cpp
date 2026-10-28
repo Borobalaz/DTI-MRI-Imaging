@@ -1,4 +1,4 @@
-#include "Runtime/EngineRuntime.h"
+#include "runtime/EngineRuntime.h"
 
 #include <cassert>
 #include <cmath>
@@ -9,14 +9,14 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 #include "DtiVolumeScene.h"
-#include "Inspection/SceneInspectionService.h"
+#include "runtime/inspection/SceneInspectionService.h"
 #include "foundation/log/EngineLog.h"
 #include "render/renderer/ForwardRenderer.h"
 #include "scene/extraction/ExtractionRegistry.h"
 #include "scene/extraction/RenderFrameBuilder.h"
 #include "scene/Scene.h"
-#include "Settings/EngineSettings.h"
-#include "Settings/EngineSettingsCatalog.h"
+#include "runtime/settings/EngineSettings.h"
+#include "runtime/settings/EngineSettingsCatalog.h"
 
 namespace
 {

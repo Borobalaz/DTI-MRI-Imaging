@@ -1,6 +1,6 @@
-#include "Settings/EngineSettingsCatalog.h"
+#include "runtime/settings/EngineSettingsCatalog.h"
 
-#include "Settings/EngineSettings.h"
+#include "runtime/settings/EngineSettings.h"
 #include "inspection/InspectField.h"
 
 void RegisterEngineSettingsCatalog()

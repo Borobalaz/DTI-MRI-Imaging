@@ -1,6 +1,6 @@
-#include "Settings/SettingsService.h"
+#include "runtime/settings/SettingsService.h"
 
-#include "Settings/EngineSettings.h"
+#include "runtime/settings/EngineSettings.h"
 
 std::vector<InspectFieldPtr> SettingsService::GetSettings() const
 {

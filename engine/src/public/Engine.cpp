@@ -1,7 +1,7 @@
 #include "Engine.h"
 
-#include "Input/InputEventQueue.h"
-#include "Runtime/EngineRuntime.h"
+#include "runtime/input/InputEventQueue.h"
+#include "runtime/EngineRuntime.h"
 
 // Engine is a thin façade: all state, threading and locking live in EngineRuntime.
 

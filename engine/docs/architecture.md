@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The engine is the `engine` CMake shared-library target. It owns scene state, input state, volume data, concrete geometries, scene-to-frame extraction, and neutral inspection contracts. The target is built from `engine/src` (plus `core/src`), exports its public headers from `engine/include/public`, and does not depend on Qt.
+The engine is the `engine` CMake shared-library target. It owns scene state, input state, volume data, concrete geometries, scene-to-frame extraction, and neutral inspection contracts. The target is built from `engine/src/{public,scene,runtime}` (plus `core/src`), exports its public headers from `engine/include/public`, and does not depend on Qt.
 
 GPU resources (shaders, materials, textures, geometry buffers), the renderer, its passes, and every graphics-API call live in the separate **render layer**: the `engine_render` static target (`engine/include/render/` + `engine/src/render/`). `engine` links it `PRIVATE`. Both link the `engine_foundation` static target (`engine/include/foundation/` + `engine/src/foundation/`: `EngineLog`, `StableTypeId`, and the header-only `foundation/threading/` primitives), so the dependency direction is `engine` -> `engine_render` -> `engine_foundation`. See [the render layer architecture](render.md) for the layer's public/private split and its `RenderBackend` gateway rule.
 
@@ -71,7 +71,7 @@ In sync mode, the host thread calling `Update`/`Render` takes the engine thread'
 
 ### `EngineRuntime` and its locks
 
-`EngineRuntime` (`engine/src/include/Runtime/EngineRuntime.h`) is the pimpl behind `Engine`, so the public header stays free of `<thread>`/`<mutex>`. Its locks:
+`EngineRuntime` (`engine/include/runtime/EngineRuntime.h`) is the pimpl behind `Engine`, so the public header stays free of `<thread>`/`<mutex>`. Its locks:
 
 - **`sceneMutex`** (`std::recursive_mutex`) guards the scene, renderer, frame builder, `InputState`, and the scene inspection service. A tick holds it for input drain + `Update` + snapshot/`Draw`. `Draw` has to stay inside, because render commands reference live `UniformProvider`s. Readback, publishing, callbacks and pacing run outside it, and preprocessing never runs under it.
 - **`screensMutex`** guards the screen map and the requested sizes.
@@ -94,9 +94,9 @@ A screen is an engine-owned offscreen `RenderTarget` that is rendered every tick
 
 ### Input and service decorators
 
-- **`InputEventQueue`** (`engine/src/include/Input/InputEventQueue.h`): `Push` from any thread keeps a producer-side keys-down mirror (which backs `IsKeyDown`). `DrainInto(InputState&)` replays the events in push order at the start of a tick, so a press/release within one tick is not lost.
-- **`LockedInspectionService`** (`engine/src/include/Inspection/LockedInspectionService.h`): an `IInspectionService` decorator that is attached to the scene's `SceneInspectionService`. Every call, and every getter/setter of the fields it returns, runs under `sceneMutex`. While no scene is attached, queries return empty results.
-- **`LockedSettingsService`** (`engine/src/include/Settings/LockedSettingsService.h`): the same decorator for `ISettingsService`. Settings are declared once per process, so its wrapped fields never go stale.
+- **`InputEventQueue`** (`engine/include/runtime/input/InputEventQueue.h`): `Push` from any thread keeps a producer-side keys-down mirror (which backs `IsKeyDown`). `DrainInto(InputState&)` replays the events in push order at the start of a tick, so a press/release within one tick is not lost.
+- **`LockedInspectionService`** (`engine/include/runtime/inspection/LockedInspectionService.h`): an `IInspectionService` decorator that is attached to the scene's `SceneInspectionService`. Every call, and every getter/setter of the fields it returns, runs under `sceneMutex`. While no scene is attached, queries return empty results.
+- **`LockedSettingsService`** (`engine/include/runtime/settings/LockedSettingsService.h`): the same decorator for `ISettingsService`. Settings are declared once per process, so its wrapped fields never go stale.
 - `EngineLogService` has its own mutex, because workers log while the GUI thread reads entries.
 - Change detection is split. `PollForProviderChanges` / `PollForEntryChanges` / `PollForSettingsChanges` run under the lock and only return a `bool`. The runtime calls each service's `NotifyChanged()` after releasing it.
 
@@ -129,7 +129,7 @@ Inspection field closures capture raw provider pointers. `Scene` therefore incre
 
 The pipeline itself (`core/`) stays thread-agnostic: it only exposes progress and cancellation hooks. `MriPreprocessingContext::ThrowIfCancelled`/`ReportStageFraction` are checked inside the long-running stages, and `MriPreprocessingCancelled` is reported as a cancellation, not as a failure. `VolumeFileLoader`/`MeshFileLoader` keep their last-error state `thread_local`, because workers and the engine thread load concurrently.
 
-### Foundation `Threading/` primitives
+### Foundation `threading/` primitives
 
 These are header-only, under `engine/include/foundation/threading/`, and Qt- and GL-free:
 
@@ -209,9 +209,9 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 
 - Target and dependency ownership: `CMakeLists.txt`
 - Public facade and host contracts: `engine/include/public/Engine.h`, `engine/include/public/graphics/{IGraphicsContextProvider,ScreenFrame}.h`
-- Runtime (engine thread, locks, screens): `engine/src/include/Runtime/EngineRuntime.h`, `engine/src/Runtime/EngineRuntime.cpp`
-- Input queue: `engine/src/include/Input/InputEventQueue.h`
-- Locking service decorators: `engine/src/include/Inspection/LockedInspectionService.h`, `engine/src/include/Settings/LockedSettingsService.h`
+- Runtime (engine thread, locks, screens): `engine/include/runtime/EngineRuntime.h`, `engine/src/runtime/EngineRuntime.cpp`
+- Input queue: `engine/include/runtime/input/InputEventQueue.h`
+- Locking service decorators: `engine/include/runtime/inspection/LockedInspectionService.h`, `engine/include/runtime/settings/LockedSettingsService.h`
 - Threading primitives: `engine/include/foundation/threading/{BackgroundTask,Cancellation,SharedProgress}.h`
 - Preprocessing jobs and shader cache: `core/include/DtiVolumeScene.h`, `core/src/DtiVolumeScene.cpp`
 - DTI volume texture packing: `engine/include/scene/volume/DTIVolume.h` (`PackDTIVolumeTextures`)

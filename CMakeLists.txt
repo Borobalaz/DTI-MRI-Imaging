@@ -41,10 +41,11 @@ file(GLOB_RECURSE RENDER_SOURCES CONFIGURE_DEPENDS
 )
 
 file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/public/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/scene/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/runtime/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/core/src/*.cpp"
 )
-list(FILTER ENGINE_SOURCES EXCLUDE REGEX "/engine/src/(foundation|render)/")
 
 file(GLOB_RECURSE UI_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/widgets/*.cpp"
@@ -101,7 +102,6 @@ target_include_directories(engine PUBLIC
 
 target_include_directories(engine PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/engine/src/include
     ${CMAKE_CURRENT_SOURCE_DIR}/core/include
 )
 

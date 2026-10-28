@@ -1,4 +1,4 @@
-#include "Inspection/SceneInspectionService.h"
+#include "runtime/inspection/SceneInspectionService.h"
 
 #include "scene/Scene.h"
 

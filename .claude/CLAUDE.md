@@ -43,7 +43,7 @@ There is no automated test suite in this repo (no test target, no test framework
 
 ### Engine/UI boundary is deliberately narrow
 
-`engine`'s public headers (`CMakeLists.txt`: `target_include_directories(engine PUBLIC engine/include/public)`) are just the ones under `engine/include/public/`: `Engine.h`, `graphics/`, `inspection/`, `log/`, `settings/`. Everything under `engine/src/include/**` (Scene, Renderer/RenderProxy, RenderCore extraction, Camera, Volume, Light, concrete Geometry, Input, …) is `PRIVATE` to the `engine` target and **not visible to `app_qt`**. The same goes for the render layer's headers (`engine/include/render/**`), which `engine` links privately.
+`engine`'s public headers (`CMakeLists.txt`: `target_include_directories(engine PUBLIC engine/include/public)`) are just the ones under `engine/include/public/`: `Engine.h`, `graphics/`, `inspection/`, `log/`, `settings/`. Everything else under `engine/include/` (`foundation/`, `render/`, `scene/`, `runtime/`: Scene, the RenderProxy/extraction bridge, Camera, Volume, Light, concrete Geometry, Input, …) is `PRIVATE` to the `engine` target and **not visible to `app_qt`**. The same goes for the render layer's headers (`engine/include/render/**`), which `engine` links privately.
 
 `Engine.h` is explicit about this: *"Public façade for the engine library. This is the only class UI code should depend on; all other engine headers are private implementation details."* In practice `ui/include/widgets/OpenGLViewportWidget.h` includes only `Engine.h` (plus Qt headers) — confirm this when adding new engine functionality: expose it through `Engine`'s facade methods/structs rather than reaching into engine-private headers from UI code.
 
@@ -58,6 +58,20 @@ Crossing the boundary happens through:
 
 > The root `docs/` folder (an old ImGui+GLFW prototype's docs) has been removed. `engine/docs/architecture.md`, `engine/docs/render.md` and `ui/docs/architecture.md` are the maintained sources of truth for cross-boundary/subsystem architecture.
 
+### Engine on-disk layout and layering
+
+All engine code lives in one `engine/include/` (headers) + `engine/src/` (`.cpp` only, mirroring `include/`) pair, organised by layer. Folders are lowercase (multi-word folders in snake_case); file names stay PascalCase.
+
+- **Layers**, in dependency order: `public` <- `foundation` <- `render` <- `scene` <- `runtime`; `engine/src/public/Engine.cpp` (the facade) sits on top and may include anything.
+  - `public/`: `Engine.h`, `graphics/`, `inspection/`, `log/`, `settings/`. Includes nothing else from the engine.
+  - `foundation/`: `log/` (`EngineLog`), `types/` (`StableTypeId`), `threading/` (`BackgroundTask`, `Cancellation`, `SharedProgress`). May include `public`.
+  - `render/`: the render layer (see below). May include `foundation`, `public`.
+  - `scene/`: `Scene`, `object/`, `camera/`, `light/`, `geometry/`, `volume/`, `glyphs/`, `spherical_harmonics/`, `skybox/`, `input/` (`InputState`), `extraction/` (`RenderProxy`, `SceneSnapshot`, `Extraction*`, `RenderFrameBuilder`). May include `render`, `foundation`, `public`.
+  - `runtime/`: `EngineRuntime`, `input/` (`InputEventQueue`), `inspection/`, `log/` (`EngineLogService`), `settings/`. May include all of the above, plus `core/` (`EngineRuntime.cpp` is the only engine file that includes `core`).
+  - `core/` may include `public`, `foundation`, `render`, `scene` (never `runtime`). `ui/` may include only `public` (plus its own `ui/include`).
+- **`public/` vs `internal/`**: `engine/include/public/` is the only engine include dir `app_qt` receives. A layer's `engine/include/<layer>/internal/` holds headers used only inside that layer (currently `render/internal/`: `RenderBackend.h`, `opengl/`, `passes/`, `postprocessing/`); they may only be included from files of the same layer.
+- **Include style**: engine targets use `engine/include` as their include root, so engine-internal includes are layer-prefixed (`"render/texture/Texture3D.h"`, `"scene/volume/DTIVolume.h"`, `"foundation/log/EngineLog.h"`). Public headers are included without a layer prefix, both inside the engine and in `ui/` (`"Engine.h"`, `"inspection/InspectField.h"`, `"log/LogEntry.h"`). No relative (`../`) includes.
+
 ### Render layer (`engine/include/render/` + `engine/src/render/`, target `engine_render`)
 
 The only place graphics-API calls may happen; see `engine/docs/render.md`.
@@ -70,9 +84,9 @@ The only place graphics-API calls may happen; see `engine/docs/render.md`.
   - Texture formats use `TextureFormat`, never GL enums.
   - `glad` may only be included under `engine/src/render/` (and the `engine/include/render/internal/opengl/` headers). Note that this is held by convention plus grep, not the build, because vcpkg's shared include dir makes `<glad/glad.h>` resolvable from `engine` too.
 
-### Engine internals (private, under `engine/src/include` + `engine/src`)
+### Engine internals (private, under `engine/include/{scene,runtime}` + `engine/src/{scene,runtime}`)
 
-- **Runtime/threading**: `EngineRuntime` (`engine/src/include/Runtime/`, the pimpl behind `Engine`) owns the engine thread.
+- **Runtime/threading**: `EngineRuntime` (`engine/include/runtime/`, the pimpl behind `Engine`) owns the engine thread.
   - Each tick, under a coarse `recursive_mutex` (`sceneMutex`), it drains the `InputEventQueue`, runs `Update`, then for each screen runs snapshot -> build -> `Draw` into that screen's `RenderTarget`.
   - Outside the lock it reads back, publishes frames, fires callbacks, and paces to `engine.maxFramerate`.
   - `LockedInspectionService`/`LockedSettingsService` serialize host calls with the tick.
