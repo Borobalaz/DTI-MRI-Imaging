@@ -16,6 +16,8 @@ namespace
   constexpr int kKeyRight = 0x01000014;
   constexpr int kKeyUp = 0x01000013;
   constexpr int kKeyDown = 0x01000015;
+  // Scroll-zoom rate multiplier while Shift is held, for fine adjustment.
+  constexpr float kFineZoomFactor = 0.2f;
 }
 
 InspectionCameraMovement::InspectionCameraMovement(const glm::vec3& lookAtPoint,
@@ -180,7 +182,8 @@ void InspectionCameraMovement::Update(float deltaTime,
   if (std::abs(pendingScrollOffset) >= 1e-5f)
   {
     const float zoomStep = std::max(0.1f, distance * 0.1f);
-    distance -= pendingScrollOffset * zoomSensitivity * zoomStep;
+    const float zoomRate = shiftPressed ? zoomSensitivity * kFineZoomFactor : zoomSensitivity;
+    distance -= pendingScrollOffset * zoomRate * zoomStep;
     distance = std::clamp(distance, minDistance, maxDistance);
   }
 
