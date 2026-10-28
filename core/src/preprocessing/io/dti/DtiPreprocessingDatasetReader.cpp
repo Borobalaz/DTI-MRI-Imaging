@@ -5,12 +5,12 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#include "Geometry/MeshFileLoader.h"
-#include "Mesh.h"
+#include "scene/geometry/MeshFileLoader.h"
+#include "scene/object/Mesh.h"
 #include "Preprocessing/MriPreprocessingPipeline.h"
 #include "Preprocessing/io/dti/DtiChannelTable.h"
-#include "Volume/DTIVolume.h"
-#include "Volume/VolumeFileLoader.h"
+#include "scene/volume/DTIVolume.h"
+#include "scene/volume/VolumeFileLoader.h"
 
 std::any DtiPreprocessingDatasetReader::Read(
     const PreprocessingDatasetMetadata &metadata,

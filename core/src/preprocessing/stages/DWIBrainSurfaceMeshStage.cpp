@@ -11,8 +11,8 @@
 
 #include <glm/glm.hpp>
 
-#include "Geometry/ImportedGeometry.h"
-#include "Volume/VolumeData.h"
+#include "scene/geometry/ImportedGeometry.h"
+#include "scene/volume/VolumeData.h"
 
 namespace
 {

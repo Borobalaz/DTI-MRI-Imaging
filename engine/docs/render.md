@@ -77,7 +77,7 @@ Fixed texture units: material slots 0-4 (`PBR::TextureSlot` order), skybox cubem
 
 ## Boundary data
 
-- The scene side builds typed render commands (`render/core/RenderCommands.h`: `MeshRenderCommand`/`MeshRenderBatch`, `MeshInstancedRenderCommand`/`MeshInstancedRenderBatch`, `VolumeRenderCommand`, `SkyboxRenderCommand`). It appends them to a `RenderDataStore` through the engine-side `RenderProxy` (`engine/src/include/Renderer/RenderProxy.h`), and the engine's `RenderFrameBuilder` assembles a `RenderFrame`.
+- The scene side builds typed render commands (`render/core/RenderCommands.h`: `MeshRenderCommand`/`MeshRenderBatch`, `MeshInstancedRenderCommand`/`MeshInstancedRenderBatch`, `VolumeRenderCommand`, `SkyboxRenderCommand`). It appends them to a `RenderDataStore` through the engine-side `RenderProxy` (`engine/include/scene/extraction/RenderProxy.h`), and the engine's `RenderFrameBuilder` assembles a `RenderFrame`.
 - The layer consumes that frame in `Renderer::Draw`.
 - `MeshInstancedRenderCommand::instances` is a non-owning `const InstanceBuffer*` owned by the submitting object (a `GameObject` or an `SHGlyphField`). A submitter that needs extra per-draw resources (such as the glyph basis table) adds itself to the command's `frameUniforms` copy, as `Volume` does, instead of adding a command field.
 - Postprocessing is gated per frame through `ForwardRenderer::SetPostProcessingEnabled`. The engine runtime sets it each render from the `postprocessing.enabled` engine setting.

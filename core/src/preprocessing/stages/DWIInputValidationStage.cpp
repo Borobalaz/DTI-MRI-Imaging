@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "Preprocessing/stages/CommonPreprocessingStages.h"
-#include "Volume/VolumeFileLoader.h"
+#include "scene/volume/VolumeFileLoader.h"
 
 /**
  * @brief Get the name of the preprocessing stage.

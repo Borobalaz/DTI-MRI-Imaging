@@ -9,10 +9,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
-#include "Geometry/IcosphereGeometry.h"
-#include "Glyphs/SHVolume.h"
+#include "scene/geometry/IcosphereGeometry.h"
+#include "scene/glyphs/SHVolume.h"
 #include "Preprocessing/stages/dti/DtiPreprocessingStages.h"
-#include "SphericalHarmonics/RealSH.h"
+#include "scene/spherical_harmonics/RealSH.h"
 
 namespace
 {

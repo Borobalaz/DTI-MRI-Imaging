@@ -6,7 +6,7 @@ The engine is the `engine` CMake shared-library target. It owns scene state, inp
 
 GPU resources (shaders, materials, textures, geometry buffers), the renderer, its passes, and every graphics-API call live in the separate **render layer**: the `engine_render` static target (`engine/include/render/` + `engine/src/render/`). `engine` links it `PRIVATE`. Both link the `engine_foundation` static target (`engine/include/foundation/` + `engine/src/foundation/`: `EngineLog`, `StableTypeId`, and the header-only `foundation/threading/` primitives), so the dependency direction is `engine` -> `engine_render` -> `engine_foundation`. See [the render layer architecture](render.md) for the layer's public/private split and its `RenderBackend` gateway rule.
 
-Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add_library(engine_render STATIC ...)`, `add_library(engine_foundation STATIC ...)`). Representative runtime entry points are `engine/src/include/Scene/Scene.h`, `engine/src/include/RenderCore/RenderFrameBuilder.h`, and the layer's `engine/include/render/renderer/ForwardRenderer.h`.
+Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add_library(engine_render STATIC ...)`, `add_library(engine_foundation STATIC ...)`). Representative runtime entry points are `engine/include/scene/Scene.h`, `engine/include/scene/extraction/RenderFrameBuilder.h`, and the layer's `engine/include/render/renderer/ForwardRenderer.h`.
 
 ## Top-Down Decomposition
 
@@ -110,7 +110,7 @@ Inspection field closures capture raw provider pointers. `Scene` therefore incre
 
 - **Run** snapshots `currentRequest` plus a copy of the tractography settings, so later inspector edits can't race the worker. The worker calls `MriToDtiPreprocessor::Process(request, options)`, with progress and cancellation passed through `MriPreprocessingExecutionOptions`.
 - **Load** reads a saved dataset on the worker. Its provenance parameters are applied to the scene at apply time.
-- **Run and Load both** finish on the worker by calling `PackDTIVolumeTextures` (`engine/src/include/Volume/DTIVolume.h`). This validates the channels (same dimensions/spacing, finite voxels) and packs them into the five `TextureData3D` payloads of the volume texture contract. Run publishes `Preparing volume textures` while it does this.
+- **Run and Load both** finish on the worker by calling `PackDTIVolumeTextures` (`engine/include/scene/volume/DTIVolume.h`). This validates the channels (same dimensions/spacing, finite voxels) and packs them into the five `TextureData3D` payloads of the volume texture contract. Run publishes `Preparing volume textures` while it does this.
 - **Save** writes the last applied result together with the applied request/settings, so provenance records what was actually applied. It writes into a staging folder and then renames, so a failed save leaves no partial dataset.
 - **Policy.** One job is in flight at a time.
   - Run/Load is latest-wins: a running Run/Load is cancelled and parked in `retiringJob`, so `Update` never joins.
@@ -142,10 +142,10 @@ These are header-only, under `engine/include/foundation/threading/`, and Qt- and
 
 ### SH glyph fields
 
-`SHGlyphField` (`engine/src/include/Glyphs/SHGlyphField.h`) draws an instanced field of spherical-harmonics glyphs. It is a `UniformProvider`, `IDrawable`, `IUpdateable` and `InspectProvider`, registered with `Scene::AddGlyphField` and removed with `ClearGlyphFields`.
+`SHGlyphField` (`engine/include/scene/glyphs/SHGlyphField.h`) draws an instanced field of spherical-harmonics glyphs. It is a `UniformProvider`, `IDrawable`, `IUpdateable` and `InspectProvider`, registered with `Scene::AddGlyphField` and removed with `ClearGlyphFields`.
 
-- **Input.** An `SHVolume` (`Glyphs/SHVolume.h`) holds dense real SH coefficients per voxel (lmax ≤ 8, MRtrix3/tournier07 convention, `VolumeData::FlatIndex` order) and an optional mask volume. It is shared by `shared_ptr<const>`, never copied.
-- **SH math.** `SphericalHarmonics/RealSH.h` (`namespace RealSH`) provides the basis, the per-vertex basis table (Y and its tangential gradient, 45 RGBA32F texels per vertex), and the least-squares fit matrix. The same code serves the glyph renderer and the DTI fit, so the convention cannot drift between them.
+- **Input.** An `SHVolume` (`scene/glyphs/SHVolume.h`) holds dense real SH coefficients per voxel (lmax ≤ 8, MRtrix3/tournier07 convention, `VolumeData::FlatIndex` order) and an optional mask volume. It is shared by `shared_ptr<const>`, never copied.
+- **SH math.** `scene/spherical_harmonics/RealSH.h` (`namespace RealSH`) provides the basis, the per-vertex basis table (Y and its tangential gradient, 45 RGBA32F texels per vertex), and the least-squares fit matrix. The same code serves the glyph renderer and the DTI fit, so the convention cannot drift between them.
 - **Mesh.** An `IcosphereGeometry` of unit radius. Its shared-vertex order is deterministic, so the vertex shader finds its basis row by `gl_VertexID`.
 - **Instances.** Built by the pure function `BuildSHGlyphField`:
   - voxels are stepped by stride and kept when the mask passes the threshold and the coefficients are non-zero;
@@ -214,13 +214,13 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 - Locking service decorators: `engine/src/include/Inspection/LockedInspectionService.h`, `engine/src/include/Settings/LockedSettingsService.h`
 - Threading primitives: `engine/include/foundation/threading/{BackgroundTask,Cancellation,SharedProgress}.h`
 - Preprocessing jobs and shader cache: `core/include/DtiVolumeScene.h`, `core/src/DtiVolumeScene.cpp`
-- DTI volume texture packing: `engine/src/include/Volume/DTIVolume.h` (`PackDTIVolumeTextures`)
-- Scene orchestration: `engine/src/include/Scene/Scene.h`, `engine/src/Scene/Scene.cpp`
-- SH glyphs: `engine/src/include/Glyphs/{SHGlyphField,SHVolume}.h`, `engine/src/include/SphericalHarmonics/RealSH.h`, `engine/src/include/Geometry/IcosphereGeometry.h`, `engine/shaders/sh_glyph/`, and the DTI producer `core/src/preprocessing/stages/dti/DtiTensorShStage.cpp`
+- DTI volume texture packing: `engine/include/scene/volume/DTIVolume.h` (`PackDTIVolumeTextures`)
+- Scene orchestration: `engine/include/scene/Scene.h`, `engine/src/scene/Scene.cpp`
+- SH glyphs: `engine/include/scene/glyphs/{SHGlyphField,SHVolume}.h`, `engine/include/scene/spherical_harmonics/RealSH.h`, `engine/include/scene/geometry/IcosphereGeometry.h`, `engine/shaders/sh_glyph/`, and the DTI producer `core/src/preprocessing/stages/dti/DtiTensorShStage.cpp`
 - Neutral inspection: `engine/include/public/inspection/InspectField.h`
-- Frame construction: `engine/src/include/RenderCore/RenderFrameBuilder.h`
-- Extraction registry: `engine/src/include/RenderCore/ExtractionRegistry.h`
-- Render proxy: `engine/src/include/Renderer/RenderProxy.h`. The typed render commands it carries are render-layer types in `engine/include/render/core/RenderCommands.h`.
+- Frame construction: `engine/include/scene/extraction/RenderFrameBuilder.h`
+- Extraction registry: `engine/include/scene/extraction/ExtractionRegistry.h`
+- Render proxy: `engine/include/scene/extraction/RenderProxy.h`. The typed render commands it carries are render-layer types in `engine/include/render/core/RenderCommands.h`.
 - Renderer, passes, GPU resources, and graphics-API initialization: the render layer under `engine/include/render/` + `engine/src/render/` (see [render layer](render.md))
 
 ## Multipass Rendering

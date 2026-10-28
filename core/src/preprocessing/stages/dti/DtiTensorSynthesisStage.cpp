@@ -14,8 +14,8 @@
 #include <iostream>
 
 #include "Preprocessing/stages/dti/DtiPreprocessingStages.h"
-#include "Volume/VolumeData.h"
-#include "Volume/VolumeFileLoader.h"
+#include "scene/volume/VolumeData.h"
+#include "scene/volume/VolumeFileLoader.h"
 
 namespace
 {

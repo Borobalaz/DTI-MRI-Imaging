@@ -2,7 +2,7 @@
 
 #include <array>
 
-#include "Volume/DTIVolume.h"
+#include "scene/volume/DTIVolume.h"
 
 /**
  * @brief Shared mapping of each DTIVolumeChannels member to its on-disk channel name. Used

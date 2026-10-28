@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Scene/Scene.h"
+#include "scene/Scene.h"
 #include "Preprocessing/MriTractographySettings.h"
-#include "Volume/DTIVolume.h"
+#include "scene/volume/DTIVolume.h"
 #include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
 #include "foundation/threading/BackgroundTask.h"
 #include "foundation/threading/SharedProgress.h"

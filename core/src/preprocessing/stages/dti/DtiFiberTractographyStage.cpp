@@ -8,10 +8,10 @@
 
 #include <glm/glm.hpp>
 
-#include "Mesh.h"
+#include "scene/object/Mesh.h"
 #include "Preprocessing/MriTractographySettings.h"
-#include "Geometry/TubeGeometry.h"
-#include "Volume/VolumeData.h"
+#include "scene/geometry/TubeGeometry.h"
+#include "scene/volume/VolumeData.h"
 
 namespace
 {

@@ -15,7 +15,7 @@
 
 #include "Engine.h"
 #include "Input/InputEventQueue.h"
-#include "Input/InputState.h"
+#include "scene/input/InputState.h"
 #include "Inspection/LockedInspectionService.h"
 #include "Log/EngineLogService.h"
 #include "render/GraphicsApi.h"

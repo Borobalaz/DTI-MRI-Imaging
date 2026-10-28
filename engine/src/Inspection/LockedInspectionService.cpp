@@ -1,7 +1,7 @@
 #include "Inspection/LockedInspectionService.h"
 
 #include "Inspection/SceneInspectionService.h"
-#include "Scene/Scene.h"
+#include "scene/Scene.h"
 
 namespace
 {

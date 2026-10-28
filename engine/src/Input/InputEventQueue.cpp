@@ -1,6 +1,6 @@
 #include "Input/InputEventQueue.h"
 
-#include "Input/InputState.h"
+#include "scene/input/InputState.h"
 
 void InputEventQueue::Push(const InputEvent& event)
 {

@@ -8,11 +8,11 @@
 
 #include <glm/glm.hpp>
 
-#include "Glyphs/SHVolume.h"
-#include "Mesh.h"
+#include "scene/glyphs/SHVolume.h"
+#include "scene/object/Mesh.h"
 #include "foundation/threading/Cancellation.h"
-#include "Volume/VolumeData.h"
-#include "Volume/DTIVolume.h"
+#include "scene/volume/VolumeData.h"
+#include "scene/volume/DTIVolume.h"
 
 class MriTractographySettings;
 

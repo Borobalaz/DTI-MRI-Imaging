@@ -1,6 +1,6 @@
 #include "Inspection/SceneInspectionService.h"
 
-#include "Scene/Scene.h"
+#include "scene/Scene.h"
 
 SceneInspectionService::SceneInspectionService(Scene& sceneRef)
   : scene(sceneRef)

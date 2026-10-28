@@ -1,0 +1,20 @@
+#pragma once
+
+#include <glm/glm.hpp>
+
+#include "scene/light/Light.h"
+
+class DirectionalLight : public Light
+{
+public:
+  DirectionalLight(const std::string& id,
+                   const glm::vec3& direction,
+                   const glm::vec3& ambient,
+                   const glm::vec3& diffuse,
+                   const glm::vec3& specular);
+
+  void Apply(IUniformSink& shader) const override;
+
+  glm::vec3 direction;
+};
+

@@ -12,9 +12,9 @@
 #include "Inspection/SceneInspectionService.h"
 #include "foundation/log/EngineLog.h"
 #include "render/renderer/ForwardRenderer.h"
-#include "RenderCore/ExtractionRegistry.h"
-#include "RenderCore/RenderFrameBuilder.h"
-#include "Scene/Scene.h"
+#include "scene/extraction/ExtractionRegistry.h"
+#include "scene/extraction/RenderFrameBuilder.h"
+#include "scene/Scene.h"
 #include "Settings/EngineSettings.h"
 #include "Settings/EngineSettingsCatalog.h"
 
