@@ -1,6 +1,6 @@
 #include "Passes/InstancedMeshGeometryPass.h"
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 #include "Render/Core/RenderCommands.h"
 #include "Render/Geometry/Geometry.h"
 #include "Render/Geometry/InstanceBuffer.h"

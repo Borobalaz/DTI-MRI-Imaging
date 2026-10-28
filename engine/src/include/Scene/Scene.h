@@ -23,7 +23,7 @@
 #include "IDrawable.h"
 #include "IUpdateable.h"
 #include "RenderCore/SceneSnapshot.h"
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 #include <memory>
 #include "Renderer/RenderProxy.h"
 

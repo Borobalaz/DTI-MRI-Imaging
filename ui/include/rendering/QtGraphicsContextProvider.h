@@ -4,7 +4,7 @@
 
 #include <QSurfaceFormat>
 
-#include "Graphics/IGraphicsContextProvider.h"
+#include "graphics/IGraphicsContextProvider.h"
 
 class QOffscreenSurface;
 class QOpenGLContext;

@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 
-#include "Log/EngineLog.h"
-#include "RenderCore/StableTypeId.h"
+#include "foundation/log/EngineLog.h"
+#include "foundation/types/StableTypeId.h"
 
 class IRenderDataChannel
 {

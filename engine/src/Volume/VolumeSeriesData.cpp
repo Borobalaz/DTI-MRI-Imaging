@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <stdexcept>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 VolumeSeriesData::VolumeSeriesData(int width,
                                    int height,

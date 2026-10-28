@@ -3,7 +3,7 @@
 #include <functional>
 #include <vector>
 
-#include "Log/LogEntry.h"
+#include "log/LogEntry.h"
 
 /**
  * @brief Abstraction the UI depends on to view engine log entries at runtime (DIP boundary),

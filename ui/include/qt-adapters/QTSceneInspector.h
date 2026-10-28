@@ -12,7 +12,7 @@
 #include <QTimer>
 #include <QVariant>
 
-#include "Inspection/IInspectionService.h"
+#include "inspection/IInspectionService.h"
 #include "qt-adapters/InspectionSession.h"
 #include "qt-adapters/InspectObjectSummary.h"
 #include "widgets/inspect_fields/IInspectWidget.h"

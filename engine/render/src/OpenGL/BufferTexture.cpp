@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 #include "OpenGL/GpuDeletionQueue.h"
 #include "OpenGL/TextureGL.h"
 

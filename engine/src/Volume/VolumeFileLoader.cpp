@@ -7,7 +7,7 @@
 #include <iostream>
 #include <limits>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 #ifdef CONNECTOMICS_ENABLE_ITK_IO
 #include <itkGDCMImageIO.h>

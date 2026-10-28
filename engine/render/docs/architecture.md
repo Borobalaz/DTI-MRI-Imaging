@@ -12,7 +12,7 @@ Build evidence: `CMakeLists.txt` (`add_library(engine_render STATIC ...)`). `gla
 app_qt  -->  engine (SHARED)  -->  engine_render (STATIC)  -->  engine_foundation (STATIC)
 ```
 
-- `engine_foundation` (`engine/foundation/`) holds the dependency-free utilities that both the layer and the engine need: `EngineLog` (`Log/EngineLog.h`), `StableTypeId` (`RenderCore/StableTypeId.h`), and the header-only `Threading/` primitives (`BackgroundTask`, `Cancellation`, `SharedProgress`).
+- `engine_foundation` (`engine/include/foundation/` + `engine/src/foundation/`) holds the dependency-free utilities that both the layer and the engine need: `EngineLog` (`foundation/log/EngineLog.h`), `StableTypeId` (`foundation/types/StableTypeId.h`), and the header-only `foundation/threading/` primitives (`BackgroundTask`, `Cancellation`, `SharedProgress`).
 - `engine_render` depends on `engine_foundation` and `glm`, and has `glad`/OpenGL as private dependencies. It never includes headers from `engine/src/include` or `core/`.
 - `engine` (scene, volumes, concrete geometries, extraction, the `Engine` facade) depends on the layer's public headers. It never includes `engine/render/src`.
 

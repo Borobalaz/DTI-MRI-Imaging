@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_set>
 
-#include "RenderCore/StableTypeId.h"
+#include "foundation/types/StableTypeId.h"
 
 using RendererTypeId = StableTypeId;
 using CapabilityId = StableTypeId;

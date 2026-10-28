@@ -10,7 +10,7 @@ Two shipped CMake targets, one process:
 
 - `engine` — Qt-independent `SHARED` library: scene graph, geometry, volumes, input, inspection contracts. Privately links two internal `STATIC` targets:
   - `engine_render` (`engine/render/`) — the render layer: GPU resources, renderer, passes. The only code allowed to make graphics-API calls.
-  - `engine_foundation` (`engine/foundation/`) — dependency-free utilities shared by both (`EngineLog`, `StableTypeId`).
+  - `engine_foundation` (`engine/include/foundation/` + `engine/src/foundation/`) — dependency-free utilities shared by both (`EngineLog`, `StableTypeId`).
 - `app_qt` — Qt Widgets executable: application shell, viewport, inspector, object list, styling.
 
 `app_qt` links `engine`; both `engine.dll` and `app_qt.exe` land in the same build output directory so the exe can load the engine at runtime. Shaders (`engine/shaders`) and assets (`engine/assets`) are copied next to the executable post-build (see `CMakeLists.txt`).
@@ -43,13 +43,13 @@ There is no automated test suite in this repo (no test target, no test framework
 
 ### Engine/UI boundary is deliberately narrow
 
-`engine`'s public headers (`CMakeLists.txt`: `target_include_directories(engine PUBLIC engine/include)`) are just `engine/include/Engine.h` and `engine/include/Inspection/*.h`. Everything under `engine/src/include/**` (Scene, Renderer/RenderProxy, RenderCore extraction, Camera, Volume, Light, concrete Geometry, Input, …) is `PRIVATE` to the `engine` target and **not visible to `app_qt`**. The same goes for the render layer's headers (`engine/render/include/Render/**`), which `engine` links privately.
+`engine`'s public headers (`CMakeLists.txt`: `target_include_directories(engine PUBLIC engine/include/public)`) are just the ones under `engine/include/public/`: `Engine.h`, `graphics/`, `inspection/`, `log/`, `settings/`. Everything under `engine/src/include/**` (Scene, Renderer/RenderProxy, RenderCore extraction, Camera, Volume, Light, concrete Geometry, Input, …) is `PRIVATE` to the `engine` target and **not visible to `app_qt`**. The same goes for the render layer's headers (`engine/render/include/Render/**`), which `engine` links privately.
 
 `Engine.h` is explicit about this: *"Public façade for the engine library. This is the only class UI code should depend on; all other engine headers are private implementation details."* In practice `ui/include/widgets/OpenGLViewportWidget.h` includes only `Engine.h` (plus Qt headers) — confirm this when adding new engine functionality: expose it through `Engine`'s facade methods/structs rather than reaching into engine-private headers from UI code.
 
 Crossing the boundary happens through:
 - `Engine` facade methods:
-  - **Threaded mode** (used by `app_qt`): `Start(IGraphicsContextProvider)`, `Stop`, `IsRunning`, `SetPaused`. The engine owns its render thread, and the host supplies the GL context through the provider (`engine/include/Graphics/`).
+  - **Threaded mode** (used by `app_qt`): `Start(IGraphicsContextProvider)`, `Stop`, `IsRunning`, `SetPaused`. The engine owns its render thread, and the host supplies the GL context through the provider (`engine/include/public/graphics/`).
   - **Screens**: `CreateScreen`/`DestroyScreen`/`SetScreenSize`, `GetScreenFrame` (CPU `ScreenFrame`, RGBA8 top-down, buffer swap) and `OnFrameReady`.
   - **Sync mode**, for hosts that drive the loop themselves: `InitializeOpenGL`, `CreateScene`, `Update`, `Render`, `ShutdownGraphics`.
   - **Thread-safe in both modes**: input (`OnKeyChanged`, `OnMouseButtonChanged`, `OnMousePositionChanged`, `OnScroll`, which are queued and replayed at the next tick), `SetViewportSize`/`SetFillColor`, picking (`ScreenPointToRay`), and the `Get*Service` accessors.

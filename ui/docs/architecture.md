@@ -90,7 +90,7 @@ The viewport's destructor also calls `ShutdownEngine()`. Members are destroyed i
 
 ## Engine Boundary
 
-The UI includes only the engine's public headers: `Engine.h`, `Graphics/{IGraphicsContextProvider,ScreenFrame}.h`, `Inspection/*`, `Log/*`, `Settings/ISettingsService.h`. It never includes engine-private headers (`Scene`, `ForwardRenderer`, `InputState`, ...), `QOpenGLWidget`/`QOpenGLFunctions`, or glad.
+The UI includes only the engine's public headers, which live under `engine/include/public/` (the only engine include dir `app_qt` receives) and are included without a layer prefix: `Engine.h`, `graphics/{IGraphicsContextProvider,ScreenFrame}.h`, `inspection/*`, `log/*`, `settings/ISettingsService.h`. It never includes engine-private headers (`Scene`, `ForwardRenderer`, `InputState`, ...), `QOpenGLWidget`/`QOpenGLFunctions`, or glad.
 
 The boundary responsibilities are:
 

@@ -7,7 +7,7 @@
 
 #include "IUpdateable.h"
 #include "Render/Uniform/UniformProvider.h"
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 class Light : public UniformProvider, public IUpdateable, public InspectProvider
 {

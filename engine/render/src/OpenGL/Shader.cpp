@@ -10,7 +10,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 #include "OpenGL/GpuDeletionQueue.h"
 #include "RenderBackend.h"
 #include "Render/Texture/Texture.h"

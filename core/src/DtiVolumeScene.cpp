@@ -11,7 +11,7 @@
 #include "Preprocessing/io/PreprocessingDatasetFormats.h"
 #include "Preprocessing/io/PreprocessingDatasetMetadataIO.h"
 #include "Preprocessing/io/dti/DtiPreprocessingParameters.h"
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 #include <algorithm>
 #include <any>

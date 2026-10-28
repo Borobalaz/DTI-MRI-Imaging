@@ -6,7 +6,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 #include "Renderer/RenderProxy.h"
 #include "Render/VolumeTextureSet.h"
 

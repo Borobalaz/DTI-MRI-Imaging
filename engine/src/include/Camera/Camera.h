@@ -8,7 +8,7 @@
 #include "Render/Uniform/UniformProvider.h"
 #include "Camera/BaseMovement.h"
 #include "Transform.h"
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 class Camera : public UniformProvider, public InspectProvider
 {

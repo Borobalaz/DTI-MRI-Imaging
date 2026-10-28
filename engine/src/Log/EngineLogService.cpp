@@ -1,6 +1,6 @@
 #include "Log/EngineLogService.h"
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 std::vector<LogEntry> EngineLogService::GetEntries() const
 {

@@ -6,7 +6,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Inspection/IInspectionService.h"
+#include "inspection/IInspectionService.h"
 #include "qt-adapters/InspectObjectSummary.h"
 
 /**

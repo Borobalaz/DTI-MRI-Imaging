@@ -13,7 +13,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 #include <glm/gtc/constants.hpp>
 

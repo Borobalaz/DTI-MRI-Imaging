@@ -9,7 +9,7 @@
 #include "Volume/Volume.h"
 #include "Render/VolumeTextureSet.h"
 #include "Render/Texture/TextureData3D.h"
-#include "Threading/Cancellation.h"
+#include "foundation/threading/Cancellation.h"
 
 struct DTIVolumeChannels
 {

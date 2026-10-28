@@ -10,7 +10,7 @@
 
 #include "Glyphs/SHVolume.h"
 #include "Mesh.h"
-#include "Threading/Cancellation.h"
+#include "foundation/threading/Cancellation.h"
 #include "Volume/VolumeData.h"
 #include "Volume/DTIVolume.h"
 

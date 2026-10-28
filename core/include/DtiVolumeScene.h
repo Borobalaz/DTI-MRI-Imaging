@@ -4,8 +4,8 @@
 #include "Preprocessing/MriTractographySettings.h"
 #include "Volume/DTIVolume.h"
 #include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
-#include "Threading/BackgroundTask.h"
-#include "Threading/SharedProgress.h"
+#include "foundation/threading/BackgroundTask.h"
+#include "foundation/threading/SharedProgress.h"
 
 #include <memory>
 #include <optional>

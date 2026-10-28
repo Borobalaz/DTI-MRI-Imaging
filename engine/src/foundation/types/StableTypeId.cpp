@@ -1,10 +1,10 @@
-#include "RenderCore/StableTypeId.h"
+#include "foundation/types/StableTypeId.h"
 
 #include <cassert>
 #include <mutex>
 #include <unordered_map>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 namespace
 {

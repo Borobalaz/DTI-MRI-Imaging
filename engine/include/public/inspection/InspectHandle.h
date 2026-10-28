@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 /**
  * @brief Lifetime-safe reference to an InspectProvider. Never holds a raw pointer;

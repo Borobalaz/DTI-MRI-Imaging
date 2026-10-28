@@ -12,7 +12,7 @@
 #include "Render/Shader.h"
 #include "Transform.h"
 #include "Render/Uniform/UniformProvider.h"
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 #include "Render/Geometry/InstanceBuffer.h"
 
 struct RenderProxy;

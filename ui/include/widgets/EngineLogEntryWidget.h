@@ -2,7 +2,7 @@
 
 #include <QFrame>
 
-#include "Log/LogEntry.h"
+#include "log/LogEntry.h"
 
 class QEvent;
 class QLabel;

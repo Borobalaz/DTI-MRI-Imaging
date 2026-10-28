@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <mutex>
 
-#include "Inspection/IInspectionService.h"
+#include "inspection/IInspectionService.h"
 
 class Scene;
 class SceneInspectionService;

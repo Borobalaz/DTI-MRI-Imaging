@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The engine is the `engine` CMake shared-library target. It owns scene state, input state, volume data, concrete geometries, scene-to-frame extraction, and neutral inspection contracts. The target is built from `engine/src` (plus `core/src`), exports headers from `engine/include`, and does not depend on Qt.
+The engine is the `engine` CMake shared-library target. It owns scene state, input state, volume data, concrete geometries, scene-to-frame extraction, and neutral inspection contracts. The target is built from `engine/src` (plus `core/src`), exports its public headers from `engine/include/public`, and does not depend on Qt.
 
-GPU resources (shaders, materials, textures, geometry buffers), the renderer, its passes, and every graphics-API call live in the separate **render layer**: the `engine_render` static target under `engine/render/`. `engine` links it `PRIVATE`. Both link the `engine_foundation` static target (`engine/foundation/`: `EngineLog`, `StableTypeId`, and the header-only `Threading/` primitives), so the dependency direction is `engine` -> `engine_render` -> `engine_foundation`. See [the render layer architecture](../render/docs/architecture.md) for the layer's public/private split and its `RenderBackend` gateway rule.
+GPU resources (shaders, materials, textures, geometry buffers), the renderer, its passes, and every graphics-API call live in the separate **render layer**: the `engine_render` static target under `engine/render/`. `engine` links it `PRIVATE`. Both link the `engine_foundation` static target (`engine/include/foundation/` + `engine/src/foundation/`: `EngineLog`, `StableTypeId`, and the header-only `foundation/threading/` primitives), so the dependency direction is `engine` -> `engine_render` -> `engine_foundation`. See [the render layer architecture](../render/docs/architecture.md) for the layer's public/private split and its `RenderBackend` gateway rule.
 
 Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add_library(engine_render STATIC ...)`, `add_library(engine_foundation STATIC ...)`). Representative runtime entry points are `engine/src/include/Scene/Scene.h`, `engine/src/include/RenderCore/RenderFrameBuilder.h`, and the layer's `engine/render/include/Render/Renderer/ForwardRenderer.h`.
 
@@ -23,11 +23,11 @@ Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add
 
 ## Runtime Flow
 
-The `Engine` facade (`engine/include/Engine.h`) runs in one of two modes. Both run the same tick body (`EngineRuntime::UpdateLocked` + `RenderLocked`).
+The `Engine` facade (`engine/include/public/Engine.h`) runs in one of two modes. Both run the same tick body (`EngineRuntime::UpdateLocked` + `RenderLocked`).
 
 **Threaded mode** (used by `app_qt`):
 
-1. The host calls `Engine::Start(provider)` with an `IGraphicsContextProvider` (`engine/include/Graphics/IGraphicsContextProvider.h`). `Start` spawns the engine thread and blocks until initialization finishes. On the engine thread: `CreateContext` -> `MakeCurrent` -> `InitializeGraphicsApi` (render layer, resolving entry points through the provider's `GetProcAddress`) -> `ForwardRenderer` -> `DtiVolumeScene`.
+1. The host calls `Engine::Start(provider)` with an `IGraphicsContextProvider` (`engine/include/public/graphics/IGraphicsContextProvider.h`). `Start` spawns the engine thread and blocks until initialization finishes. On the engine thread: `CreateContext` -> `MakeCurrent` -> `InitializeGraphicsApi` (render layer, resolving entry points through the provider's `GetProcAddress`) -> `ForwardRenderer` -> `DtiVolumeScene`.
 2. The host creates one or more screens (`CreateScreen`, `SetScreenSize` in device pixels).
 3. Each tick, under the scene lock:
    1. Drain queued input into `InputState`.
@@ -84,7 +84,7 @@ Each tick whose locked update + render exceeds 33 ms logs `Slow tick: update <a>
 
 ### Screens
 
-A screen is an engine-owned offscreen `RenderTarget` that is rendered every tick. Its frame is read back as a `ScreenFrame` (`engine/include/Graphics/ScreenFrame.h`):
+A screen is an engine-owned offscreen `RenderTarget` that is rendered every tick. Its frame is read back as a `ScreenFrame` (`engine/include/public/graphics/ScreenFrame.h`):
 
 - `pixels` is tightly packed RGBA8, with rows **top-down** (row 0 is the top of the image), so hosts never flip.
 - The frame also carries `width`, `height`, `frameIndex`, `frameTimeMs` and `fps`.
@@ -131,7 +131,7 @@ The pipeline itself (`core/`) stays thread-agnostic: it only exposes progress an
 
 ### Foundation `Threading/` primitives
 
-These are header-only, under `engine/foundation/include/Threading/`, and Qt- and GL-free:
+These are header-only, under `engine/include/foundation/threading/`, and Qt- and GL-free:
 
 - **`Cancellation.h`**: `CancellationSource` (`Cancel`, `Token`) and `CancellationToken` (`IsCancellationRequested`, `ThrowIfCancellationRequested`), backed by a shared atomic flag. A default token never cancels. Also defines the `OperationCancelled` exception.
 - **`SharedProgress.h`**: a latest-value `ProgressSnapshot{label, step, stepCount, fraction}` mailbox behind a mutex (`Publish`/`Read`).
@@ -208,16 +208,16 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 ## Source Map
 
 - Target and dependency ownership: `CMakeLists.txt`
-- Public facade and host contracts: `engine/include/Engine.h`, `engine/include/Graphics/{IGraphicsContextProvider,ScreenFrame}.h`
+- Public facade and host contracts: `engine/include/public/Engine.h`, `engine/include/public/graphics/{IGraphicsContextProvider,ScreenFrame}.h`
 - Runtime (engine thread, locks, screens): `engine/src/include/Runtime/EngineRuntime.h`, `engine/src/Runtime/EngineRuntime.cpp`
 - Input queue: `engine/src/include/Input/InputEventQueue.h`
 - Locking service decorators: `engine/src/include/Inspection/LockedInspectionService.h`, `engine/src/include/Settings/LockedSettingsService.h`
-- Threading primitives: `engine/foundation/include/Threading/{BackgroundTask,Cancellation,SharedProgress}.h`
+- Threading primitives: `engine/include/foundation/threading/{BackgroundTask,Cancellation,SharedProgress}.h`
 - Preprocessing jobs and shader cache: `core/include/DtiVolumeScene.h`, `core/src/DtiVolumeScene.cpp`
 - DTI volume texture packing: `engine/src/include/Volume/DTIVolume.h` (`PackDTIVolumeTextures`)
 - Scene orchestration: `engine/src/include/Scene/Scene.h`, `engine/src/Scene/Scene.cpp`
 - SH glyphs: `engine/src/include/Glyphs/{SHGlyphField,SHVolume}.h`, `engine/src/include/SphericalHarmonics/RealSH.h`, `engine/src/include/Geometry/IcosphereGeometry.h`, `engine/shaders/sh_glyph/`, and the DTI producer `core/src/preprocessing/stages/dti/DtiTensorShStage.cpp`
-- Neutral inspection: `engine/include/Inspection/InspectField.h`
+- Neutral inspection: `engine/include/public/inspection/InspectField.h`
 - Frame construction: `engine/src/include/RenderCore/RenderFrameBuilder.h`
 - Extraction registry: `engine/src/include/RenderCore/ExtractionRegistry.h`
 - Render proxy: `engine/src/include/Renderer/RenderProxy.h`. The typed render commands it carries are render-layer types in `engine/render/include/Render/Core/RenderCommands.h`.

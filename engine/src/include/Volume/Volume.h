@@ -15,7 +15,7 @@
 #include "Volume/VolumeData.h"
 #include "Geometry/VolumeGeometry.h"
 #include "Render/VolumeTextureSet.h"
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 class Volume : public UniformProvider, public IDrawable, public IUpdateable, public InspectProvider
 {

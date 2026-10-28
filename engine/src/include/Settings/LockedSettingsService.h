@@ -2,7 +2,7 @@
 
 #include <mutex>
 
-#include "Settings/ISettingsService.h"
+#include "settings/ISettingsService.h"
 
 /**
  * @brief ISettingsService decorator that serializes every call -- and every getter/setter of the

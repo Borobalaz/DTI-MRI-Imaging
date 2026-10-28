@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-#include "Log/LogEntry.h"
+#include "log/LogEntry.h"
 
 /**
  * @brief Thread-safe static/global log registry engine objects append diagnostic entries to.

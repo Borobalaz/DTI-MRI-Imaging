@@ -7,7 +7,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 #include "SphericalHarmonics/RealSH.h"
 
 namespace

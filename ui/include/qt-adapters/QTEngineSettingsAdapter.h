@@ -6,7 +6,7 @@
 #include <QHash>
 #include <QTimer>
 #include <QVariant>
-#include "Settings/ISettingsService.h"
+#include "settings/ISettingsService.h"
 #include "widgets/inspect_fields/IInspectWidget.h"
 
 // Thin Qt adapter around ISettingsService: a selection-free subset of QTSceneInspector that

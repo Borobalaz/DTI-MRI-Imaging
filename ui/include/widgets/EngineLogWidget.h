@@ -6,7 +6,7 @@
 
 #include <QFrame>
 
-#include "Log/ILogService.h"
+#include "log/ILogService.h"
 
 class QHBoxLayout;
 class QScrollArea;

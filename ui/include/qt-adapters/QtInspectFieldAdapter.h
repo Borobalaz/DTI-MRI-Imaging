@@ -6,7 +6,7 @@
 #include <QObject>
 #include <QVariant>
 
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 #include "widgets/inspect_fields/IInspectWidget.h"
 
 // Converts engine-neutral InspectValue <-> QVariant, keyed by the field's InspectFieldType.

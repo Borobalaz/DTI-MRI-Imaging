@@ -12,15 +12,15 @@
 #include "Glyphs/SHVolume.h"
 #include "IDrawable.h"
 #include "IUpdateable.h"
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 #include "Render/Geometry/InstanceBuffer.h"
 #include "Render/Material.h"
 #include "Render/Shader.h"
 #include "Render/Texture/BufferTexture.h"
 #include "Render/Uniform/UniformProvider.h"
 #include "Renderer/RenderProxy.h"
-#include "Threading/BackgroundTask.h"
-#include "Threading/Cancellation.h"
+#include "foundation/threading/BackgroundTask.h"
+#include "foundation/threading/Cancellation.h"
 #include "Transform.h"
 
 // Inputs of one glyph-field build; any change triggers a (latest-wins) rebuild.

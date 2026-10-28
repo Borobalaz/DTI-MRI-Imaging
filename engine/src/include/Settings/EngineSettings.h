@@ -6,7 +6,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 /**
  * @brief Thread-safe static/global settings catalog. Unlike a plain registry of borrowed

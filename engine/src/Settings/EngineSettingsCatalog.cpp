@@ -1,7 +1,7 @@
 #include "Settings/EngineSettingsCatalog.h"
 
 #include "Settings/EngineSettings.h"
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 void RegisterEngineSettingsCatalog()
 {

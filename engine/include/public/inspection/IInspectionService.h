@@ -7,8 +7,8 @@
 
 #include <glm/glm.hpp>
 
-#include "Inspection/InspectField.h"
-#include "Inspection/InspectHandle.h"
+#include "inspection/InspectField.h"
+#include "inspection/InspectHandle.h"
 
 /**
  * @brief Abstraction the UI depends on to inspect/edit engine objects at runtime (DIP boundary).

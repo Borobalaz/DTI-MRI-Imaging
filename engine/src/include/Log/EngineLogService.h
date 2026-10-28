@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <mutex>
 
-#include "Log/ILogService.h"
+#include "log/ILogService.h"
 
 /**
  * @brief Concrete ILogService backed by the EngineLog static registry. Internal engine detail;

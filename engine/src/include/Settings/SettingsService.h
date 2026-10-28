@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <mutex>
 
-#include "Settings/ISettingsService.h"
+#include "settings/ISettingsService.h"
 
 /**
  * @brief Concrete ISettingsService backed by the EngineSettings static registry. Internal

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 RegistrationToken ExtractionRegistry::RegisterExtractor(std::unique_ptr<IRenderExtractor> extractor,
                                                         ExtractorRegistrationInfo info)

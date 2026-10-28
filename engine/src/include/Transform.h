@@ -9,7 +9,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 class Transform : public InspectProvider
 {

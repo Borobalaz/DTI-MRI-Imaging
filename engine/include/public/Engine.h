@@ -5,12 +5,12 @@
 
 #include <glm/glm.hpp>
 
-#include "Graphics/IGraphicsContextProvider.h"
-#include "Graphics/ScreenFrame.h"
-#include "Inspection/InspectField.h"
-#include "Inspection/IInspectionService.h"
-#include "Log/ILogService.h"
-#include "Settings/ISettingsService.h"
+#include "graphics/IGraphicsContextProvider.h"
+#include "graphics/ScreenFrame.h"
+#include "inspection/InspectField.h"
+#include "inspection/IInspectionService.h"
+#include "log/ILogService.h"
+#include "settings/ISettingsService.h"
 
 class EngineRuntime;
 

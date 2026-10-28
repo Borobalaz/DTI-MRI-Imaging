@@ -3,7 +3,7 @@
 #include <functional>
 #include <vector>
 
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 /**
  * @brief Abstraction the UI depends on to view/edit flat, non-selection-based engine-wide

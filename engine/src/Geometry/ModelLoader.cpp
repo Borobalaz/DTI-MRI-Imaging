@@ -12,7 +12,7 @@
 #include <glm/glm.hpp>
 
 #include "Geometry/ImportedGeometry.h"
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 #include "Render/Material.h"
 #include "Mesh.h"
 #include "Render/Texture/Texture2D.h"

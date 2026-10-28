@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "Inspection/InspectField.h"
+#include "inspection/InspectField.h"
 
 class MriTractographySettings final : public InspectProvider
 {

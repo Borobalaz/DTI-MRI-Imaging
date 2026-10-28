@@ -8,7 +8,7 @@
 #include <string>
 
 #include "Geometry/IcosphereGeometry.h"
-#include "Log/EngineLog.h"
+#include "foundation/log/EngineLog.h"
 
 namespace
 {

@@ -33,7 +33,7 @@ find_path(STB_INCLUDE_DIR
 )
 
 file(GLOB_RECURSE FOUNDATION_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/engine/foundation/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/foundation/*.cpp"
 )
 
 file(GLOB_RECURSE RENDER_SOURCES CONFIGURE_DEPENDS
@@ -44,6 +44,7 @@ file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/core/src/*.cpp"
 )
+list(FILTER ENGINE_SOURCES EXCLUDE REGEX "/engine/src/foundation/")
 
 file(GLOB_RECURSE UI_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/widgets/*.cpp"
@@ -60,8 +61,8 @@ add_library(engine_foundation STATIC ${FOUNDATION_SOURCES})
 set_target_properties(engine_foundation PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(engine_foundation PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/engine/foundation/include
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include/public
 )
 
 # The render layer: the only target allowed to touch the graphics API. glad and
@@ -96,10 +97,11 @@ add_library(engine SHARED ${ENGINE_SOURCES})
 set_target_properties(engine PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 target_include_directories(engine PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include/public
 )
 
 target_include_directories(engine PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/src/include
     ${CMAKE_CURRENT_SOURCE_DIR}/core/include
 )
