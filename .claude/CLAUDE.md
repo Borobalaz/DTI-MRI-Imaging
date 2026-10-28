@@ -20,12 +20,13 @@ Two shipped CMake targets, one process:
 All scripts are PowerShell, run from repo root, and read machine-specific paths from `settings.json` (vcpkg root, Qt root/candidates, compiler path). Update `settings.json` when setting up on a new machine, or set `$env:QT_ROOT` / `$env:VCPKG_ROOT` to override.
 
 ```powershell
-./build.ps1              # configure + build, default config from settings.json (Release)
+./build.ps1              # layering lint + configure + build, default config from settings.json (Release)
 ./build.ps1 Debug
 ./build.ps1 Release
 ./build-and-run.ps1       # build then run
 ./debug.ps1 Release       # run only (assumes already built); also runs windeployqt and copies vcpkg DLLs next to the exe
 ./clean.ps1               # removes the build directory
+./check-layering.ps1      # include-layering lint only (build.ps1 runs it before configuring; reads nothing from settings.json)
 ```
 
 Manual CMake equivalent:
@@ -71,6 +72,7 @@ All engine code lives in one `engine/include/` (headers) + `engine/src/` (`.cpp`
   - `core/` may include `public`, `foundation`, `render`, `scene` (never `runtime`). `ui/` may include only `public` (plus its own `ui/include`).
 - **`public/` vs `internal/`**: `engine/include/public/` is the only engine include dir `app_qt` receives. A layer's `engine/include/<layer>/internal/` holds headers used only inside that layer (currently `render/internal/`: `RenderBackend.h`, `opengl/`, `passes/`, `postprocessing/`); they may only be included from files of the same layer.
 - **Include style**: engine targets use `engine/include` as their include root, so engine-internal includes are layer-prefixed (`"render/texture/Texture3D.h"`, `"scene/volume/DTIVolume.h"`, `"foundation/log/EngineLog.h"`). Public headers are included without a layer prefix, both inside the engine and in `ui/` (`"Engine.h"`, `"inspection/InspectField.h"`, `"log/LogEntry.h"`). No relative (`../`) includes.
+- **Enforcement**: `check-layering.ps1` (repo root, run by `build.ps1` before the CMake configure step) classifies every `.h`/`.cpp` in `engine/`, `core/` and `ui/` by path and every `#include` by prefix, and fails with `file:line: message` on a layer-graph violation, an `internal/` header included from another layer, a `glad` include outside `engine/src/render/`/`engine/include/render/internal/`, or a `ui/` include that is neither under `ui/include` nor a public engine header.
 
 ### Render layer (`engine/include/render/` + `engine/src/render/`, target `engine_render`)
 
@@ -82,7 +84,7 @@ The only place graphics-API calls may happen; see `engine/docs/render.md`.
 - **Scene code stays GL-free**:
   - `UniformProvider::Apply(IUniformSink&)` writes uniforms, and `IUniformSink::SetTexture(name, texture, unit)` binds textures.
   - Texture formats use `TextureFormat`, never GL enums.
-  - `glad` may only be included under `engine/src/render/` (and the `engine/include/render/internal/opengl/` headers). Note that this is held by convention plus grep, not the build, because vcpkg's shared include dir makes `<glad/glad.h>` resolvable from `engine` too.
+  - `glad` may only be included under `engine/src/render/` (and the `engine/include/render/internal/opengl/` headers). The compiler doesn't enforce this, because vcpkg's shared include dir makes `<glad/glad.h>` resolvable from `engine` too; `check-layering.ps1` does.
 
 ### Engine internals (private, under `engine/include/{scene,runtime}` + `engine/src/{scene,runtime}`)
 

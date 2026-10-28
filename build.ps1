@@ -36,7 +36,15 @@ if (-not $QtRoot) {
     exit 1
 }
 
-Write-Host "=== Configuring CMake ===" -ForegroundColor Green
+Write-Host "=== Checking engine include layering ===" -ForegroundColor Green
+& (Join-Path $ProjectRoot "check-layering.ps1")
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Layering check failed!" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "`n=== Configuring CMake ===" -ForegroundColor Green
 $CacheFile = Join-Path $BuildDirectory "CMakeCache.txt"
 $CachedSourceLine = if (Test-Path $CacheFile) {
     Select-String -Path $CacheFile -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=' | Select-Object -First 1

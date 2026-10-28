@@ -28,7 +28,7 @@ app_qt  -->  engine (SHARED)  -->  engine_render (STATIC)  -->  engine_foundatio
 | `engine/src/render/passes/` | private sources | `MeshGeometryPass`, `InstancedMeshGeometryPass`, `VolumePass`, `SkyboxPass` |
 | `engine/src/render/postprocessing/` | private sources | `AntiAliasingPass` (FXAA) and `PostProcessingShader` |
 
-`engine/include` is on the include path of every engine target, so the compiler alone does not stop an `engine`/`core` file from including `render/internal/...`; internal headers may only be included from render-layer files, by convention. `<glad/glad.h>` is not blocked by the build either: under vcpkg its header sits in the same shared `include/` directory as `glm`/`assimp`, and `glad`'s link dependency propagates from the static `engine_render` into `engine`. Keeping glad inside `engine/src/render/` (and the `render/internal/opengl/` headers) is therefore a convention, checked by grep, not something the compiler enforces.
+`engine/include` is on the include path of every engine target, so the compiler alone does not stop an `engine`/`core` file from including `render/internal/...`; internal headers may only be included from render-layer files, which `check-layering.ps1` (run by `build.ps1` before configuring) enforces. `<glad/glad.h>` is not blocked by the build either: under vcpkg its header sits in the same shared `include/` directory as `glm`/`assimp`, and `glad`'s link dependency propagates from the static `engine_render` into `engine`. Keeping glad inside `engine/src/render/` (and the `render/internal/opengl/` headers) is therefore enforced by `check-layering.ps1`, not by the compiler.
 
 ## The `RenderBackend` friend gateway
 
