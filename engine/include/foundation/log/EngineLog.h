@@ -8,7 +8,7 @@
 
 /**
  * @brief Thread-safe static/global log registry engine objects append diagnostic entries to.
- *  Mirrors StableTypeId.cpp's function-local-static + mutex pattern (engine/src/RenderCore/StableTypeId.cpp)
+ *  Mirrors StableTypeId.cpp's function-local-static + mutex pattern (engine/src/foundation/types/StableTypeId.cpp)
  *  rather than threading a logger reference through every constructor. Internal engine detail;
  *  only reachable through EngineLogService (and, from app_qt, through Engine::GetLogService()).
  */
