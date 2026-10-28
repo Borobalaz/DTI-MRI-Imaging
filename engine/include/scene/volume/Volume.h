@@ -61,6 +61,10 @@ protected:
 
   glm::mat4 BuildModelMatrix() const;
 
+  // Box size of this volume's grid in dataset object space (DatasetObjectExtents(dimensions,
+  // spacing), see scene/slicing/SlicePlane.h). Intrinsic: unaffected by later SetScale edits.
+  glm::vec3 GetObjectExtents() const;
+
   // Only derived classes can construct Volume. 
   // The reason is that only derived classes can be instantiated, 
   //  and in their constructors they have to populate the textureSet with their own data.  

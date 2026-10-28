@@ -9,6 +9,7 @@
 #include "foundation/log/EngineLog.h"
 #include "scene/extraction/RenderProxy.h"
 #include "render/VolumeTextureSet.h"
+#include "scene/slicing/SlicePlane.h"
 
 /**
  * @brief Construct a new Volume:: Volume object
@@ -199,6 +200,11 @@ std::vector<InspectFieldPtr> Volume::GetInspectFields()
 glm::mat4 Volume::BuildModelMatrix() const
 {
   return transform.GetModelMatrix();
+}
+
+glm::vec3 Volume::GetObjectExtents() const
+{
+  return DatasetObjectExtents(dimensions, spacing);
 }
 
 /**

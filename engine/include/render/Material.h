@@ -37,6 +37,15 @@ public:
   void SetRoughness(float value);
   void SetMetallic(float value);
   void SetEmissive(const glm::vec3& color);
+  // Written as material.opacity (clamped to [0, 1]); only shaders that declare it and passes that
+  // blend (TransparentPass) give it an effect.
+  void SetOpacity(float value);
+  float GetOpacity() const { return opacity; }
+
+  // Rasterization hint consumed by the mesh passes (GL-free state): when true, back faces
+  // (GL_BACK with CCW front faces) are culled for draws using this material.
+  void SetCullBackFaces(bool enabled);
+  bool GetCullBackFaces() const { return cullBackFaces; }
 
   // Texture setters by slot
   void SetTexture(PBR::TextureSlot slot, std::shared_ptr<Texture> texture);
@@ -64,6 +73,8 @@ private:
   float roughness;
   float metallic;
   glm::vec3 emissive;
+  float opacity = 1.0f;
+  bool cullBackFaces = false;
 
   // PBR textures
   std::array<std::shared_ptr<Texture>, static_cast<size_t>(PBR::TextureSlot::Count)> textures;

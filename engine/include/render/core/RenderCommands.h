@@ -48,6 +48,22 @@ struct MeshInstancedRenderBatch
   std::vector<MeshInstancedRenderCommand> draws;
 };
 
+// Alpha-blended mesh draw, consumed by TransparentPass after the opaque and volume passes:
+// blend SRC_ALPHA / ONE_MINUS_SRC_ALPHA, depth test on, depth write off, no face culling
+// (Material::GetCullBackFaces is ignored). Draws run in submission order; no depth sorting.
+struct TransparentMeshRenderCommand
+{
+  std::shared_ptr<Geometry> geometry;
+  std::shared_ptr<Material> material;
+  glm::mat4 modelMatrix{1.0f};
+  CompositeUniformProvider frameUniforms;
+};
+
+struct TransparentMeshRenderBatch
+{
+  std::vector<TransparentMeshRenderCommand> draws;
+};
+
 struct VolumeRenderCommand
 {
   std::shared_ptr<Geometry> geometry;

@@ -7,6 +7,7 @@
 #include "render/internal/passes/InstancedMeshGeometryPass.h"
 #include "render/internal/passes/MeshGeometryPass.h"
 #include "render/internal/passes/SkyboxPass.h"
+#include "render/internal/passes/TransparentPass.h"
 #include "render/internal/passes/VolumePass.h"
 #include "render/RenderTarget.h"
 #include "render/internal/RenderBackend.h"
@@ -24,6 +25,8 @@ ForwardRenderer::ForwardRenderer()
   AddRenderPass(std::make_unique<InstancedMeshGeometryPass>());
   AddRenderPass(std::make_unique<VolumePass>());
   AddRenderPass(std::make_unique<SkyboxPass>());
+  // Last: the fill writes no depth, so a later skybox (GL_LEQUAL at the far plane) would overwrite it.
+  AddRenderPass(std::make_unique<TransparentPass>());
 
   AddPostProcessingPass(std::make_unique<AntiAliasingPass>());
 }

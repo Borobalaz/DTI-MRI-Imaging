@@ -121,10 +121,11 @@ Inspection field closures capture raw provider pointers. `Scene` therefore incre
 - **Apply.** `Update` polls the jobs. A finished Run/Load is applied by `ApplyPreprocessingResult` on the engine thread.
   - It builds a new `DTIVolume` from the pre-packed textures. The ctor makes no GL calls, because each `Texture3D` uploads lazily at its first bind.
   - It builds the surface, streamline and seed `GameObject`s into locals, then commits: it swaps them into the scene and calls `RebuildInspectProviders` once.
-  - When the result carries SH data it also builds the `dti_sh_glyphs` [`SHGlyphField`](#sh-glyph-fields) with the volume's rotation: from `fodfShVolume` when present (Glyph Source defaults to fODF), otherwise from `shVolume`. "dti" datasets carry no SH, so they log `Dataset has no spherical-harmonics data` and show no glyphs; "fodf" datasets carry both.
+  - When the result carries SH data it also builds the `dti_sh_glyphs` [`SHGlyphField`](#sh-glyph-fields) with the volume's rotation: from `fodfShVolume` when present (Glyph Source defaults to fODF), otherwise from `shVolume`. The previous field's Display mode is carried over; stride, threshold and subdivision reset. "dti" datasets carry no SH, so they log `Dataset has no spherical-harmonics data` and show no glyphs; "fodf" datasets carry both.
+  - Both the new `DTIVolume` and the new glyph field receive the scene's [slice plane](#slice-plane). The `SliceController` is not re-added: it re-clamps the offset to the new dataset box, takes the cached unlit shader, and resets its rotation to the new objects' base rotation.
   - A failure or a non-finite dataset therefore leaves the previous scene shown.
   - The apply logs `DTI apply: <ms> ms (engine thread)`.
-- **Shader cache.** `EnsureShaderCache` compiles the five `DTIVolume` render-mode shaders (`DTIVolume::CreateRenderModes`) and the brain-surface, streamline, seed-point and SH-glyph shaders once on the first `Update`, and registers them for hot reload. Every apply reuses them, so a rerun compiles nothing, and their stored (inspector-tuned) uniforms persist across reruns. A shader that failed to build is retried at the next apply, because hot reload skips invalid programs.
+- **Shader cache.** `EnsureShaderCache` compiles the five `DTIVolume` render-mode shaders (`DTIVolume::CreateRenderModes`) and the brain-surface, streamline, seed-point, SH-glyph and unlit (slice plane) shaders once on the first `Update`, and registers them for hot reload. Every apply reuses them, so a rerun compiles nothing, and their stored (inspector-tuned) uniforms persist across reruns. A shader that failed to build is retried at the next apply, because hot reload skips invalid programs.
 - **Destruction.** The scene's destructor cancels and joins its jobs. `Engine::Stop` destroys the scene outside `sceneMutex` for this reason.
 
 The pipeline itself (`core/`) stays thread-agnostic: it only exposes progress and cancellation hooks. `MriPreprocessingContext::ThrowIfCancelled`/`ReportStageFraction` are checked inside the long-running stages, and `MriPreprocessingCancelled` is reported as a cancellation, not as a failure. `VolumeFileLoader`/`MeshFileLoader` keep their last-error state `thread_local`, because workers and the engine thread load concurrently.
@@ -145,20 +146,35 @@ These are header-only, under `engine/include/foundation/threading/`, and Qt- and
 `SHGlyphField` (`engine/include/scene/glyphs/SHGlyphField.h`) draws an instanced field of spherical-harmonics glyphs. It is a `UniformProvider`, `IDrawable`, `IUpdateable` and `InspectProvider`, registered with `Scene::AddGlyphField` and removed with `ClearGlyphFields`.
 
 - **Input.** An `SHVolume` (`scene/glyphs/SHVolume.h`) holds dense real SH coefficients per voxel (lmax ≤ 8, MRtrix3/tournier07 convention, `VolumeData::FlatIndex` order) and an optional mask volume. It is shared by `shared_ptr<const>`, never copied.
-- **SH math.** `scene/spherical_harmonics/RealSH.h` (`namespace RealSH`) provides the basis, the per-vertex basis table (Y and its tangential gradient, 45 RGBA32F texels per vertex), and the least-squares fit matrix. The same code serves the glyph renderer and the DTI fit, so the convention cannot drift between them.
+- **SH math.** `scene/spherical_harmonics/RealSH.h` (`namespace RealSH`) provides the basis, the per-vertex basis table (Y_k only, packed 4 per RGBA32F texel and zero-padded to 48 values: 12 texels per vertex, the same packing as the per-instance coefficients), and the least-squares fit matrix. The same code serves the glyph renderer and the DTI fit, so the convention cannot drift between them.
 - **Mesh.** An `IcosphereGeometry` of unit radius. Its shared-vertex order is deterministic, so the vertex shader finds its basis row by `gl_VertexID`.
-- **Instances.** Built by the pure function `BuildSHGlyphField`:
+- **Instances.** Built by the pure function `BuildSHGlyphField`. In Display = Volume:
   - voxels are stepped by stride and kept when the mask passes the threshold and the coefficients are non-zero;
   - each glyph gets a transform (Volume-space center, scale `0.5 · stride · min(spacing)/maxExtent`), a location-8 `aInstanceMaxRadius` attribute, and an `instanceCoefficients` buffer stream (RGBA32F, 48 floats);
   - the field's own transform scale stays 1, so anisotropic voxels don't distort glyphs, and with the volume's rotation it overlays the `DTIVolume`.
-- **Rendering.** Through the generic `MeshInstancedRenderCommand`/`InstancedMeshGeometryPass`. The field adds itself to the command's uniforms to bind `shGlyph.basis` (unit 12), `scale`, `normalize` and `coefficientTexelsPerInstance`. `shaders/sh_glyph/sh_glyph_vertex.glsl` evaluates r(n) and its gradient, clamps r ≥ 0, and builds the normal as r·n − ∇r. `sh_glyph_fragment.glsl` is a copy of `pbr_fragment.glsl` with direction-RGB albedo; there is no `#include`, so PBR lighting changes must be mirrored there.
-- **Rebuilds.** Changes to stride, threshold or subdivision run `BuildSHGlyphField` as a `BackgroundTask`.
+  - In Display = Slice the stride is ignored (the Stride field is read-only and reads 1): glyphs sit on a regular grid on the [slice plane](#slice-plane) with spacing `min(spacing)/maxExtent`, anchored at the projection of the centre voxel, and their coefficients and mask are trilinearly interpolated (the same sample the volume slice shader takes there). Both modes produce the same instance layout.
+- **Rendering.** Through the generic `MeshInstancedRenderCommand`/`InstancedMeshGeometryPass`. The field adds itself to the command's uniforms to bind `shGlyph.basis` (unit 12), `scale`, `normalize` and `coefficientTexelsPerInstance`. `shaders/sh_glyph/sh_glyph_vertex.glsl` evaluates r(n) as 12 vec4 dot products and clamps r ≥ 0. `sh_glyph_fragment.glsl` is a copy of `pbr_fragment.glsl` with direction-RGB albedo and a faceted screen-space normal (`dFdx`/`dFdy` of the world position); there is no `#include`, so PBR lighting changes must be mirrored there. The glyph material sets `Material::SetCullBackFaces(true)`, so back faces are culled (the icosphere is CCW-outward).
+- **Rebuilds.** Changes to stride, threshold, subdivision or Display mode run `BuildSHGlyphField` as a `BackgroundTask`. The first build starts in the first `Update()`, so the owner can hand over the slice plane first.
   - Setters only store the new value and cancel the running build.
   - `Update()` takes the finished result, swaps the buffer, mesh and basis into place, and only then starts the next pending build. The engine thread never joins.
   - A superseded result is discarded, and a failed build keeps the old state.
   - Scale and normalize are uniforms, so they apply immediately.
   - `SetVolume` swaps the source `SHVolume` with the same latest-wins rebuild; the mesh and basis table are kept, because they depend only on the subdivision level.
+  - In Slice mode `Update()` compares the shared plane's version with the version the last `StartBuild` captured and requests a rebuild when it changed. `StartBuild` copies the plane by value, so the worker never reads the shared object, and the old glyphs stay until the new ones land.
 - **DTI source.** `DtiTensorShStage` runs right after scalar synthesis and before `DWINormalizationStage`, which destroys the tensor. It fits the tensor ODF (uᵀD⁻¹u)^(−3/2), sampled on 642 directions, to lmax 8, normalized to unit integral. It publishes `MriPreprocessingResult::shVolume` with the raw FA as the mask. The "dti" dataset format does not persist it; the "fodf" format does.
+
+### Slice plane
+
+`SlicePlane` (`engine/include/scene/slicing/SlicePlane.h`) is the scene's single oblique slicing plane, `dot(normal, p) == offset`.
+
+- **Dataset object space.** The space `SHGlyphField` places glyphs in and `Volume`'s transform scale maps its unit cube into: centred at the origin, box `[-E/2, +E/2]` with `E = DatasetObjectExtents(dimensions, spacing) = dimensions * spacing / max component`, so the longest axis has length 1 ("normalised object units"). Voxel (i,j,k)'s centre is `((ijk + 0.5) / dimensions - 0.5) * E`. Volume's unit cube q maps here by `p = E * q`. Everything `DtiVolumeScene` processes shares this space (up to the common object rotation), so the plane is fixed to the data and rotates with it.
+- **Value plus version.** A plain CPU value type: unit normal, offset (clamped to the stored box half-extents along the normal) and a version bumped by every setter that changed something. Consumers hold `shared_ptr<const SlicePlane>` and compare `GetVersion()`. Helpers: `IntersectBox` (ordered convex plane/box polygon, CCW from +normal), `GetInPlaneBasis`, `ToUnitCubeSpace(E)` (`normal' = normalize(E * n)`, `offset' = offset / length(E * n)`).
+- **Consumers.**
+  - `DTIVolume::Apply` sets `slicePlane.normal`/`slicePlane.offset` in unit-cube object space via `ToUnitCubeSpace(GetObjectExtents())` (intrinsic extents, not the editable transform scale). Only the two slice render modes declare them; with no plane the default is axial through the centre. They are not stored uniforms, because `VolumePass` applies stored uniforms after the providers.
+  - `SHGlyphField` in Display = Slice (see [SH glyph fields](#sh-glyph-fields)): version polling in `Update`, a value snapshot in `StartBuild`.
+  - `SliceController` (`core/include/SliceController.h`), owned by `DtiVolumeScene`, owns the shared plane and draws it: an always-on outline (`LineLoopGeometry`, `MeshGeometryPass`) and an optional semi-transparent fill (`ConvexPolygonFillGeometry`, `TransparentMeshRenderCommand` -> `TransparentPass`), both with the unlit shader (`material.albedoFactor`/`material.opacity`). Its geometry is rebuilt in its `Update` when the plane version changes, and its transform spins with the dataset. It is registered once in the `DtiVolumeScene` ctor (`AddDrawable`/`AddUpdateable`), which the type-filtered clears never remove, so the plane survives reruns and loads.
+- **Inspector metadata.** Field ranges and `readOnly` are frozen when the UI fetches fields, so `DtiVolumeScene::Update` calls `RebuildInspectProviders` when the offset range/step or the glyph Display mode changed (a preset pick, a normal edit, a new dataset box, a Display switch). Offset scrubbing does not trigger a re-fetch.
+- **Threading.** The plane is not internally synchronised. Every reader and writer runs under the scene lock: inspector setters through `LockedInspectionService`, `Update`/`Apply`/`BuildRenderProxy` inside the engine tick. Glyph builds only ever see a copy.
 
 ## Boundary Contract
 
@@ -217,6 +233,7 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 - Preprocessing jobs and shader cache: `core/include/DtiVolumeScene.h`, `core/src/DtiVolumeScene.cpp`
 - DTI volume texture packing: `engine/include/scene/volume/DTIVolume.h` (`PackDTIVolumeTextures`)
 - Scene orchestration: `engine/include/scene/Scene.h`, `engine/src/scene/Scene.cpp`
+- Slice plane: `engine/include/scene/slicing/SlicePlane.h`, `core/include/SliceController.h`, `engine/include/scene/geometry/{LineLoopGeometry,ConvexPolygonFillGeometry}.h`, `engine/shaders/unlit/`
 - SH glyphs: `engine/include/scene/glyphs/{SHGlyphField,SHVolume}.h`, `engine/include/scene/spherical_harmonics/RealSH.h`, `engine/include/scene/geometry/IcosphereGeometry.h`, `engine/shaders/sh_glyph/`, and the DTI producer `core/src/preprocessing/stages/dti/DtiTensorShStage.cpp`
 - Neutral inspection: `engine/include/public/inspection/InspectField.h`
 - Frame construction: `engine/include/scene/extraction/RenderFrameBuilder.h`
@@ -226,6 +243,6 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 
 ## Multipass Rendering
 
-Multipass rendering is owned by the render layer. `ForwardRenderer` registers its passes (`MeshGeometryPass`, `InstancedMeshGeometryPass`, `VolumePass`, `SkyboxPass`) in a vector, and they execute in insertion order. The postprocessing chain (`AntiAliasingPass`) runs after them. See [render layer](render.md) for where new passes live and how they reach resources.
+Multipass rendering is owned by the render layer. `ForwardRenderer` registers its passes (`MeshGeometryPass`, `InstancedMeshGeometryPass`, `VolumePass`, `SkyboxPass`, `TransparentPass`) in a vector, and they execute in insertion order. The postprocessing chain (`AntiAliasingPass`) runs after them. See [render layer](render.md) for where new passes live and how they reach resources.
 
 From the engine side, a new feature (for example particles) defines its typed command in the render layer's `RenderCommands.h`. Its scene objects append that command to a `RenderDataStore` through `RenderProxy`, and a matching pass consumes the channel. The existing passes do not need to know about the new channel.

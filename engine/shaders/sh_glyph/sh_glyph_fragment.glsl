@@ -6,6 +6,8 @@
 // pbr_fragment.glsl must be mirrored here. The only difference is the albedo:
 // it is the directionally-encoded color (fragDirectionColor = |n| in object
 // space) modulated by material.albedoFactor; the albedo texture is ignored.
+// Shading normal: screen-space (dFdx/dFdy of fragWorldPosition), faceted; no tangents and no
+// normal map (material.normal is ignored).
 
 #define MAX_LIGHTS 16
 #define PI 3.14159265359
@@ -122,9 +124,6 @@ vec3 CookTorranceBRDF(vec3 N, vec3 V, vec3 L, in Material material, vec3 lightCo
 // ========== Fragment Shader Inputs ==========
 in vec2 fragTexCoord;
 in vec3 fragWorldPosition;
-in vec3 fragWorldNormal;
-in vec3 fragWorldTangent;
-in vec3 fragWorldBitangent;
 in vec3 fragDirectionColor;
 
 struct CameraUniforms {
@@ -168,23 +167,6 @@ float SampleTextureOrDefault(sampler2D textureSampler, bool hasTexture, float de
   if (hasTexture)
     return texture(textureSampler, fragTexCoord).r;
   return defaultValue;
-}
-
-vec3 UnpackNormal(vec3 normalMap, bool useNormalMap, vec3 surfaceNormal)
-{
-  if (!useNormalMap)
-    return normalize(surfaceNormal);
-
-  vec3 normal = normalize(normalMap * 2.0 - 1.0);
-
-  vec3 N = normalize(surfaceNormal);
-  vec3 T = normalize(fragWorldTangent);
-  vec3 B = normalize(fragWorldBitangent);
-
-  T = normalize(T - dot(T, N) * N);
-  B = cross(N, T);
-
-  return normalize(mat3(T, B, N) * normal);
 }
 
 vec3 ComputeLightRadiance(LightUniforms light,
@@ -251,15 +233,15 @@ void main()
   fragMaterial.metallic = metallic;
   fragMaterial.emissive = material.emissiveFactor;
 
-  // Sample and unpack normal map
-  vec3 normalMapSample = SampleTextureOrDefault(
-    material.normal,
-    material.hasNormal,
-    vec3(0.5, 0.5, 1.0)
-  );
-  vec3 normal = UnpackNormal(normalMapSample, material.hasNormal, fragWorldNormal);
-  // Compute view direction
+  // Faceted shading normal from screen-space derivatives of the world position (the vertex shader
+  // no longer computes normals). cross(dPdx, dPdy) faces the viewer by construction; the dot test
+  // is a guard (e.g. a mirrored model matrix), the length test guards degenerate fragments.
   vec3 viewDir = normalize(camera.viewPosition - fragWorldPosition);
+  vec3 faceNormal = cross(dFdx(fragWorldPosition), dFdy(fragWorldPosition));
+  float faceNormalLengthSq = dot(faceNormal, faceNormal);
+  vec3 normal = faceNormalLengthSq > 1e-30 ? faceNormal * inversesqrt(faceNormalLengthSq) : viewDir;
+  if (dot(normal, viewDir) < 0.0)
+    normal = -normal;
 
   // Accumulate radiance from all lights
   vec3 radiance = vec3(0.0);

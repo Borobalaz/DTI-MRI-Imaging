@@ -8,6 +8,7 @@
 #include "Preprocessing/preprocessors/MriToFodfPreprocessor.h"
 #include "foundation/threading/BackgroundTask.h"
 #include "foundation/threading/SharedProgress.h"
+#include "SliceController.h"
 
 #include <memory>
 #include <optional>
@@ -91,6 +92,9 @@ private:
                                 const MriPreprocessingRequest& appliedRequest,
                                 ReconstructionModel model);
   void SetGlyphSource(GlyphSource source);
+  // Inspector field metadata (offset range/step, glyph Stride readOnly) is frozen at fetch time;
+  // re-fetch it by bumping the provider generation when any of its inputs changed.
+  void RebuildInspectProvidersIfLayoutChanged();
 
   // Shaders compiled once (GL thread) and reused by every apply, so a rerun compiles nothing.
   // Their stored uniforms (inspector tweaks) therefore persist across reruns.
@@ -101,6 +105,7 @@ private:
     std::shared_ptr<Shader> streamline;
     std::shared_ptr<Shader> seedPoint;
     std::shared_ptr<Shader> shGlyph;
+    std::shared_ptr<Shader> slicePlaneUnlit; // outline + fill (SliceController)
   };
   void EnsureShaderCache();
 
@@ -127,6 +132,16 @@ private:
   std::shared_ptr<GameObject> streamlineObject;
   std::shared_ptr<GameObject> seedPointsObject;
   std::shared_ptr<SHGlyphField> shGlyphField;
+
+  // Scene-wide slicer (one plane in dataset space) and its drawable. Created and registered once
+  // in the ctor, never replaced, so the plane persists across reruns and loads.
+  std::shared_ptr<SliceController> sliceController;
+
+  // Last inspector-metadata inputs published via RebuildInspectProviders.
+  float publishedOffsetLimit = -1.0f;
+  float publishedOffsetStep = -1.0f;
+  int publishedGlyphDisplayMode = -1; // -1: no glyph field
+
   // Shared with running jobs; its stages are const and stateless.
   std::shared_ptr<const MriToDtiPreprocessor> preprocessor;
   std::shared_ptr<const MriToFodfPreprocessor> fodfPreprocessor; // shared with running jobs; stateless

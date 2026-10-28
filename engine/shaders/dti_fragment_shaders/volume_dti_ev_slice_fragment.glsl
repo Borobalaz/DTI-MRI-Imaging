@@ -28,7 +28,6 @@ struct VolumeUniforms {
 
 struct ShaderUniforms {
   float density;
-  float sliceZ;
   int selectedChannel;
 };
 
@@ -36,6 +35,12 @@ uniform CameraUniforms camera;
 uniform VolumeObjectUniforms volumeObject;
 uniform VolumeUniforms volume;
 uniform ShaderUniforms shader;
+
+struct SlicePlaneUniforms {
+  vec3 normal;   // unit length, unit-cube object space
+  float offset;  // plane: dot(normal, p) = offset, p in [-0.5, 0.5]^3
+};
+uniform SlicePlaneUniforms slicePlane;
 uniform sampler3D volumeTextures[MAX_VOLUME_TEXTURES];
 
 bool IntersectBox(vec3 rayOrigin, vec3 rayDirection, out float tMin, out float tMax)
@@ -84,13 +89,20 @@ void main()
 
   float rayStart = max(tEnter, 0.0);
   float rayEnd = tExit;
-  if (rayEnd <= rayStart || abs(rayDirectionObject.z) < 1e-7)
+  if (rayEnd <= rayStart)
   {
     discard;
   }
 
-  float sliceObjectZ = clamp(shader.sliceZ, 0.0, 1.0) - 0.5;
-  float tSlice = (sliceObjectZ - rayOriginObject.z) / rayDirectionObject.z;
+  // Ray-plane intersection with the scene slice plane, all in unit-cube object space:
+  // dot(slicePlane.normal, rayOrigin + t * rayDir) = slicePlane.offset.
+  float denominator = dot(slicePlane.normal, rayDirectionObject);
+  if (abs(denominator) < 1e-6)
+  {
+    discard;
+  }
+
+  float tSlice = (slicePlane.offset - dot(slicePlane.normal, rayOriginObject)) / denominator;
   if (tSlice < rayStart || tSlice > rayEnd)
   {
     discard;

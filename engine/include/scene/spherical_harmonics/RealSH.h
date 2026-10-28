@@ -21,6 +21,10 @@ namespace RealSH
   constexpr int kSHMaxOrder = 8;
   constexpr int kSHMaxCoefficients = 45; // CoefficientCount(kSHMaxOrder)
 
+  // Glyph basis-table layout: Y_k packed 4 per RGBA texel, zero-padded from 45 to 48 values.
+  constexpr int kBasisTexelsPerDirection = 12;
+  constexpr int kBasisFloatsPerDirection = 4 * kBasisTexelsPerDirection; // 48
+
   // Number of coefficients for an even lmax in [0, kSHMaxOrder]; 0 for any other lmax.
   int CoefficientCount(int lmax);
 
@@ -31,10 +35,10 @@ namespace RealSH
   // Writes nothing for an unsupported lmax.
   void EvaluateBasis(const glm::dvec3& unitDir, int lmax, double* out);
 
-  // GPU basis table for the glyph vertex shader, always at kSHMaxOrder: for vertex v and
-  // coefficient k, the RGBA texel v * kSHMaxCoefficients + k holds (Y_k, grad Y_k.xyz), where
-  // grad is the tangential gradient on the unit sphere (central differences along two tangent
-  // directions, so it is pole-safe). 4 * kSHMaxCoefficients floats per direction.
+  // GPU basis table for the glyph vertex shader, always at kSHMaxOrder: kBasisTexelsPerDirection RGBA
+  // texels per direction. Texel d * kBasisTexelsPerDirection + t holds (Y_4t, Y_4t+1, Y_4t+2, Y_4t+3) of
+  // direction d, with Y_45..Y_47 = 0 - the same packing as the per-instance coefficient texels, so the
+  // shader evaluates r(n) as 12 vec4 dot products. kBasisFloatsPerDirection floats per direction.
   std::vector<float> BuildBasisTable(const std::vector<glm::vec3>& unitDirs);
 
   // Regularised least-squares fit matrix B+ = (B^T B + lambda I)^-1 B^T, row-major with

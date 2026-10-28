@@ -316,6 +316,16 @@ DtiVolumeScene::DtiVolumeScene()
   ClearGameObjects();
   ClearVolumes();
 
+  // Registered once: the type-filtered clears in ClearProcessedScene never remove it, and re-adding
+  // it per apply would duplicate it. Listed by Scene::RebuildInspectProviders (EngineRuntime calls it
+  // after construction).
+  sliceController = std::make_shared<SliceController>();
+  AddDrawable(sliceController);
+  AddUpdateable(sliceController); // geometry rebuild on plane-version change
+  // Seeded so the first tick does not cause a pointless provider-generation bump.
+  publishedOffsetLimit = sliceController->GetOffsetLimit();
+  publishedOffsetStep = sliceController->GetOffsetStep();
+
   tractographySettingsInspectable = std::make_shared<MriTractographySettings>();
   currentRequest.tractographySettings = tractographySettingsInspectable;
   fodfSettingsInspectable = std::make_shared<MriFodfSettings>();
@@ -379,6 +389,8 @@ void DtiVolumeScene::ClearProcessedScene()
   streamlineObject.reset();
   seedPointsObject.reset();
   shGlyphField.reset();
+  // sliceController survives these type-filtered clears. If this ever calls ClearDrawables() or
+  // ClearUpdateables(), re-add sliceController right after them.
   ClearGameObjects();
   ClearVolumes();
   ClearGlyphFields();
@@ -452,6 +464,8 @@ void DtiVolumeScene::EnsureShaderCache()
                    "shaders/vertex_instanced.glsl", "shaders/pbr_fragment.glsl");
   EnsureMeshShader(*this, shaderCache.shGlyph, "dti_sh_glyph_shader",
                    "shaders/sh_glyph/sh_glyph_vertex.glsl", "shaders/sh_glyph/sh_glyph_fragment.glsl");
+  EnsureMeshShader(*this, shaderCache.slicePlaneUnlit, "dti_unlit_shader",
+                   "shaders/unlit/unlit_vertex.glsl", "shaders/unlit/unlit_fragment.glsl");
 }
 
 /**
@@ -467,7 +481,14 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
 {
   const int previousRenderMode = dtiVolume ? dtiVolume->GetSelectedRenderModeIndex() : 0;
   const int previousChannel = dtiVolume ? dtiVolume->GetSelectedChannelIndex() : 0;
+  // The glyph Display mode persists across reruns and loads; the other glyph settings reset.
+  const SHGlyphDisplayMode previousGlyphDisplayMode =
+      shGlyphField ? shGlyphField->GetDisplayMode() : SHGlyphDisplayMode::Volume;
   EnsureShaderCache();
+
+  // Read before volumeTextures is moved into the DTIVolume.
+  const glm::vec3 datasetExtents = DatasetObjectExtents(volumeTextures.dimensions, volumeTextures.spacing);
+  const float datasetVoxelStep = DatasetVoxelStep(volumeTextures.dimensions, volumeTextures.spacing);
 
   // ---- Build into locals; the scene is not touched yet ----
   std::shared_ptr<DTIVolume> newDtiVolume = std::make_shared<DTIVolume>(
@@ -475,6 +496,7 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   newDtiVolume->SetRotation(kProcessedObjectRotation);
   newDtiVolume->SetSelectedRenderModeIndex(previousRenderMode);
   newDtiVolume->SetSelectedChannelIndex(previousChannel);
+  newDtiVolume->SetSlicePlane(sliceController->GetPlane());
 
   // FA surface mesh
   std::shared_ptr<GameObject> newBrainSurfaceObject;
@@ -547,8 +569,11 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   if (initialGlyphVolume)
   {
     newShGlyphField = std::make_shared<SHGlyphField>(
-        "dti_sh_glyphs", initialGlyphVolume, shaderCache.shGlyph, SHGlyphBuildSettings{3, 0.3f, 3});
+        "dti_sh_glyphs", initialGlyphVolume, shaderCache.shGlyph,
+        SHGlyphBuildSettings{3, 0.3f, 3, previousGlyphDisplayMode});
     newShGlyphField->SetRotation(kProcessedObjectRotation);
+    // Its first build starts in Update, so it sees the plane re-clamped by SetDatasetGeometry below.
+    newShGlyphField->SetSlicePlane(sliceController->GetPlane());
   }
   else
   {
@@ -571,6 +596,10 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   streamlineObject = std::move(newStreamlineObject);
   seedPointsObject = std::move(newSeedPointsObject);
   shGlyphField = std::move(newShGlyphField);
+
+  sliceController->SetDatasetGeometry(datasetExtents, datasetVoxelStep); // keeps normal/offset/preset, re-clamps
+  sliceController->SetShader(shaderCache.slicePlaneUnlit);              // no-op unless the cache rebuilt it
+  sliceController->SetRotation(kProcessedObjectRotation);               // same base rotation as the new objects
 
   AddVolume(dtiVolume);
   if (brainSurfaceObject)
@@ -1029,7 +1058,33 @@ void DtiVolumeScene::Update(float deltaTime)
     {
       shGlyphField->SetRotation(shGlyphField->GetRotation() + rotationDelta);
     }
+    // The volume and glyphs carry the plane implicitly (it lives in their object space); only
+    // its own drawing needs the spin.
+    if (sliceController)
+    {
+      sliceController->SetRotation(sliceController->GetRotation() + rotationDelta);
+    }
   }
+
+  RebuildInspectProvidersIfLayoutChanged();
+}
+
+void DtiVolumeScene::RebuildInspectProvidersIfLayoutChanged()
+{
+  const float offsetLimit = sliceController->GetOffsetLimit();
+  const float offsetStep = sliceController->GetOffsetStep();
+  const int glyphDisplayMode = shGlyphField ? static_cast<int>(shGlyphField->GetDisplayMode()) : -1;
+  // Exact comparison is intended: the inputs are recomputed deterministically.
+  if (offsetLimit == publishedOffsetLimit && offsetStep == publishedOffsetStep &&
+      glyphDisplayMode == publishedGlyphDisplayMode)
+  {
+    return;
+  }
+
+  publishedOffsetLimit = offsetLimit;
+  publishedOffsetStep = offsetStep;
+  publishedGlyphDisplayMode = glyphDisplayMode;
+  RebuildInspectProviders(); // bumps the provider generation -> the UI re-fetches field metadata
 }
 
 /**

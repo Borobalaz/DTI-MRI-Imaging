@@ -10,10 +10,15 @@
 
 #include "foundation/log/EngineLog.h"
 #include "render/texture/Texture3D.h"
+#include "scene/slicing/SlicePlane.h"
 
 namespace
 {
   constexpr float kSpacingEpsilon = 1e-4f;
+
+  // Slice-shader plane in unit-cube object space (volume_dti_tensor / volume_dti_ev_slice).
+  constexpr const char* kSlicePlaneNormalUniform = "slicePlane.normal";
+  constexpr const char* kSlicePlaneOffsetUniform = "slicePlane.offset";
 
   glm::vec3 NormalizeSafe(const glm::vec3 &v)
   {
@@ -234,6 +239,19 @@ void DTIVolume::Apply(IUniformSink &shader) const
 {
   Volume::Apply(shader);
   shader.SetInt("shader.selectedChannel", selectedChannel);
+
+  // Set on every mode (no-op where the program lacks them). Deliberately not stored uniforms:
+  // VolumePass applies stored uniforms after the providers, so they would override these.
+  const SlicePlane defaultPlane; // axial through the centre
+  const SlicePlane& plane = slicePlane ? *slicePlane : defaultPlane;
+  const PlaneEquation unitCubePlane = plane.ToUnitCubeSpace(GetObjectExtents());
+  shader.SetVec3(kSlicePlaneNormalUniform, unitCubePlane.normal);
+  shader.SetFloat(kSlicePlaneOffsetUniform, unitCubePlane.offset);
+}
+
+void DTIVolume::SetSlicePlane(std::shared_ptr<const SlicePlane> newPlane)
+{
+  slicePlane = std::move(newPlane);
 }
 
 /**
@@ -244,7 +262,6 @@ void DTIVolume::Apply(IUniformSink &shader) const
  */
 std::vector<DTIVolume::RenderMode> DTIVolume::CreateRenderModes()
 {
-  constexpr float kDefaultSliceZ = 0.5f;
   std::vector<RenderMode> renderModes;
 
   // Channel Slice Mode
@@ -254,7 +271,6 @@ std::vector<DTIVolume::RenderMode> DTIVolume::CreateRenderModes()
       "shaders/dti_fragment_shaders/volume_dti_tensor_fragment.glsl");
   if (channelSliceShader && channelSliceShader->IsValid())
   {
-    (*channelSliceShader)["shader.sliceZ"] = kDefaultSliceZ;
     renderModes.push_back(RenderMode{"Channel Slice", channelSliceShader});
   }
   else
@@ -270,7 +286,6 @@ std::vector<DTIVolume::RenderMode> DTIVolume::CreateRenderModes()
 
   if (principalDirectionShader && principalDirectionShader->IsValid())
   {
-    (*principalDirectionShader)["shader.sliceZ"] = kDefaultSliceZ;
     (*principalDirectionShader)["shader.density"] = 1.0f;
     renderModes.push_back(RenderMode{"Principal EV RGB", principalDirectionShader});
   }

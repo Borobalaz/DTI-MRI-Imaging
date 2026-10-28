@@ -11,6 +11,8 @@
 #include "render/texture/TextureData3D.h"
 #include "foundation/threading/Cancellation.h"
 
+class SlicePlane;
+
 struct DTIVolumeChannels
 {
   // The 6 unique channels of a DTI volume. The shader will reconstruct the full tensor from these.
@@ -77,6 +79,10 @@ public:
   bool SetSelectedRenderModeIndex(int modeIndex);
   void SetSelectedChannelIndex(int channelIndex) { selectedChannel = channelIndex; }
 
+  // Shared scene plane used by the slice render modes (raymarch modes ignore it). Read in Apply
+  // on the engine thread under the scene lock. Null means the default axial plane through the centre.
+  void SetSlicePlane(std::shared_ptr<const SlicePlane> newPlane);
+
   std::vector<InspectFieldPtr> GetInspectFields() override;
   
 private:
@@ -87,6 +93,7 @@ private:
   int selectedChannel = 0;
   int selectedRenderMode = 0;
   std::vector<RenderMode> renderModes;
+  std::shared_ptr<const SlicePlane> slicePlane;
 
   enum SelectedChannelIndex
   {

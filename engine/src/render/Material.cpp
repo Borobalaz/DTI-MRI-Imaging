@@ -52,6 +52,16 @@ void Material::SetEmissive(const glm::vec3& color)
   emissive = glm::clamp(color, 0.0f, 1.0f);
 }
 
+void Material::SetOpacity(float value)
+{
+  opacity = std::clamp(value, 0.0f, 1.0f);
+}
+
+void Material::SetCullBackFaces(bool enabled)
+{
+  cullBackFaces = enabled;
+}
+
 void Material::SetTexture(PBR::TextureSlot slot, std::shared_ptr<Texture> texture)
 {
   size_t slotIndex = static_cast<size_t>(slot);
@@ -155,6 +165,7 @@ void Material::Apply(IUniformSink& shader) const
   shader.SetFloat("material.roughnessFactor", roughness);
   shader.SetFloat("material.metallicFactor", metallic);
   shader.SetVec3("material.emissiveFactor", emissive);
+  shader.SetFloat("material.opacity", opacity);
 
   // Bind all texture slots
   for (size_t i = 0; i < static_cast<size_t>(PBR::TextureSlot::Count); ++i)

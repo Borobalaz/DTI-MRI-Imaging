@@ -12,8 +12,6 @@
 
 namespace
 {
-  constexpr double kGradientEpsilon = 1e-4;
-
   std::string FormatScientific(double value)
   {
     std::ostringstream stream;
@@ -71,13 +69,6 @@ namespace
   double Normalisation(int l, int m)
   {
     return std::sqrt((2.0 * l + 1.0) / (4.0 * glm::pi<double>()) * Factorial(l - m) / Factorial(l + m));
-  }
-
-  // Any unit vector orthogonal to `normal`, chosen from the least-aligned axis so it never degenerates.
-  glm::dvec3 AnyTangent(const glm::dvec3& normal)
-  {
-    const glm::dvec3 axis = std::abs(normal.x) < 0.9 ? glm::dvec3(1.0, 0.0, 0.0) : glm::dvec3(0.0, 1.0, 0.0);
-    return glm::normalize(glm::cross(normal, axis));
   }
 
   // Lower-triangular Cholesky factor of the symmetric n x n row-major matrix, in place (the upper
@@ -169,37 +160,17 @@ namespace RealSH
   std::vector<float> BuildBasisTable(const std::vector<glm::vec3>& unitDirs)
   {
     std::vector<float> table;
-    table.reserve(unitDirs.size() * kSHMaxCoefficients * 4);
+    table.reserve(unitDirs.size() * kBasisFloatsPerDirection);
 
     double value[kSHMaxCoefficients];
-    double plus1[kSHMaxCoefficients];
-    double minus1[kSHMaxCoefficients];
-    double plus2[kSHMaxCoefficients];
-    double minus2[kSHMaxCoefficients];
-
     for (const glm::vec3& direction : unitDirs)
     {
-      const glm::dvec3 normal = glm::normalize(glm::dvec3(direction));
-      const glm::dvec3 tangent1 = AnyTangent(normal);
-      const glm::dvec3 tangent2 = glm::cross(normal, tangent1);
-
-      EvaluateBasis(normal, kSHMaxOrder, value);
-      EvaluateBasis(glm::normalize(normal + kGradientEpsilon * tangent1), kSHMaxOrder, plus1);
-      EvaluateBasis(glm::normalize(normal - kGradientEpsilon * tangent1), kSHMaxOrder, minus1);
-      EvaluateBasis(glm::normalize(normal + kGradientEpsilon * tangent2), kSHMaxOrder, plus2);
-      EvaluateBasis(glm::normalize(normal - kGradientEpsilon * tangent2), kSHMaxOrder, minus2);
-
+      EvaluateBasis(glm::normalize(glm::dvec3(direction)), kSHMaxOrder, value);
       for (int k = 0; k < kSHMaxCoefficients; ++k)
       {
-        const double derivative1 = (plus1[k] - minus1[k]) / (2.0 * kGradientEpsilon);
-        const double derivative2 = (plus2[k] - minus2[k]) / (2.0 * kGradientEpsilon);
-        const glm::dvec3 gradient = tangent1 * derivative1 + tangent2 * derivative2;
-
         table.push_back(static_cast<float>(value[k]));
-        table.push_back(static_cast<float>(gradient.x));
-        table.push_back(static_cast<float>(gradient.y));
-        table.push_back(static_cast<float>(gradient.z));
       }
+      table.insert(table.end(), kBasisFloatsPerDirection - kSHMaxCoefficients, 0.0f);
     }
     return table;
   }

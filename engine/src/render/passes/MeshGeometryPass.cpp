@@ -1,5 +1,7 @@
 #include "render/internal/passes/MeshGeometryPass.h"
 
+#include <glad/glad.h>
+
 #include "foundation/log/EngineLog.h"
 #include "render/core/RenderCommands.h"
 #include "render/geometry/Geometry.h"
@@ -30,7 +32,32 @@ void MeshGeometryPass::Execute(const RenderFrame& frame, RenderExecutionContext&
       uniforms.SetMat4("gameObject.modelMatrix", command.modelMatrix);
       command.material->Apply(uniforms);
       shader.Apply(uniforms);
+
+      const bool cullBackFaces = command.material->GetCullBackFaces();
+      GLboolean previousCullFaceEnabled = GL_FALSE;
+      GLint previousCullFaceMode = GL_BACK;
+      GLint previousFrontFace = GL_CCW;
+      if (cullBackFaces)
+      {
+        previousCullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glGetIntegerv(GL_CULL_FACE_MODE, &previousCullFaceMode);
+        glGetIntegerv(GL_FRONT_FACE, &previousFrontFace);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+      }
+
       RenderBackend::Draw(*command.geometry, shader);
+
+      if (cullBackFaces)
+      {
+        if (!previousCullFaceEnabled)
+        {
+          glDisable(GL_CULL_FACE);
+        }
+        glCullFace(static_cast<GLenum>(previousCullFaceMode));
+        glFrontFace(static_cast<GLenum>(previousFrontFace));
+      }
     }
   }
 }
