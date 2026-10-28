@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "Render/Shader.h"
+#include "render/Shader.h"
 
 DirectionalLight::DirectionalLight(const std::string& id,
                                    const glm::vec3& direction,

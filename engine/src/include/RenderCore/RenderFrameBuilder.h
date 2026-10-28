@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RenderCore/ExtractionRegistry.h"
-#include "Render/Core/RenderFrame.h"
+#include "render/core/RenderFrame.h"
 
 class RenderFrameBuilder
 {

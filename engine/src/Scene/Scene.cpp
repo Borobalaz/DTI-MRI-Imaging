@@ -7,7 +7,7 @@
 #include "Geometry/ModelLoader.h"
 #include "Geometry/SphereGeometry.h"
 #include "Texture/Skybox.h"
-#include "Render/Texture/Texture2D.h"
+#include "render/texture/Texture2D.h"
 #include "Volume/FloatVolume.h"
 #include "Volume/VolumeFileLoader.h"
 #include <cmath>

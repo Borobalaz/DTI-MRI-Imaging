@@ -18,8 +18,8 @@
 #include "Input/InputState.h"
 #include "Inspection/LockedInspectionService.h"
 #include "Log/EngineLogService.h"
-#include "Render/GraphicsApi.h"
-#include "Render/RenderTarget.h"
+#include "render/GraphicsApi.h"
+#include "render/RenderTarget.h"
 #include "Settings/LockedSettingsService.h"
 #include "Settings/SettingsService.h"
 

@@ -4,9 +4,9 @@
 
 The engine is the `engine` CMake shared-library target. It owns scene state, input state, volume data, concrete geometries, scene-to-frame extraction, and neutral inspection contracts. The target is built from `engine/src` (plus `core/src`), exports its public headers from `engine/include/public`, and does not depend on Qt.
 
-GPU resources (shaders, materials, textures, geometry buffers), the renderer, its passes, and every graphics-API call live in the separate **render layer**: the `engine_render` static target under `engine/render/`. `engine` links it `PRIVATE`. Both link the `engine_foundation` static target (`engine/include/foundation/` + `engine/src/foundation/`: `EngineLog`, `StableTypeId`, and the header-only `foundation/threading/` primitives), so the dependency direction is `engine` -> `engine_render` -> `engine_foundation`. See [the render layer architecture](../render/docs/architecture.md) for the layer's public/private split and its `RenderBackend` gateway rule.
+GPU resources (shaders, materials, textures, geometry buffers), the renderer, its passes, and every graphics-API call live in the separate **render layer**: the `engine_render` static target (`engine/include/render/` + `engine/src/render/`). `engine` links it `PRIVATE`. Both link the `engine_foundation` static target (`engine/include/foundation/` + `engine/src/foundation/`: `EngineLog`, `StableTypeId`, and the header-only `foundation/threading/` primitives), so the dependency direction is `engine` -> `engine_render` -> `engine_foundation`. See [the render layer architecture](render.md) for the layer's public/private split and its `RenderBackend` gateway rule.
 
-Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add_library(engine_render STATIC ...)`, `add_library(engine_foundation STATIC ...)`). Representative runtime entry points are `engine/src/include/Scene/Scene.h`, `engine/src/include/RenderCore/RenderFrameBuilder.h`, and the layer's `engine/render/include/Render/Renderer/ForwardRenderer.h`.
+Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add_library(engine_render STATIC ...)`, `add_library(engine_foundation STATIC ...)`). Representative runtime entry points are `engine/src/include/Scene/Scene.h`, `engine/src/include/RenderCore/RenderFrameBuilder.h`, and the layer's `engine/include/render/renderer/ForwardRenderer.h`.
 
 ## Top-Down Decomposition
 
@@ -17,7 +17,7 @@ Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add
 | Geometry and drawable objects | Represents mesh geometry, game objects, volumes, and renderable content | Geometry, materials, transforms, volume data | `RenderProxy` values and updates | Scene owns drawable/updateable shared pointers |
 | Resources | Loads models and volume files, and creates render-layer resources (shaders, materials, textures) for scene content | File paths, decoded data | Resource objects; their GPU-side behavior lives in the render layer | Resource objects are shared through engine-owned `std::shared_ptr` values |
 | Render core | Converts typed scene render commands into renderer-consumable frame data | `SceneSnapshot`, renderer descriptor, extractor registry | `RenderFrame` and `RenderDataStore` (render-layer types) | Registry owns extractor instances and ordering metadata |
-| Renderer (render layer) | Executes a renderer strategy against a built frame | `RenderFrame` | Graphics-API draw calls | Lives in `engine_render`; `EngineRuntime` owns the `ForwardRenderer` instance, created once the graphics API is initialized. See [render layer](../render/docs/architecture.md) |
+| Renderer (render layer) | Executes a renderer strategy against a built frame | `RenderFrame` | Graphics-API draw calls | Lives in `engine_render`; `EngineRuntime` owns the `ForwardRenderer` instance, created once the graphics API is initialized. See [render layer](render.md) |
 | Runtime | Implements the `Engine` facade: engine thread, locks, screens, input queue, service decorators | Host calls from any thread, a host `IGraphicsContextProvider` | Published CPU frames (`ScreenFrame`), change callbacks | `Engine` owns `EngineRuntime` through a pimpl; the runtime owns the scene, renderer, and services |
 | Inspection contract | Describes editable engine state without Qt types | Provider state and callbacks | `InspectField` metadata, values, and setters | Engine owns providers and neutral field objects |
 
@@ -220,11 +220,11 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 - Neutral inspection: `engine/include/public/inspection/InspectField.h`
 - Frame construction: `engine/src/include/RenderCore/RenderFrameBuilder.h`
 - Extraction registry: `engine/src/include/RenderCore/ExtractionRegistry.h`
-- Render proxy: `engine/src/include/Renderer/RenderProxy.h`. The typed render commands it carries are render-layer types in `engine/render/include/Render/Core/RenderCommands.h`.
-- Renderer, passes, GPU resources, and graphics-API initialization: the render layer under `engine/render/` (see [render layer](../render/docs/architecture.md))
+- Render proxy: `engine/src/include/Renderer/RenderProxy.h`. The typed render commands it carries are render-layer types in `engine/include/render/core/RenderCommands.h`.
+- Renderer, passes, GPU resources, and graphics-API initialization: the render layer under `engine/include/render/` + `engine/src/render/` (see [render layer](render.md))
 
 ## Multipass Rendering
 
-Multipass rendering is owned by the render layer. `ForwardRenderer` registers its passes (`MeshGeometryPass`, `InstancedMeshGeometryPass`, `VolumePass`, `SkyboxPass`) in a vector, and they execute in insertion order. The postprocessing chain (`AntiAliasingPass`) runs after them. See [render layer](../render/docs/architecture.md) for where new passes live and how they reach resources.
+Multipass rendering is owned by the render layer. `ForwardRenderer` registers its passes (`MeshGeometryPass`, `InstancedMeshGeometryPass`, `VolumePass`, `SkyboxPass`) in a vector, and they execute in insertion order. The postprocessing chain (`AntiAliasingPass`) runs after them. See [render layer](render.md) for where new passes live and how they reach resources.
 
 From the engine side, a new feature (for example particles) defines its typed command in the render layer's `RenderCommands.h`. Its scene objects append that command to a `RenderDataStore` through `RenderProxy`, and a matching pass consumes the channel. The existing passes do not need to know about the new channel.

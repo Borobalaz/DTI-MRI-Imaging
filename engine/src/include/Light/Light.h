@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "IUpdateable.h"
-#include "Render/Uniform/UniformProvider.h"
+#include "render/uniform/UniformProvider.h"
 #include "inspection/InspectField.h"
 
 class Light : public UniformProvider, public IUpdateable, public InspectProvider

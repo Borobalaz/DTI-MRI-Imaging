@@ -37,14 +37,14 @@ file(GLOB_RECURSE FOUNDATION_SOURCES CONFIGURE_DEPENDS
 )
 
 file(GLOB_RECURSE RENDER_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/engine/render/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/render/*.cpp"
 )
 
 file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/engine/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/core/src/*.cpp"
 )
-list(FILTER ENGINE_SOURCES EXCLUDE REGEX "/engine/src/foundation/")
+list(FILTER ENGINE_SOURCES EXCLUDE REGEX "/engine/src/(foundation|render)/")
 
 file(GLOB_RECURSE UI_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/widgets/*.cpp"
@@ -66,16 +66,15 @@ target_include_directories(engine_foundation PUBLIC
 )
 
 # The render layer: the only target allowed to touch the graphics API. glad and
-# OpenGL are linked PRIVATE so no code outside engine/render/src can include or call them.
+# OpenGL are linked PRIVATE so no code outside engine/src/render can include or call them.
 add_library(engine_render STATIC ${RENDER_SOURCES})
 set_target_properties(engine_render PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(engine_render PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/engine/render/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
 )
 
 target_include_directories(engine_render PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/engine/render/src
     ${STB_INCLUDE_DIR}
 )
 

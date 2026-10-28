@@ -3,7 +3,7 @@
 #include <cmath>
 #include <string>
 
-#include "Render/Shader.h"
+#include "render/Shader.h"
 
 /**
  * @brief Construct a new Point Light:: Point Light object

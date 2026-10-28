@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Render/Geometry/Geometry.h"
+#include "render/geometry/Geometry.h"
 
 // Unit-radius icosphere: a subdivided icosahedron with shared vertices (10 * 4^level + 2 of them,
 // 642 at level 3). The vertex order is deterministic for a given level, so per-vertex tables

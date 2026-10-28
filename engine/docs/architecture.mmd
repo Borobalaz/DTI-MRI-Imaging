@@ -25,7 +25,7 @@ flowchart TD
         Pack[PackDTIVolumeTextures: TextureData3D]
     end
 
-    subgraph Render[engine_render static lib - engine/render]
+    subgraph Render[engine_render static lib - engine/src/render]
         Init[InitializeGraphicsApi / CollectGraphicsGarbage / ShutdownGraphicsApi]
         Frame[RenderFrame and RenderDataStore]
         Passes[Insertion-ordered render pass vector via RenderBackend]

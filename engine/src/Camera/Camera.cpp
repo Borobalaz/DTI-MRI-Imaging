@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-#include "Render/Shader.h"
+#include "render/Shader.h"
 
 /**
  * @brief Construct a new Camera:: Camera object

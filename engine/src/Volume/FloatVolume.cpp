@@ -1,6 +1,6 @@
 #include "Volume/FloatVolume.h"
 
-#include "Render/Texture/Texture3D.h"
+#include "render/texture/Texture3D.h"
 
 FloatVolume::FloatVolume(const std::string& id,
                          const VolumeData& volumeData,

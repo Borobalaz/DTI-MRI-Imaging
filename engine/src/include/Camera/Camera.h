@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Render/Uniform/UniformProvider.h"
+#include "render/uniform/UniformProvider.h"
 #include "Camera/BaseMovement.h"
 #include "Transform.h"
 #include "inspection/InspectField.h"

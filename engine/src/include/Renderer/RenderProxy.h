@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Render/Core/RenderCommands.h"
-#include "Render/Core/RenderDataStore.h"
-#include "Render/Uniform/CompositeUniformProvider.h"
+#include "render/core/RenderCommands.h"
+#include "render/core/RenderDataStore.h"
+#include "render/uniform/CompositeUniformProvider.h"
 
 struct RenderProxy
 {

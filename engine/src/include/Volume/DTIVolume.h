@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "Volume/Volume.h"
-#include "Render/VolumeTextureSet.h"
-#include "Render/Texture/TextureData3D.h"
+#include "render/VolumeTextureSet.h"
+#include "render/texture/TextureData3D.h"
 #include "foundation/threading/Cancellation.h"
 
 struct DTIVolumeChannels

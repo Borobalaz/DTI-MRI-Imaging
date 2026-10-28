@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Render/Geometry/Geometry.h"
+#include "render/geometry/Geometry.h"
 
 class QuadGeometry : public Geometry
 {

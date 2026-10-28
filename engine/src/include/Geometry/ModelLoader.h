@@ -4,7 +4,7 @@
 #include <string>
 
 #include "GameObject.h"
-#include "Render/Shader.h"
+#include "render/Shader.h"
 
 class ModelLoader
 {

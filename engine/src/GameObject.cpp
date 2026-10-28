@@ -8,7 +8,7 @@
 #include <cmath>
 
 #include "Renderer/RenderProxy.h"
-#include "Render/Uniform/CompositeUniformProvider.h"
+#include "render/uniform/CompositeUniformProvider.h"
 
 GameObject::GameObject(const std::string& id)
   : id(id)

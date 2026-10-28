@@ -8,7 +8,7 @@
 
 #include "foundation/log/EngineLog.h"
 #include "Renderer/RenderProxy.h"
-#include "Render/VolumeTextureSet.h"
+#include "render/VolumeTextureSet.h"
 
 /**
  * @brief Construct a new Volume:: Volume object

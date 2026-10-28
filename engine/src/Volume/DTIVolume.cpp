@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "foundation/log/EngineLog.h"
-#include "Render/Texture/Texture3D.h"
+#include "render/texture/Texture3D.h"
 
 namespace
 {

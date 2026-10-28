@@ -11,7 +11,7 @@
 #include "DtiVolumeScene.h"
 #include "Inspection/SceneInspectionService.h"
 #include "foundation/log/EngineLog.h"
-#include "Render/Renderer/ForwardRenderer.h"
+#include "render/renderer/ForwardRenderer.h"
 #include "RenderCore/ExtractionRegistry.h"
 #include "RenderCore/RenderFrameBuilder.h"
 #include "Scene/Scene.h"

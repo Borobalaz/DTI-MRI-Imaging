@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "Render/Geometry/Geometry.h"
+#include "render/geometry/Geometry.h"
 
 class ImportedGeometry : public Geometry
 {

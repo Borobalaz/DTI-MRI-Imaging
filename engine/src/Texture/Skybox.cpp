@@ -1,7 +1,7 @@
 #include "Texture/Skybox.h"
 
 #include "Renderer/RenderProxy.h"
-#include "Render/Shader.h"
+#include "render/Shader.h"
 
 Skybox::Skybox(std::shared_ptr<TextureCube> cubemap)
   : cubemap(std::move(cubemap)),

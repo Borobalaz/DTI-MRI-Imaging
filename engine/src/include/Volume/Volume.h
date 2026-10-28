@@ -9,12 +9,12 @@
 #include "IDrawable.h"
 #include "Renderer/RenderProxy.h"
 #include "IUpdateable.h"
-#include "Render/Shader.h"
+#include "render/Shader.h"
 #include "Transform.h"
-#include "Render/Uniform/UniformProvider.h"
+#include "render/uniform/UniformProvider.h"
 #include "Volume/VolumeData.h"
 #include "Geometry/VolumeGeometry.h"
-#include "Render/VolumeTextureSet.h"
+#include "render/VolumeTextureSet.h"
 #include "inspection/InspectField.h"
 
 class Volume : public UniformProvider, public IDrawable, public IUpdateable, public InspectProvider

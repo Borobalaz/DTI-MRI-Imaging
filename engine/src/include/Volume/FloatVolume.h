@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Volume/Volume.h"
-#include "Render/VolumeTextureSet.h"
+#include "render/VolumeTextureSet.h"
 
 class FloatVolume final : public Volume
 {

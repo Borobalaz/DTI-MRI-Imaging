@@ -9,11 +9,11 @@
 #include "Mesh.h"
 #include "IDrawable.h"
 #include "IUpdateable.h"
-#include "Render/Shader.h"
+#include "render/Shader.h"
 #include "Transform.h"
-#include "Render/Uniform/UniformProvider.h"
+#include "render/uniform/UniformProvider.h"
 #include "inspection/InspectField.h"
-#include "Render/Geometry/InstanceBuffer.h"
+#include "render/geometry/InstanceBuffer.h"
 
 struct RenderProxy;
 

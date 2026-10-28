@@ -3,8 +3,8 @@
 #include <memory>
 
 #include "Geometry/CubeGeometry.h"
-#include "Render/Shader.h"
-#include "Render/Texture/TextureCube.h"
+#include "render/Shader.h"
+#include "render/texture/TextureCube.h"
 #include "../IDrawable.h"
 
 class Skybox : public IDrawable
