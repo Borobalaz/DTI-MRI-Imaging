@@ -17,6 +17,7 @@ find_package(glm CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(Eigen3 CONFIG REQUIRED)
 find_package(ITK CONFIG QUIET COMPONENTS
     ITKCommon
     ITKIOImageBase
@@ -114,6 +115,7 @@ target_link_libraries(engine PRIVATE
     engine_render
     engine_foundation
     nlohmann_json::nlohmann_json
+    Eigen3::Eigen
 )
 
 if (ITK_FOUND)

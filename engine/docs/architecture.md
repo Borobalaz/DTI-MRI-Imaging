@@ -50,7 +50,7 @@ The engine resource files are stored under `engine/assets` and `engine/shaders`.
 |---|---|---|
 | Host (GUI) | the host (`app_qt`'s Qt GUI thread) | Calls `Engine` facade methods and displays published frames. Never touches the graphics API. |
 | Engine | `EngineRuntime` (`std::thread`, `Engine::Start`/`Stop`) | The GL thread: input drain, `Update` (including applying finished preprocessing jobs and lazy GPU uploads), render, readback, publish, callbacks, pacing. |
-| Preprocessing worker | `BackgroundTask<DatasetJobOutcome>`, owned by `DtiVolumeScene` | `MriToDtiPreprocessor::Process`, dataset read/write, DTI volume texture packing. Pure CPU, never the graphics API. |
+| Preprocessing worker | `BackgroundTask<DatasetJobOutcome>`, owned by `DtiVolumeScene` | `MriToDtiPreprocessor::Process` or `MriToFodfPreprocessor::Process` (chosen by the scene's Reconstruction Model), dataset read/write, DTI volume texture packing. Pure CPU, never the graphics API. |
 
 In sync mode, the host thread calling `Update`/`Render` takes the engine thread's role.
 
@@ -108,7 +108,7 @@ Inspection field closures capture raw provider pointers. `Scene` therefore incre
 
 `DtiVolumeScene` (`core/include/DtiVolumeScene.h`) runs dataset jobs (`DatasetJobKind::Run`/`Load`/`Save`) as `BackgroundTask<DatasetJobOutcome>`s and never blocks the engine thread on them.
 
-- **Run** snapshots `currentRequest` plus a copy of the tractography settings, so later inspector edits can't race the worker. The worker calls `MriToDtiPreprocessor::Process(request, options)`, with progress and cancellation passed through `MriPreprocessingExecutionOptions`.
+- **Run** snapshots `currentRequest` plus a copy of the tractography and fODF settings and the selected Reconstruction Model, so later inspector edits can't race the worker. The worker calls `MriToDtiPreprocessor::Process(request, options)` or `MriToFodfPreprocessor::Process(request, options)`, with progress and cancellation passed through `MriPreprocessingExecutionOptions`.
 - **Load** reads a saved dataset on the worker. Its provenance parameters are applied to the scene at apply time.
 - **Run and Load both** finish on the worker by calling `PackDTIVolumeTextures` (`engine/include/scene/volume/DTIVolume.h`). This validates the channels (same dimensions/spacing, finite voxels) and packs them into the five `TextureData3D` payloads of the volume texture contract. Run publishes `Preparing volume textures` while it does this.
 - **Save** writes the last applied result together with the applied request/settings, so provenance records what was actually applied. It writes into a staging folder and then renames, so a failed save leaves no partial dataset.
@@ -121,7 +121,7 @@ Inspection field closures capture raw provider pointers. `Scene` therefore incre
 - **Apply.** `Update` polls the jobs. A finished Run/Load is applied by `ApplyPreprocessingResult` on the engine thread.
   - It builds a new `DTIVolume` from the pre-packed textures. The ctor makes no GL calls, because each `Texture3D` uploads lazily at its first bind.
   - It builds the surface, streamline and seed `GameObject`s into locals, then commits: it swaps them into the scene and calls `RebuildInspectProviders` once.
-  - When the result carries an `shVolume` (live runs only), it also builds the `dti_sh_glyphs` [`SHGlyphField`](#sh-glyph-fields) with the volume's rotation. Loaded datasets carry no SH, so they log `Dataset has no spherical-harmonics data` and show no glyphs.
+  - When the result carries SH data it also builds the `dti_sh_glyphs` [`SHGlyphField`](#sh-glyph-fields) with the volume's rotation: from `fodfShVolume` when present (Glyph Source defaults to fODF), otherwise from `shVolume`. "dti" datasets carry no SH, so they log `Dataset has no spherical-harmonics data` and show no glyphs; "fodf" datasets carry both.
   - A failure or a non-finite dataset therefore leaves the previous scene shown.
   - The apply logs `DTI apply: <ms> ms (engine thread)`.
 - **Shader cache.** `EnsureShaderCache` compiles the five `DTIVolume` render-mode shaders (`DTIVolume::CreateRenderModes`) and the brain-surface, streamline, seed-point and SH-glyph shaders once on the first `Update`, and registers them for hot reload. Every apply reuses them, so a rerun compiles nothing, and their stored (inspector-tuned) uniforms persist across reruns. A shader that failed to build is retried at the next apply, because hot reload skips invalid programs.
@@ -157,7 +157,8 @@ These are header-only, under `engine/include/foundation/threading/`, and Qt- and
   - `Update()` takes the finished result, swaps the buffer, mesh and basis into place, and only then starts the next pending build. The engine thread never joins.
   - A superseded result is discarded, and a failed build keeps the old state.
   - Scale and normalize are uniforms, so they apply immediately.
-- **DTI source.** `DtiTensorShStage` runs right after scalar synthesis and before `DWINormalizationStage`, which destroys the tensor. It fits the tensor ODF (uᵀD⁻¹u)^(−3/2), sampled on 642 directions, to lmax 8, normalized to unit integral. It publishes `MriPreprocessingResult::shVolume` with the raw FA as the mask. Dataset I/O does not persist it.
+  - `SetVolume` swaps the source `SHVolume` with the same latest-wins rebuild; the mesh and basis table are kept, because they depend only on the subdivision level.
+- **DTI source.** `DtiTensorShStage` runs right after scalar synthesis and before `DWINormalizationStage`, which destroys the tensor. It fits the tensor ODF (uᵀD⁻¹u)^(−3/2), sampled on 642 directions, to lmax 8, normalized to unit integral. It publishes `MriPreprocessingResult::shVolume` with the raw FA as the mask. The "dti" dataset format does not persist it; the "fodf" format does.
 
 ## Boundary Contract
 

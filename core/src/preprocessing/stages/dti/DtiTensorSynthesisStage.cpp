@@ -5,7 +5,6 @@
 #include <cmath>
 #include <limits>
 #include <memory>
-#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -15,7 +14,7 @@
 
 #include "Preprocessing/stages/dti/DtiPreprocessingStages.h"
 #include "scene/volume/VolumeData.h"
-#include "scene/volume/VolumeFileLoader.h"
+#include "scene/volume/VolumeSeriesData.h"
 
 namespace
 {
@@ -43,17 +42,13 @@ const char *DtiTensorSynthesisStage::Name() const
  */
 void DtiTensorSynthesisStage::Execute(MriPreprocessingContext &context) const
 {
-  // The DWI read is not interruptible and has no meaningful fraction; check right after it.
-  const auto loadedSeries = VolumeFileLoader::LoadSeries(context.selectedDwiVolumePath);
-  if (!loadedSeries.has_value())
+  if (!context.dwiSeries)
   {
     throw std::runtime_error(
-      "Failed to load DWI series from '" + context.selectedDwiVolumePath +
-      "'. loaderError='" + VolumeFileLoader::GetLastError() + "'.");
+      "DTI tensor synthesis needs the DWI series cached by the DWI input validation stage, "
+      "which did not run or did not cache it.");
   }
-  context.ThrowIfCancelled();
-
-  const auto &dwiSeries = *loadedSeries;
+  const VolumeSeriesData &dwiSeries = *context.dwiSeries;
   const int frameCount = dwiSeries.GetFrameCount();
   std::cout << "DWI series loaded with " << frameCount << " frames." << std::endl;
 

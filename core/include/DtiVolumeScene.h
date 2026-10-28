@@ -1,9 +1,11 @@
 #pragma once
 
 #include "scene/Scene.h"
+#include "Preprocessing/MriFodfSettings.h"
 #include "Preprocessing/MriTractographySettings.h"
 #include "scene/volume/DTIVolume.h"
 #include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
+#include "Preprocessing/preprocessors/MriToFodfPreprocessor.h"
 #include "foundation/threading/BackgroundTask.h"
 #include "foundation/threading/SharedProgress.h"
 
@@ -19,6 +21,13 @@ enum class DatasetJobKind
   Save
 };
 
+// Reconstruction model of a preprocessing run / loaded dataset.
+enum class ReconstructionModel
+{
+  Dti,
+  Fodf
+};
+
 /**
  * @brief What a background dataset job hands back to the scene's Update() thread. Holds only
  *        CPU data (meshes and volume textures are GL-free until first drawn), so it may be built
@@ -27,6 +36,7 @@ enum class DatasetJobKind
 struct DatasetJobOutcome
 {
   DatasetJobKind kind = DatasetJobKind::Run;
+  ReconstructionModel model = ReconstructionModel::Dti; // Run/Load: the model that produced result
   std::optional<MriPreprocessingResult> result; // Run/Load only
   std::optional<DTIVolumeTextureData> volumeTextures; // Run/Load only: result's channels packed on the worker
   MriPreprocessingRequest appliedRequest;       // Run: the request/settings snapshot the pipeline ran with
@@ -73,11 +83,14 @@ public:
   
 private:
   using DatasetJob = BackgroundTask<DatasetJobOutcome>;
+  enum class GlyphSource { TensorOdf, Fodf };
 
   void ClearProcessedScene();
   void ApplyPreprocessingResult(MriPreprocessingResult result,
                                 DTIVolumeTextureData volumeTextures,
-                                const MriPreprocessingRequest& appliedRequest);
+                                const MriPreprocessingRequest& appliedRequest,
+                                ReconstructionModel model);
+  void SetGlyphSource(GlyphSource source);
 
   // Shaders compiled once (GL thread) and reused by every apply, so a rerun compiles nothing.
   // Their stored uniforms (inspector tweaks) therefore persist across reruns.
@@ -108,6 +121,7 @@ private:
 
   MriPreprocessingRequest currentRequest;
   std::shared_ptr<MriTractographySettings> tractographySettingsInspectable;
+  std::shared_ptr<MriFodfSettings> fodfSettingsInspectable;
   std::shared_ptr<DTIVolume> dtiVolume;
   std::shared_ptr<GameObject> brainSurfaceObject;
   std::shared_ptr<GameObject> streamlineObject;
@@ -115,6 +129,7 @@ private:
   std::shared_ptr<SHGlyphField> shGlyphField;
   // Shared with running jobs; its stages are const and stateless.
   std::shared_ptr<const MriToDtiPreprocessor> preprocessor;
+  std::shared_ptr<const MriToFodfPreprocessor> fodfPreprocessor; // shared with running jobs; stateless
   std::string lastLoadError;
   bool datasetReloadRequested = false;
 
@@ -123,6 +138,9 @@ private:
   // worker without re-running the (potentially slow) preprocessing pipeline.
   std::shared_ptr<const MriPreprocessingResult> lastPreprocessingResult;
   MriPreprocessingRequest lastAppliedRequest;
+  ReconstructionModel selectedModel = ReconstructionModel::Dti; // model the next Run uses
+  ReconstructionModel appliedModel = ReconstructionModel::Dti;  // model of lastPreprocessingResult
+  GlyphSource glyphSource = GlyphSource::TensorOdf;             // current SH glyph source
   std::string pendingSaveOutputDirectory;
   std::string pendingLoadMetadataPath;
   bool datasetSaveRequested = false;

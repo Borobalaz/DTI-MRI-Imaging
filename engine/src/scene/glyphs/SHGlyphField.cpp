@@ -247,6 +247,21 @@ void SHGlyphField::SetSubdivisionLevel(unsigned int newLevel)
   RequestRebuild();
 }
 
+void SHGlyphField::SetVolume(std::shared_ptr<const SHVolume> newVolume)
+{
+  if (!newVolume)
+  {
+    EngineLog::Warning("SH glyph field '" + id + "': SetVolume(nullptr) ignored", kLogSource);
+    return;
+  }
+  if (newVolume == volume)
+  {
+    return;
+  }
+  volume = std::move(newVolume);
+  RequestRebuild();
+}
+
 std::optional<float> SHGlyphField::CastRay(const glm::vec3&, const glm::vec3&) const
 {
   return std::nullopt; // not pickable

@@ -11,6 +11,7 @@
 #include "Preprocessing/io/PreprocessingDatasetFormats.h"
 #include "Preprocessing/io/PreprocessingDatasetMetadataIO.h"
 #include "Preprocessing/io/dti/DtiPreprocessingParameters.h"
+#include "Preprocessing/io/fodf/FodfPreprocessingParameters.h"
 #include "foundation/log/EngineLog.h"
 
 #include <algorithm>
@@ -108,6 +109,41 @@ namespace
                     : std::make_shared<MriTractographySettings>();
   }
 
+  std::shared_ptr<MriFodfSettings> CopyFodfSettings(const std::shared_ptr<MriFodfSettings> &settings)
+  {
+    return settings ? std::make_shared<MriFodfSettings>(*settings)
+                    : std::make_shared<MriFodfSettings>();
+  }
+
+  const char *PreprocessorTypeFor(ReconstructionModel model)
+  {
+    switch (model)
+    {
+    case ReconstructionModel::Dti:
+      return "dti";
+    case ReconstructionModel::Fodf:
+      return "fodf";
+    }
+    return "dti";
+  }
+
+  ReconstructionModel ModelFromPreprocessorType(const std::string &type)
+  {
+    return type == "fodf" ? ReconstructionModel::Fodf : ReconstructionModel::Dti;
+  }
+
+  const char *ModelLabel(ReconstructionModel model)
+  {
+    switch (model)
+    {
+    case ReconstructionModel::Dti:
+      return "DTI";
+    case ReconstructionModel::Fodf:
+      return "fODF";
+    }
+    return "DTI";
+  }
+
   void PrintPreprocessingReport(const MriPreprocessingReport &report)
   {
     std::cout << "Loaded: " << report.sourceVolumePath << std::endl;
@@ -129,7 +165,9 @@ namespace
 
   // ---- Worker-thread job bodies: pure CPU / file I/O, never GL. ----
 
-  DatasetJobOutcome RunPreprocessingJob(const MriToDtiPreprocessor &preprocessor,
+  DatasetJobOutcome RunPreprocessingJob(ReconstructionModel model,
+                                        const MriToDtiPreprocessor &dtiPreprocessor,
+                                        const MriToFodfPreprocessor &fodfPreprocessor,
                                         const MriPreprocessingRequest &request,
                                         SharedProgress &progress,
                                         const CancellationToken &cancellation)
@@ -141,8 +179,10 @@ namespace
 
     DatasetJobOutcome outcome;
     outcome.kind = DatasetJobKind::Run;
+    outcome.model = model;
     outcome.appliedRequest = request;
-    outcome.result = preprocessor.Process(request, options);
+    outcome.result = (model == ReconstructionModel::Fodf) ? fodfPreprocessor.Process(request, options)
+                                                          : dtiPreprocessor.Process(request, options);
 
     ProgressSnapshot packingProgress;
     packingProgress.label = "Preparing volume textures";
@@ -182,6 +222,7 @@ namespace
 
     DatasetJobOutcome outcome;
     outcome.kind = DatasetJobKind::Load;
+    outcome.model = ModelFromPreprocessorType(metadata->preprocessorType);
     outcome.result = std::move(*result);
     outcome.loadedParametersJson = metadata->parametersJson;
     outcome.volumeTextures = PackDTIVolumeTextures(outcome.result->dtiChannels, cancellation);
@@ -202,19 +243,32 @@ namespace
 
   DatasetJobOutcome SaveDatasetJob(const MriPreprocessingResult &result,
                                    const MriPreprocessingRequest &appliedRequest,
-                                   const std::string &outputDirectory)
+                                   const std::string &outputDirectory,
+                                   ReconstructionModel model)
   {
-    const MriTractographySettings settings = appliedRequest.tractographySettings
-                                                 ? *appliedRequest.tractographySettings
-                                                 : MriTractographySettings{};
-    const std::string parametersJson =
-        BuildDtiPreprocessingParametersJson(appliedRequest, settings, settings.GetMatchedPresetName());
+    std::string parametersJson;
+    if (model == ReconstructionModel::Fodf)
+    {
+      const MriFodfSettings settings = appliedRequest.fodfSettings ? *appliedRequest.fodfSettings
+                                                                   : MriFodfSettings{};
+      parametersJson = BuildFodfPreprocessingParametersJson(appliedRequest, settings,
+                                                            result.fodfResponse.bValue,
+                                                            result.fodfIgnoredShellBValues);
+    }
+    else
+    {
+      const MriTractographySettings settings = appliedRequest.tractographySettings
+                                                   ? *appliedRequest.tractographySettings
+                                                   : MriTractographySettings{};
+      parametersJson = BuildDtiPreprocessingParametersJson(appliedRequest, settings, settings.GetMatchedPresetName());
+    }
 
+    const std::string preprocessorType = PreprocessorTypeFor(model);
     const std::shared_ptr<IPreprocessingDatasetWriter> writer =
-        GetDefaultPreprocessingDatasetFormatRegistry().FindWriter("dti");
+        GetDefaultPreprocessingDatasetFormatRegistry().FindWriter(preprocessorType);
     if (!writer)
     {
-      throw std::runtime_error("No dataset writer registered for preprocessor type 'dti'.");
+      throw std::runtime_error("No dataset writer registered for preprocessor type '" + preprocessorType + "'.");
     }
 
     // Write everything into a staging folder first so a failed save leaves no partial dataset
@@ -256,6 +310,7 @@ namespace
 DtiVolumeScene::DtiVolumeScene()
     : dtiVolume(nullptr),
       preprocessor(std::make_shared<const MriToDtiPreprocessor>()),
+      fodfPreprocessor(std::make_shared<const MriToFodfPreprocessor>()),
       jobProgress(std::make_shared<SharedProgress>())
 {
   ClearGameObjects();
@@ -263,6 +318,8 @@ DtiVolumeScene::DtiVolumeScene()
 
   tractographySettingsInspectable = std::make_shared<MriTractographySettings>();
   currentRequest.tractographySettings = tractographySettingsInspectable;
+  fodfSettingsInspectable = std::make_shared<MriFodfSettings>();
+  currentRequest.fodfSettings = fodfSettingsInspectable;
   currentRequest.dwiVolumePath = "assets/volumes/dwi/human/HARDI150_hdbet_masked4d.nii.gz";
   currentRequest.bvalPath = "assets/volumes/dwi/human/HARDI150.bval";
   currentRequest.bvecPath = "assets/volumes/dwi/human/HARDI150.bvec";
@@ -302,6 +359,7 @@ void DtiVolumeScene::LoadDataset(
     const std::string &bvecPath)
 {
   currentRequest.tractographySettings = tractographySettingsInspectable;
+  currentRequest.fodfSettings = fodfSettingsInspectable;
   currentRequest.dwiVolumePath = dwiVolumePath;
   currentRequest.bvalPath = bvalPath;
   currentRequest.bvecPath = bvecPath;
@@ -404,7 +462,8 @@ void DtiVolumeScene::EnsureShaderCache()
  */
 void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
                                               DTIVolumeTextureData volumeTextures,
-                                              const MriPreprocessingRequest &appliedRequest)
+                                              const MriPreprocessingRequest &appliedRequest,
+                                              ReconstructionModel model)
 {
   const int previousRenderMode = dtiVolume ? dtiVolume->GetSelectedRenderModeIndex() : 0;
   const int previousChannel = dtiVolume ? dtiVolume->GetSelectedChannelIndex() : 0;
@@ -477,13 +536,18 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
     newSeedPointsObject->SetInstanceTransforms(seedTransforms);
   }
 
-  // SH glyph field over the tensor ODFs. Its instance data builds on its own worker, so this
-  // only starts that build. Loaded datasets carry no SH (it isn't persisted), so they get none.
+  // SH glyphs: the fODF when the result has one (live fODF runs and "fodf" datasets), otherwise
+  // the tensor ODF (live DTI runs). Both shared_ptrs stay reachable through lastPreprocessingResult
+  // for the Glyph Source switch. "dti" datasets carry neither, so they get no glyphs. The glyph
+  // instance data builds on its own worker, so this only starts that build.
+  const std::shared_ptr<const SHVolume> initialGlyphVolume =
+      result.fodfShVolume ? result.fodfShVolume : result.shVolume;
+  const GlyphSource newGlyphSource = result.fodfShVolume ? GlyphSource::Fodf : GlyphSource::TensorOdf;
   std::shared_ptr<SHGlyphField> newShGlyphField;
-  if (result.shVolume)
+  if (initialGlyphVolume)
   {
     newShGlyphField = std::make_shared<SHGlyphField>(
-        "dti_sh_glyphs", result.shVolume, shaderCache.shGlyph, SHGlyphBuildSettings{3, 0.3f, 3});
+        "dti_sh_glyphs", initialGlyphVolume, shaderCache.shGlyph, SHGlyphBuildSettings{3, 0.3f, 3});
     newShGlyphField->SetRotation(kProcessedObjectRotation);
   }
   else
@@ -497,6 +561,8 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   // built above already hold their own shared_ptr copies of its meshes.
   lastPreprocessingResult = std::make_shared<const MriPreprocessingResult>(std::move(result));
   lastAppliedRequest = appliedRequest;
+  appliedModel = model;
+  glyphSource = newGlyphSource;
 
   ClearProcessedScene();
 
@@ -525,6 +591,30 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   }
 
   RebuildInspectProviders();
+}
+
+/**
+ * @brief Point the SH glyph field at the tensor-ODF or fODF volume of the current result.
+ *        No-op without a glyph field/result; logs a warning when the requested source is absent.
+ */
+void DtiVolumeScene::SetGlyphSource(GlyphSource source)
+{
+  if (!shGlyphField || !lastPreprocessingResult)
+  {
+    return;
+  }
+
+  const std::shared_ptr<const SHVolume> &target = source == GlyphSource::Fodf
+                                                      ? lastPreprocessingResult->fodfShVolume
+                                                      : lastPreprocessingResult->shVolume;
+  if (!target)
+  {
+    EngineLog::Warning("Selected glyph source has no SH data in the current dataset", "DtiVolumeScene");
+    return;
+  }
+
+  glyphSource = source;
+  shGlyphField->SetVolume(target);
 }
 
 /**
@@ -680,19 +770,23 @@ void DtiVolumeScene::StartPendingJob()
 }
 
 /**
- * @brief Start a preprocessing run on a snapshot of the current request and a copy of the
- *        tractography settings, so later inspector edits can't race with the worker.
+ * @brief Start a preprocessing run on a snapshot of the current request, a copy of the
+ *        tractography and fODF settings and the selected model, so later inspector edits can't
+ *        race with the worker.
  */
 std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateRunJob()
 {
   MriPreprocessingRequest request = currentRequest;
   request.tractographySettings = CopyTractographySettings(tractographySettingsInspectable);
+  request.fodfSettings = CopyFodfSettings(fodfSettingsInspectable);
 
+  const ReconstructionModel runModel = selectedModel;
   const std::shared_ptr<const MriToDtiPreprocessor> runPreprocessor = preprocessor;
+  const std::shared_ptr<const MriToFodfPreprocessor> runFodfPreprocessor = fodfPreprocessor;
   const std::shared_ptr<SharedProgress> progress = jobProgress;
   return std::make_unique<DatasetJob>(
-      [runPreprocessor, request, progress](const CancellationToken &cancellation)
-      { return RunPreprocessingJob(*runPreprocessor, request, *progress, cancellation); });
+      [runModel, runPreprocessor, runFodfPreprocessor, request, progress](const CancellationToken &cancellation)
+      { return RunPreprocessingJob(runModel, *runPreprocessor, *runFodfPreprocessor, request, *progress, cancellation); });
 }
 
 /**
@@ -736,9 +830,10 @@ std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateSaveJob()
   const std::shared_ptr<const MriPreprocessingResult> result = lastPreprocessingResult;
   const MriPreprocessingRequest appliedRequest = lastAppliedRequest;
   const std::string outputDirectory = pendingSaveOutputDirectory;
+  const ReconstructionModel saveModel = appliedModel;
   return std::make_unique<DatasetJob>(
-      [result, appliedRequest, outputDirectory](const CancellationToken &)
-      { return SaveDatasetJob(*result, appliedRequest, outputDirectory); });
+      [result, appliedRequest, outputDirectory, saveModel](const CancellationToken &)
+      { return SaveDatasetJob(*result, appliedRequest, outputDirectory, saveModel); });
 }
 
 /**
@@ -779,7 +874,8 @@ void DtiVolumeScene::ApplyJobOutcome(DatasetJobOutcome outcome)
       lastLoadError.clear();
       {
         const auto applyStart = std::chrono::steady_clock::now();
-        ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures), outcome.appliedRequest);
+        ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures), outcome.appliedRequest,
+                                 outcome.model);
         LogApplyDuration(applyStart);
       }
       break;
@@ -796,15 +892,24 @@ void DtiVolumeScene::ApplyJobOutcome(DatasetJobOutcome outcome)
         FailJob(outcome.kind, "Volume textures were not prepared.");
         return;
       }
-      if (tractographySettingsInspectable)
+      if (outcome.model == ReconstructionModel::Fodf)
+      {
+        if (fodfSettingsInspectable)
+        {
+          ApplyFodfPreprocessingParametersJson(outcome.loadedParametersJson, currentRequest, *fodfSettingsInspectable);
+        }
+      }
+      else if (tractographySettingsInspectable)
       {
         ApplyDtiPreprocessingParametersJson(outcome.loadedParametersJson, currentRequest, *tractographySettingsInspectable);
       }
+      selectedModel = outcome.model; // a Rerun after loading reproduces the loaded model
       MriPreprocessingRequest appliedRequest = currentRequest;
       appliedRequest.tractographySettings = CopyTractographySettings(tractographySettingsInspectable);
+      appliedRequest.fodfSettings = CopyFodfSettings(fodfSettingsInspectable);
       lastLoadError.clear();
       const auto applyStart = std::chrono::steady_clock::now();
-      ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures), appliedRequest);
+      ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures), appliedRequest, outcome.model);
       LogApplyDuration(applyStart);
       break;
     }
@@ -941,6 +1046,11 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetInspectFields()
                                                               : std::vector<InspectFieldPtr>{};
   fields.insert(fields.end(), tractographyFields.begin(), tractographyFields.end());
 
+  const std::vector<InspectFieldPtr> fodfFields = fodfSettingsInspectable
+                                                      ? fodfSettingsInspectable->GetInspectFields()
+                                                      : std::vector<InspectFieldPtr>{};
+  fields.insert(fields.end(), fodfFields.begin(), fodfFields.end());
+
   const auto addFileField = [&fields](const std::string &id, const std::string &label, std::string *path)
   {
     fields.push_back(MakeInspectField(
@@ -953,6 +1063,24 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetInspectFields()
             *path = *selectedPath;
         }));
   };
+  auto modelField = MakeInspectField(
+      "reconstructionModel", "Reconstruction Model", "Preprocessing", InspectFieldType::Dropdown,
+      std::string(ModelLabel(selectedModel)),
+      [this]() -> InspectValue
+      { return std::string(ModelLabel(selectedModel)); },
+      [this](const InspectValue &value)
+      {
+        const auto *label = std::get_if<std::string>(&value);
+        if (!label)
+          return;
+        if (*label == "fODF")
+          selectedModel = ReconstructionModel::Fodf;
+        else if (*label == "DTI")
+          selectedModel = ReconstructionModel::Dti;
+      });
+  modelField->enumOptions = {"DTI", "fODF"};
+  fields.push_back(modelField);
+
   addFileField("dwiVolumePath", "DWI Volume", &currentRequest.dwiVolumePath);
   addFileField("bvalPath", "B-Values", &currentRequest.bvalPath);
   addFileField("bvecPath", "B-Vectors", &currentRequest.bvecPath);
@@ -1000,6 +1128,27 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetInspectFields()
       std::monostate{}, {},
       [this](const InspectValue &)
       { datasetLoadRequested = true; }));
+
+  if (lastPreprocessingResult && lastPreprocessingResult->fodfShVolume)
+  {
+    auto glyphSourceField = MakeInspectField(
+        "glyphSource", "Glyph Source", "Glyphs", InspectFieldType::Dropdown,
+        std::string(glyphSource == GlyphSource::Fodf ? "fODF" : "Tensor ODF"),
+        [this]() -> InspectValue
+        { return std::string(glyphSource == GlyphSource::Fodf ? "fODF" : "Tensor ODF"); },
+        [this](const InspectValue &value)
+        {
+          const auto *label = std::get_if<std::string>(&value);
+          if (!label)
+            return;
+          if (*label == "fODF")
+            SetGlyphSource(GlyphSource::Fodf);
+          else if (*label == "Tensor ODF")
+            SetGlyphSource(GlyphSource::TensorOdf);
+        });
+    glyphSourceField->enumOptions = {"Tensor ODF", "fODF"};
+    fields.push_back(glyphSourceField);
+  }
 
   // Rotation controls
   fields.push_back(MakeInspectField(

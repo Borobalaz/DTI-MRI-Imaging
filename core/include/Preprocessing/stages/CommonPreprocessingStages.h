@@ -6,5 +6,6 @@
 
 std::unique_ptr<IMriPreprocessingStage> CreateDwiInputValidationStage();
 std::unique_ptr<IMriPreprocessingStage> CreateDwiGradientNormalizationStage();
+std::unique_ptr<IMriPreprocessingStage> CreateDwiShellSelectionStage();
 std::unique_ptr<IMriPreprocessingStage> CreateDwiNormalizationStage();
 std::unique_ptr<IMriPreprocessingStage> CreateDwiBrainSurfaceMeshStage();

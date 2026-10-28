@@ -4,6 +4,8 @@
 
 #include "Preprocessing/io/dti/DtiPreprocessingDatasetReader.h"
 #include "Preprocessing/io/dti/DtiPreprocessingDatasetWriter.h"
+#include "Preprocessing/io/fodf/FodfPreprocessingDatasetReader.h"
+#include "Preprocessing/io/fodf/FodfPreprocessingDatasetWriter.h"
 
 PreprocessingDatasetFormatRegistry &GetDefaultPreprocessingDatasetFormatRegistry()
 {
@@ -12,6 +14,8 @@ PreprocessingDatasetFormatRegistry &GetDefaultPreprocessingDatasetFormatRegistry
     PreprocessingDatasetFormatRegistry formatRegistry;
     formatRegistry.RegisterWriter(std::make_shared<DtiPreprocessingDatasetWriter>());
     formatRegistry.RegisterReader(std::make_shared<DtiPreprocessingDatasetReader>());
+    formatRegistry.RegisterWriter(std::make_shared<FodfPreprocessingDatasetWriter>());
+    formatRegistry.RegisterReader(std::make_shared<FodfPreprocessingDatasetReader>());
     return formatRegistry;
   }();
 

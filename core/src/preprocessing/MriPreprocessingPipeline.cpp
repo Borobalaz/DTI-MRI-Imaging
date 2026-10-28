@@ -1,6 +1,7 @@
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
 #include <algorithm>
+#include <utility>
 
 /**
  * @brief Add a preprocessing stage to the pipeline.
@@ -83,12 +84,16 @@ MriPreprocessingResult MriPreprocessingPipeline::Execute(const MriPreprocessingR
     context.ReportStageFraction(1.0f);
   }
 
-  return MriPreprocessingResult{
-    std::move(context.outputDtiChannels),
-    std::move(context.outputSurfaceMesh),
-    std::move(context.outputStreamlineMesh),
-    std::move(context.outputSeedPoints),
-    std::move(context.outputShVolume),
-    std::move(context.report)
-  };
+  // context.dwiSeries is deliberately not copied, so the cached series is freed with the context.
+  MriPreprocessingResult result;
+  result.dtiChannels = std::move(context.outputDtiChannels);
+  result.surfaceMesh = std::move(context.outputSurfaceMesh);
+  result.streamlineMesh = std::move(context.outputStreamlineMesh);
+  result.seedPoints = std::move(context.outputSeedPoints);
+  result.shVolume = std::move(context.outputShVolume);
+  result.fodfResponse = std::move(context.outputFodfResponse);
+  result.fodfShVolume = std::move(context.outputFodfShVolume);
+  result.fodfIgnoredShellBValues = std::move(context.shellSelection.ignoredShellBValues);
+  result.report = std::move(context.report);
+  return result;
 }

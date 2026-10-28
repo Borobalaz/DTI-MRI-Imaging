@@ -2,12 +2,15 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "Preprocessing/stages/CommonPreprocessingStages.h"
 #include "scene/volume/VolumeFileLoader.h"
+#include "scene/volume/VolumeSeriesData.h"
 
 /**
  * @brief Get the name of the preprocessing stage.
@@ -20,7 +23,8 @@ const char* DWIInputValidationStage::Name() const
 
 /**
  * @brief Validate the existence and basic integrity of the DWI volume and its associated bval/bvec files. 
- *        If validation passes, populate the context with the resolved file paths and source volume metadata.
+ *        If validation passes, populate the context with the resolved file paths and source volume metadata,
+ *        and caches the loaded DWI series in context.dwiSeries for later stages.
  * 
  * @param context 
  */
@@ -65,13 +69,15 @@ void DWIInputValidationStage::Execute(MriPreprocessingContext& context) const
   context.selectedBvecPath = bvecPath.string();
   context.report.sourceVolumePath = context.selectedDwiVolumePath;
 
-  const auto dwiSeries = VolumeFileLoader::LoadSeries(context.selectedDwiVolumePath);
+  std::optional<VolumeSeriesData> dwiSeries = VolumeFileLoader::LoadSeries(context.selectedDwiVolumePath);
   if (!dwiSeries.has_value())
   {
     throw std::runtime_error(
       "Failed to load DWI series from '" + context.selectedDwiVolumePath +
       "'. loaderError='" + VolumeFileLoader::GetLastError() + "'.");
   }
+  // The DWI read is not interruptible and has no meaningful fraction; check right after it.
+  context.ThrowIfCancelled();
 
   const int frameCount = dwiSeries->GetFrameCount();
   if (frameCount <= 0)
@@ -95,6 +101,9 @@ void DWIInputValidationStage::Execute(MriPreprocessingContext& context) const
   {
     throw std::runtime_error("DWI series voxel count does not match metadata dimensions.");
   }
+
+  // Nothing may read allSignals/dimensions/dwiSeries after this move.
+  context.dwiSeries = std::make_shared<const VolumeSeriesData>(std::move(*dwiSeries));
 }
 
 /**

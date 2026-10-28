@@ -86,6 +86,9 @@ public:
   void SetStride(int newStride);
   void SetMaskThreshold(float newThreshold);
   void SetSubdivisionLevel(unsigned int newLevel);
+  // Swaps the SH source (latest-wins rebuild of the instance data; the mesh and basis table are
+  // kept, since they depend only on the subdivision level). Null is ignored with a warning.
+  void SetVolume(std::shared_ptr<const SHVolume> newVolume);
 
   // InspectProvider implementation
   bool HasVisibility() const override { return true; }
