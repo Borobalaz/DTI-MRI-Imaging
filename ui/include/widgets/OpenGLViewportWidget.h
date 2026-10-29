@@ -11,6 +11,7 @@
 
 class QTSceneInspector;
 class QTEngineSettingsAdapter;
+class QTSceneDashboardAdapter;
 class QtGraphicsContextProvider;
 
 /**
@@ -32,6 +33,7 @@ public:
   RenderStatistics *renderStatistics() const;
   QTSceneInspector &inspectAdapter() const;
   QTEngineSettingsAdapter &settingsAdapter() const;
+  QTSceneDashboardAdapter &sceneDashboardAdapter() const;
   ILogService *logService() const;
   void SetFillColor(const glm::vec3& color);
 
@@ -87,5 +89,6 @@ private:
   std::unique_ptr<RenderStatistics> renderStatisticsObject; // Owned by this widget; exposes rendering metrics for external display
   std::unique_ptr<QTSceneInspector> inspectAdapterObject; // Owned by this widget; exposes the scene's inspectable objects to Qt widgets
   std::unique_ptr<QTEngineSettingsAdapter> settingsAdapterObject; // Owned by this widget; exposes engine-wide settings to Qt widgets
+  std::unique_ptr<QTSceneDashboardAdapter> sceneDashboardAdapterObject; // Owned by this widget; exposes the scene-wide dashboard fields to Qt widgets
   glm::vec3 fillColor{0.0f};
 };

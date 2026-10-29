@@ -1,18 +1,10 @@
 #include "qt-adapters/InspectionSession.h"
 
+// Nothing is selected after attaching: the user picks an object explicitly.
 void InspectionSession::SetService(IInspectionService* servicePtr)
 {
   service = servicePtr;
   selectedId.clear();
-
-  if (service)
-  {
-    const std::vector<InspectHandle> providers = service->GetProviders();
-    if (!providers.empty())
-    {
-      selectedId = providers.front().GetId();
-    }
-  }
 }
 
 std::vector<InspectObjectSummary> InspectionSession::ProviderSummaries() const

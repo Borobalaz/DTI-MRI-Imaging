@@ -100,7 +100,8 @@ int QTSceneInspector::fieldRevision() const
 }
 
 // Reacts to the engine's push notification that the provider list structurally changed:
-//  re-validates the current selection and rebuilds the field list if needed.
+//  re-validates the current selection (clearing it if its provider vanished) and rebuilds the
+//  field list if needed.
 void QTSceneInspector::HandleProvidersChanged()
 {
   const std::string previousSelection = session.SelectedId();
@@ -110,15 +111,7 @@ void QTSceneInspector::HandleProvidersChanged()
   const bool stillValid = !previousSelection.empty() && session.SelectById(previousSelection);
   if (!stillValid)
   {
-    const std::vector<InspectObjectSummary> summaries = getProviders();
-    if (!summaries.empty())
-    {
-      session.SelectById(summaries.front().id);
-    }
-    else
-    {
-      session.ClearSelection();
-    }
+    session.ClearSelection();
   }
 
   currentFields = AdaptFields(session.CurrentFields());

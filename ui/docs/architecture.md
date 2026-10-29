@@ -19,10 +19,11 @@ Primary build evidence: `CMakeLists.txt` (`add_executable(app_qt ...)`). The app
 | Module | Role | Main inputs | Main outputs | Ownership |
 |---|---|---|---|---|
 | Application entry | Configures Qt and the default OpenGL surface format (read by the context provider) | Process arguments and Qt runtime | `QApplication`, `WidgetsMainWindow`, event loop | Qt owns the application loop; `main` owns the top-level window |
-| Main window | Composes the main layout, starts/stops the engine, coordinates UI signals | Viewport, inspector, object list, stats, log widgets | Window layout (viewport, object list, stats, log and inspector are all movable/resizable/floatable `QDockWidget`s; no central widget) and cross-widget synchronization | Window owns its child widgets through Qt parent ownership/raw child pointers |
-| Viewport | Plain `QWidget` that owns the `Engine`, displays the frames the engine publishes, and forwards input/size | Qt input/resize events, `ScreenFrame`s | Engine input calls, screen size, render statistics | Viewport owns the `Engine`, the context provider, the inspector/settings adapters and `RenderStatistics` |
+| Main window | Composes the main layout, starts/stops the engine, coordinates UI signals | Viewport, scene dashboard, inspector, object list, stats, log widgets | Window layout (viewport, object list, stats, log, scene dashboard and inspector are all movable/resizable/floatable `QDockWidget`s; no central widget) and cross-widget synchronization | Window owns its child widgets through Qt parent ownership/raw child pointers |
+| Viewport | Plain `QWidget` that owns the `Engine`, displays the frames the engine publishes, and forwards input/size | Qt input/resize events, `ScreenFrame`s | Engine input calls, screen size, render statistics | Viewport owns the `Engine`, the context provider, the inspector/settings/scene-dashboard adapters and `RenderStatistics` |
 | Graphics context provider | Supplies the engine thread with a Qt-created OpenGL context | Default `QSurfaceFormat` | `IGraphicsContextProvider` implementation | Owned (as `shared_ptr`) by the viewport; shared with the engine while it runs |
 | Scene inspector adapter | Converts engine inspection providers and fields into Qt objects/signals | `IInspectionService`, ray-selection requests | `QObjectList`, QVariant metadata/values, Qt signals | Adapter owns Qt field wrappers and snapshots; engine owns provider state |
+| Scene dashboard adapter | Converts the active scene's scene-wide fields (preprocessing, tractography, fODF, glyphs, rotation) into Qt objects/signals | `ISceneDashboardService` | `QObjectList`, QVariant values, Qt signals | Adapter owns Qt field wrappers and snapshots; engine owns the scene |
 | Inspector widgets | Presents editable fields and sends user edits back through callbacks | Qt field objects and QVariant values | Qt controls and field mutation callbacks | Qt parent/widget ownership controls visual lifetime |
 | Object list | Displays selectable engine inspection providers and visibility controls | Provider list and selection/visibility signals | Selection and visibility requests | Main window owns the list widget |
 | Styles, statistics and log | Applies theme resources, displays frame metrics and engine log entries | Theme toggle events, `RenderStatistics`, `ILogService` | Qt stylesheets and labels | Window and widgets own presentation state |
@@ -30,14 +31,14 @@ Primary build evidence: `CMakeLists.txt` (`add_executable(app_qt ...)`). The app
 ## Runtime Flow
 
 1. `ui/src/app/main.cpp` sets a 3.3 core-profile default `QSurfaceFormat` (24-bit depth, 8-bit stencil), creates `QApplication`, and shows `WidgetsMainWindow`. `AA_ShareOpenGLContexts` is not set, because the engine's context is never shared.
-2. `WidgetsMainWindow` docks the viewport next to the inspector, object list, statistics and log widgets as panels the user can rearrange, resize, float, or close. `QSettings` persists the arrangement across sessions.
+2. `WidgetsMainWindow` docks the viewport next to the scene dashboard, inspector, object list, statistics and log widgets as panels the user can rearrange, resize, float, or close. By default the right column holds the **Scene Dashboard** (`sceneDashboardDock`, scene-wide controls) above the **Inspector** (the selected object's fields); both are `InspectorWidget`s, which show a muted `QLabel#inspectorEmptyLabel` placeholder (`setEmptyText`) when they have no editors. `QSettings` persists the arrangement across sessions; `saveState`/`restoreState` pass `kLayoutStateVersion`, which is bumped whenever the default dock set changes so an older saved layout is discarded once.
 3. The window constructor ends with `QTimer::singleShot(0, ...)`, which calls `OpenGLViewportWidget::StartEngine()` once the event loop is running. `StartEngine` is deliberately not tied to the viewport's `showEvent`, for two reasons. A restored layout may keep the viewport dock hidden while the inspector and log still need the engine. And the offscreen surface must be created after the event loop is running.
 4. `StartEngine()` (GUI thread) runs these steps:
    1. Create the `QtGraphicsContextProvider` and the `Engine`.
    2. Register an `OnFrameReady` callback that queues `pullLatestFrame()`.
    3. `Engine::Start(provider)`, which blocks until the engine thread has a context, renderer and scene.
    4. Apply the fill color, then `CreateScreen` and `SetScreenSize` in device pixels.
-   5. Attach `QTSceneInspector`/`QTEngineSettingsAdapter` to the engine's services and emit `engineInitialized`. The window attaches the log widget to `logService()` from this signal.
+   5. Attach `QTSceneInspector`/`QTEngineSettingsAdapter`/`QTSceneDashboardAdapter` to the engine's services and emit `engineInitialized`. The window attaches the log widget to `logService()` from this signal.
 5. Each time the engine publishes a frame, `pullLatestFrame()` runs on the GUI thread:
    1. It calls `Engine::GetScreenFrame`, a buffer swap with no copy.
    2. It wraps the pixels in a `QImage` (`Format_RGBX8888`). The frame is already top-down, and RGBX keeps alpha from bleeding through under `WA_OpaquePaintEvent`.
@@ -46,7 +47,8 @@ Primary build evidence: `CMakeLists.txt` (`add_executable(app_qt ...)`). The app
 
    `paintEvent` then draws the image scaled to `rect()`, which covers frames still rendered at the old size during a resize. Without a frame, it fills with the theme fill color.
 6. `resizeEvent` and `QEvent::DevicePixelRatioChange` call `SetScreenSize`. The second covers a floating dock moved to a monitor with a different scale. Key, mouse and wheel events go straight to the engine's thread-safe input methods. Ctrl-click picking uses the event's own `modifiers()` and `Engine::ScreenPointToRay`, then selects through `QTSceneInspector`.
-7. `QTSceneInspector` adapts engine-neutral inspection fields into Qt field widgets. Qt edits invoke the engine field setters, which the engine serializes with its tick. Engine state remains owned by the engine DLL.
+7. `QTSceneInspector` adapts engine-neutral inspection fields into Qt field widgets. Qt edits invoke the engine field setters, which the engine serializes with its tick. Engine state remains owned by the engine DLL. Nothing is selected by default: attaching the service leaves the selection empty, and when the selected provider disappears (provider list changed) the selection is cleared rather than moved to another object, so the Inspector shows its placeholder until the user picks an object in the Objects panel or Ctrl-clicks it in the viewport. The scene itself is not in the provider list; its fields live in the Scene Dashboard.
+8. `QTSceneDashboardAdapter` (shaped like `QTEngineSettingsAdapter`) adapts the scene's dashboard fields the same way and refetches them on `OnFieldsChanged` (scene created, or the scene's provider generation bumped, e.g. after preprocessing completes).
 
 ## Graphics context provider
 
@@ -66,9 +68,10 @@ Engine callbacks fire on the engine thread, with no engine lock held. They must 
 | `Engine::OnFrameReady` | `OpenGLViewportWidget` -> `pullLatestFrame()` | `framePullPending` |
 | `IInspectionService::OnProvidersChanged` | `QTSceneInspector` -> `HandleQueuedProvidersChanged()` | `providersChangedPending` |
 | `ISettingsService::OnSettingsChanged` | `QTEngineSettingsAdapter` -> `HandleQueuedSettingsChanged()` | `settingsChangedPending` |
+| `ISceneDashboardService::OnFieldsChanged` | `QTSceneDashboardAdapter` -> `HandleQueuedSceneDashboardChanged()` | `fieldsChangedPending` |
 | `ILogService::OnEntriesChanged` | `EngineLogWidget` -> `handleEntriesChanged()` | `entriesChangedPending` |
 
-Queued handlers re-check that their service (or engine/screen) is still attached, because a detach may happen while a call is queued. The inspector and settings adapters also keep their own 33 ms sync timers for live field values. Those timers call the services synchronously, and the engine's locking decorators make that safe.
+Queued handlers re-check that their service (or engine/screen) is still attached, because a detach may happen while a call is queued. The inspector, settings and scene dashboard adapters also keep their own 33 ms sync timers for live field values. Those timers call the services synchronously, and the engine's locking decorators make that safe.
 
 ## Shutdown order
 
@@ -81,7 +84,7 @@ Queued handlers re-check that their service (or engine/screen) is still attached
 `ShutdownEngine()` is idempotent, and it runs these steps in order:
 
 1. Stop the adapters' sync timers.
-2. Detach the services: `SetInspectionService(nullptr)`, `SetSettingsService(nullptr)`, then emit `engineShuttingDown`. On that signal the window calls `engineLogWidget->SetLogService(nullptr)`.
+2. Detach the services: `SetInspectionService(nullptr)`, `SetSettingsService(nullptr)`, `SetSceneDashboardService(nullptr)`, then emit `engineShuttingDown`. On that signal the window calls `engineLogWidget->SetLogService(nullptr)`.
 3. `DestroyScreen`.
 4. `Engine::Stop()`. This joins the engine thread, which cancels and joins preprocessing jobs and tears down the GL context.
 5. Reset the context provider. This destroys the `QOffscreenSurface` on the GUI thread, after the join.
@@ -90,7 +93,7 @@ The viewport's destructor also calls `ShutdownEngine()`. Members are destroyed i
 
 ## Engine Boundary
 
-The UI includes only the engine's public headers, which live under `engine/include/public/` (the only engine include dir `app_qt` receives) and are included without a layer prefix: `Engine.h`, `graphics/{IGraphicsContextProvider,ScreenFrame}.h`, `inspection/*`, `log/*`, `settings/ISettingsService.h`. It never includes engine-private headers (`Scene`, `ForwardRenderer`, `InputState`, ...), `QOpenGLWidget`/`QOpenGLFunctions`, or glad.
+The UI includes only the engine's public headers, which live under `engine/include/public/` (the only engine include dir `app_qt` receives) and are included without a layer prefix: `Engine.h`, `graphics/{IGraphicsContextProvider,ScreenFrame}.h`, `inspection/*`, `log/*`, `settings/ISettingsService.h`, `dashboard/ISceneDashboardService.h`. It never includes engine-private headers (`Scene`, `ForwardRenderer`, `InputState`, ...), `QOpenGLWidget`/`QOpenGLFunctions`, or glad.
 
 The boundary responsibilities are:
 
@@ -132,7 +135,7 @@ Qt widgets are consumed through `IInspectWidget`. The viewport is a plain `QWidg
 
 ### Dependency Inversion
 
-The UI depends on the `Engine` facade and on neutral inspection, settings and log contracts rather than on engine internals. The engine depends on the host only through `IGraphicsContextProvider`. The UI remains directly coupled to Qt Widgets and to Qt's OpenGL context classes inside the provider.
+The UI depends on the `Engine` facade and on neutral inspection, settings, scene dashboard and log contracts rather than on engine internals. The engine depends on the host only through `IGraphicsContextProvider`. The UI remains directly coupled to Qt Widgets and to Qt's OpenGL context classes inside the provider.
 
 ## Source Map
 
@@ -143,6 +146,7 @@ The UI depends on the `Engine` facade and on neutral inspection, settings and lo
 - Graphics context provider: `ui/include/rendering/QtGraphicsContextProvider.h`, `ui/src/rendering/QtGraphicsContextProvider.cpp`
 - Engine/Qt inspection bridge: `ui/include/qt-adapters/QTSceneInspector.h`, `ui/src/qt-adapters/QTSceneInspector.cpp` (selection/query logic in `InspectionSession`)
 - Settings bridge: `ui/include/qt-adapters/QTEngineSettingsAdapter.h`, `ui/src/qt-adapters/QTEngineSettingsAdapter.cpp`
+- Scene dashboard bridge: `ui/include/qt-adapters/QTSceneDashboardAdapter.h`, `ui/src/qt-adapters/QTSceneDashboardAdapter.cpp`
 - Engine log panel: `ui/include/widgets/EngineLogWidget.h`, `ui/src/widgets/EngineLogWidget.cpp`
 - Field presentation: `ui/include/widgets/inspect_fields/`
 - Object-list and selection presentation: `ui/include/widgets/SceneObjectListWidget.h`, `ui/src/widgets/SceneObjectListWidget.cpp`

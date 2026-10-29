@@ -56,6 +56,7 @@ private:
 
   OpenGLViewportWidget *viewportWidget = nullptr;
   InspectorWidget *inspectorWidget = nullptr;
+  InspectorWidget *sceneDashboardWidget = nullptr;
   RenderStatisticsWidget *renderStatisticsWidget = nullptr;
 
   SceneObjectListWidget *sceneObjectListWidget = nullptr;
@@ -65,6 +66,7 @@ private:
   QDockWidget *objectsDock = nullptr;
   QDockWidget *statsDock = nullptr;
   QDockWidget *inspectorDock = nullptr;
+  QDockWidget *sceneDashboardDock = nullptr;
   QDockWidget *engineLogDock = nullptr;
 
   MainToolBar *toolBar = nullptr;

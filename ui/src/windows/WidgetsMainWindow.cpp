@@ -20,6 +20,7 @@
 
 #include "qt-adapters/QTSceneInspector.h"
 #include "qt-adapters/QTEngineSettingsAdapter.h"
+#include "qt-adapters/QTSceneDashboardAdapter.h"
 #include "controllers/MainWindowShortcuts.h"
 #include "styles/StyleSheetComposer.h"
 #include "widgets/DockTitleBarWidget.h"
@@ -30,6 +31,13 @@
 #include "widgets/MainToolBar.h"
 #include "widgets/RenderStatisticsWidget.h"
 #include "widgets/SceneObjectListWidget.h"
+
+namespace
+{
+  // Passed to saveState()/restoreState(): bump it whenever the default dock arrangement changes
+  //  (e.g. a new dock), so a layout saved by an older build is discarded once instead of restored.
+  constexpr int kLayoutStateVersion = 1;
+}
 
 WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
   : QMainWindow(parent)
@@ -61,8 +69,8 @@ WidgetsMainWindow::WidgetsMainWindow(QWidget *parent)
   // Build the non-modal engine settings window
   setupEngineSettingsDialog();
 
-  // Wire signals between the QTSceneInspector, the scene object list
-  //  and inspector widgets, to synchronize state between them
+  // Wire signals between the QTSceneInspector, the scene object list and inspector widgets,
+  //  and between the scene dashboard adapter and its dock, to synchronize state between them
   wireAdapterSignals();
 
   // Apply the initial theme
@@ -97,7 +105,7 @@ void WidgetsMainWindow::saveLayoutState()
 {
   QSettings settings;
   settings.setValue("mainWindow/geometry", saveGeometry());
-  settings.setValue("mainWindow/state", saveState());
+  settings.setValue("mainWindow/state", saveState(kLayoutStateVersion));
 }
 
 void WidgetsMainWindow::restoreLayoutState()
@@ -135,14 +143,15 @@ void WidgetsMainWindow::restoreLayoutState()
   const QVariant state = settings.value("mainWindow/state");
   if (state.isValid())
   {
-    restoreState(state.toByteArray());
+    restoreState(state.toByteArray(), kLayoutStateVersion);
   }
 }
 
 /**
  * @brief Build the main window ui layout.
- *  The viewport, scene object list, render statistics, and inspector panels are all
- *  dockable QDockWidgets that can be freely moved, resized, floated, or tabbed by the user.
+ *  The viewport, scene object list, render statistics, scene dashboard, and inspector panels
+ *  are all dockable QDockWidgets that can be freely moved, resized, floated, or tabbed by the user.
+ *  The scene dashboard (scene-wide controls) sits above the inspector (selected object) on the right.
  *  QMainWindow has no central widget here; the dock area fills the whole window.
  *
  */
@@ -184,11 +193,20 @@ void WidgetsMainWindow::setupLayout()
   inspectorDock->setObjectName("inspectorDock");
   inspectorDock->setWidget(inspectorWidget);
   inspectorDock->setTitleBarWidget(new DockTitleBarWidget(inspectorDock, inspectorDock));
+  inspectorWidget->setEmptyText(tr("Select an object in the Objects panel or Ctrl-click it in the viewport."));
+
+  // Right dock (stacked above the inspector): scene-wide controls
+  sceneDashboardWidget = new InspectorWidget(this);
+  sceneDashboardWidget->setEmptyText(tr("No scene loaded."));
+  sceneDashboardDock = new QDockWidget(tr("Scene Dashboard"), this);
+  sceneDashboardDock->setObjectName("sceneDashboardDock");
+  sceneDashboardDock->setWidget(sceneDashboardWidget);
+  sceneDashboardDock->setTitleBarWidget(new DockTitleBarWidget(sceneDashboardDock, sceneDashboardDock));
 
   renderStatisticsWidget->setRenderStatistics(viewportWidget->renderStatistics());
 
   // Assemble the default dock arrangement: viewport dominates the middle, with the
-  //  objects/stats column to its left and the inspector to its right.
+  //  objects/stats column to its left and the dashboard/inspector column to its right.
   addDockWidget(Qt::LeftDockWidgetArea, objectsDock);
   splitDockWidget(objectsDock, statsDock, Qt::Vertical);
 
@@ -196,8 +214,12 @@ void WidgetsMainWindow::setupLayout()
   splitDockWidget(objectsDock, viewportDock, Qt::Horizontal);
 
   addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
+  addDockWidget(Qt::RightDockWidgetArea, sceneDashboardDock);
+  splitDockWidget(sceneDashboardDock, inspectorDock, Qt::Vertical);
+  // The dashboard gets the larger share: it carries the long Preprocessing/Tractography lists.
+  resizeDocks({sceneDashboardDock, inspectorDock}, {450, 350}, Qt::Vertical);
 
-  resizeDocks({objectsDock, viewportDock, inspectorDock}, {220, 1000, 260}, Qt::Horizontal);
+  resizeDocks({objectsDock, viewportDock, sceneDashboardDock, inspectorDock}, {220, 1000, 260, 260}, Qt::Horizontal);
 
   // Bottom dock, full width: engine log
   engineLogWidget = new EngineLogWidget(this);
@@ -217,7 +239,7 @@ void WidgetsMainWindow::setupToolBar()
   {
     toggleTheme();
   });
-  toolBar->setViewActions({viewportDock->toggleViewAction(), objectsDock->toggleViewAction(), statsDock->toggleViewAction(), inspectorDock->toggleViewAction(), engineLogDock->toggleViewAction()});
+  toolBar->setViewActions({viewportDock->toggleViewAction(), objectsDock->toggleViewAction(), statsDock->toggleViewAction(), inspectorDock->toggleViewAction(), sceneDashboardDock->toggleViewAction(), engineLogDock->toggleViewAction()});
 
   addToolBar(Qt::TopToolBarArea, toolBar);
 }
@@ -278,6 +300,7 @@ void WidgetsMainWindow::applyTheme()
   //  them explicitly here so editing common.ini hot-reloads the same as a color change.
   sceneObjectListWidget->refreshLayoutMetrics();
   inspectorWidget->refreshLayoutMetrics();
+  sceneDashboardWidget->refreshLayoutMetrics();
   renderStatisticsWidget->refreshLayoutMetrics();
   engineLogWidget->refreshLayoutMetrics();
   engineSettingsDialog->refreshLayoutMetrics();
@@ -332,7 +355,8 @@ void WidgetsMainWindow::toggleTheme()
 }
 
 // Wires signals between the QTSceneInspector and the scene object list and inspector widgets,
-//  to synchronize state between them.
+//  between the scene dashboard adapter and the dashboard widget, and between the settings
+//  adapter and the engine settings dialog, to synchronize state between them.
 void WidgetsMainWindow::wireAdapterSignals()
 {
   QTSceneInspector *const adapter = &viewportWidget->inspectAdapter();
@@ -413,11 +437,26 @@ void WidgetsMainWindow::wireAdapterSignals()
     engineSettingsDialog->settingsWidget()->refreshBoundEditors();
   });
 
+  QTSceneDashboardAdapter &sceneDashboardAdapter = viewportWidget->sceneDashboardAdapter();
+
+  // When the scene's dashboard field set changes (scene created, structural scene change), rebuild the dashboard
+  QObject::connect(&sceneDashboardAdapter, &QTSceneDashboardAdapter::fieldsChanged, this, [this]()
+  {
+    sceneDashboardWidget->setFields(viewportWidget->sceneDashboardAdapter().fields());
+  });
+
+  // When dashboard field values change (e.g. preprocessing status), refresh the dashboard editors
+  QObject::connect(&sceneDashboardAdapter, &QTSceneDashboardAdapter::fieldRevisionChanged, this, [this]()
+  {
+    sceneDashboardWidget->refreshBoundEditors();
+  });
+
   // Initial synchronization
   refreshObjectList();
   syncObjectSelection();
   inspectorWidget->setFields(viewportWidget->inspectAdapter().fields());
   engineSettingsDialog->settingsWidget()->setFields(viewportWidget->settingsAdapter().fields());
+  sceneDashboardWidget->setFields(viewportWidget->sceneDashboardAdapter().fields());
 }
 
 void WidgetsMainWindow::refreshObjectList()

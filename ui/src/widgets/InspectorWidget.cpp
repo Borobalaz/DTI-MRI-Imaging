@@ -41,12 +41,18 @@ void InspectorWidget::refreshLayoutMetrics()
   inspectorPanelLayout->setSpacing(ResolveCommonToken("panel-spacing").toInt());
 }
 
+void InspectorWidget::setEmptyText(const QString &text)
+{
+  emptyText = text;
+}
+
 void InspectorWidget::setFields(const QObjectList &fieldObjects)
 {
   editorBindings.clear();
   clearInspector();
 
   QString currentGroup;
+  bool hasEditors = false;
   for (QObject *fieldObject : fieldObjects)
   {
     auto *field = dynamic_cast<IInspectWidget *>(fieldObject);
@@ -71,6 +77,18 @@ void InspectorWidget::setFields(const QObjectList &fieldObjects)
     }
 
     addFieldEditor(field);
+    hasEditors = true;
+  }
+
+  if (!hasEditors && !emptyText.isEmpty())
+  {
+    auto *emptyLabel = new QLabel(emptyText, inspectorContent);
+    emptyLabel->setObjectName("inspectorEmptyLabel");
+    emptyLabel->setWordWrap(true);
+    emptyLabel->setAlignment(Qt::AlignCenter);
+    // Color, font style and padding come from QLabel#inspectorEmptyLabel in
+    //  ui/styles/widgets/InspectorWidget.qss.
+    inspectorLayout->addWidget(emptyLabel);
   }
 
   inspectorLayout->addStretch(1);

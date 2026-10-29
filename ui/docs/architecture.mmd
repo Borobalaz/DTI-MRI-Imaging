@@ -4,10 +4,12 @@ flowchart TD
         Window[WidgetsMainWindow]
         Viewport[OpenGLViewportWidget: plain QWidget]
         Provider[QtGraphicsContextProvider]
-        Inspector[InspectorWidget]
+        Inspector[InspectorWidget: selected object]
+        DashboardPanel[InspectorWidget: Scene Dashboard dock]
         ObjectList[SceneObjectListWidget]
         Adapter[QTSceneInspector]
         Settings[QTEngineSettingsAdapter]
+        Dashboard[QTSceneDashboardAdapter]
         Log[EngineLogWidget]
         Fields[Qt inspect field widgets]
         Stats[RenderStatisticsWidget]
@@ -17,12 +19,13 @@ flowchart TD
     subgraph Engine[engine DLL]
         Facade[Engine facade]
         EngineThread[Engine thread: input drain, Update, render, readback]
-        Services[Locked inspection / settings services, log service]
+        Services[Locked inspection / settings / scene dashboard services, log service]
     end
 
     Main --> Window
     Window --> Viewport
     Window --> Inspector
+    Window --> DashboardPanel
     Window --> ObjectList
     Window --> Stats
     Window --> Log
@@ -37,14 +40,19 @@ flowchart TD
     Viewport -. GetScreenFrame: top-down RGBA8 .-> Facade
     Viewport --> Adapter
     Viewport --> Settings
+    Viewport --> Dashboard
     Adapter --> Services
     Settings --> Services
+    Dashboard --> Services
     Log --> Services
     Services -. change callbacks, queued + coalesced .-> Adapter
     Services -. queued .-> Settings
+    Services -. OnFieldsChanged, queued .-> Dashboard
     Services -. queued .-> Log
     Adapter --> Fields
     ObjectList --> Adapter
     Inspector --> Fields
+    DashboardPanel --> Fields
+    Dashboard --> Fields
     Fields -. edit callbacks .-> Adapter
     Adapter -. field setters .-> Services

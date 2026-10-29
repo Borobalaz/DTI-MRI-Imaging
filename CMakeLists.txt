@@ -143,6 +143,7 @@ add_executable(app_qt
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/windows/WidgetsMainWindow.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/qt-adapters/QTSceneInspector.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/qt-adapters/QTEngineSettingsAdapter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/qt-adapters/QTSceneDashboardAdapter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/include/rendering/QtGraphicsContextProvider.h
 )
 

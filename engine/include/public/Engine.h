@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include "dashboard/ISceneDashboardService.h"
 #include "graphics/IGraphicsContextProvider.h"
 #include "graphics/ScreenFrame.h"
 #include "inspection/InspectField.h"
@@ -33,7 +34,7 @@ class EngineRuntime;
  *  builds and is ignored (with an error log) otherwise.
  *
  *  Callback contract: every callback registered here or on the services (OnFrameReady,
- *  OnProvidersChanged, OnEntriesChanged, OnSettingsChanged) fires on the engine thread in
+ *  OnProvidersChanged, OnEntriesChanged, OnSettingsChanged, OnFieldsChanged) fires on the engine thread in
  *  threaded mode, and on the thread calling Update()/Render() in sync mode. Callbacks never
  *  fire while an engine lock is held, but they must not block on the host UI thread (marshal
  *  to it asynchronously instead), and must not call Stop().
@@ -133,11 +134,13 @@ public:
 
   // The returned services stay valid for the Engine's lifetime; every call on them (and every
   // getter/setter of the fields they return) is serialized with the engine tick. Fields of a
-  // provider that has been removed since they were fetched become inert: their getter
-  // returns the field's initialValue and their setter does nothing.
+  // provider that has been removed since they were fetched (and scene dashboard fields fetched
+  // before the field set last changed) become inert: their getter returns the field's
+  // initialValue and their setter does nothing.
   IInspectionService& GetInspectionService();
   ILogService& GetLogService();
   ISettingsService& GetSettingsService();
+  ISceneDashboardService& GetSceneDashboardService();
 
   // Picking (locks the scene).
   Ray ScreenPointToRay(float ndcX, float ndcY) const;

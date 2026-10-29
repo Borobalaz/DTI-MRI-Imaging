@@ -9,6 +9,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 #include "DtiVolumeScene.h"
+#include "runtime/dashboard/SceneDashboardService.h"
 #include "runtime/inspection/SceneInspectionService.h"
 #include "foundation/log/EngineLog.h"
 #include "render/renderer/ForwardRenderer.h"
@@ -53,7 +54,8 @@ EngineRuntime::EngineRuntime()
   : extractionRegistry(std::make_unique<ExtractionRegistry>()),
     renderFrameBuilder(std::make_unique<RenderFrameBuilder>()),
     lockedInspectionService(sceneMutex),
-    lockedSettingsService(sceneMutex, settingsService)
+    lockedSettingsService(sceneMutex, settingsService),
+    lockedSceneDashboardService(sceneMutex)
 {
   RegisterEngineSettingsCatalog();
 }
@@ -477,11 +479,15 @@ void EngineRuntime::CreateSceneLocked()
 {
   lockedInspectionService.Detach();
   sceneInspectionService.reset();
+  lockedSceneDashboardService.Detach();
+  sceneDashboardService.reset();
 
   scene = std::make_unique<DtiVolumeScene>();
   scene->RebuildInspectProviders();
   sceneInspectionService = std::make_unique<SceneInspectionService>(*scene);
   lockedInspectionService.Attach(*sceneInspectionService, *scene);
+  sceneDashboardService = std::make_unique<SceneDashboardService>(*scene);
+  lockedSceneDashboardService.Attach(*sceneDashboardService, *scene);
 }
 
 EngineRuntime::ChangeFlags EngineRuntime::UpdateLocked(float deltaSeconds)
@@ -504,6 +510,10 @@ EngineRuntime::ChangeFlags EngineRuntime::UpdateLocked(float deltaSeconds)
   if (sceneInspectionService)
   {
     changes.providersChanged = sceneInspectionService->PollForProviderChanges();
+  }
+  if (sceneDashboardService)
+  {
+    changes.sceneDashboardChanged = sceneDashboardService->PollForFieldChanges();
   }
   return changes;
 }
@@ -631,7 +641,7 @@ void EngineRuntime::PublishScreens(const std::vector<ScreenWork>& renderedScreen
   }
 }
 
-// Reads sceneInspectionService without the scene lock: it is only replaced on the GL thread,
+// Reads sceneInspectionService/sceneDashboardService without the scene lock: it is only replaced on the GL thread,
 // which is also the only thread that calls this.
 void EngineRuntime::NotifyChanges(const ChangeFlags& changes)
 {
@@ -647,6 +657,10 @@ void EngineRuntime::NotifyChanges(const ChangeFlags& changes)
   {
     sceneInspectionService->NotifyChanged();
   }
+  if (changes.sceneDashboardChanged && sceneDashboardService)
+  {
+    sceneDashboardService->NotifyChanged();
+  }
 }
 
 void EngineRuntime::TeardownGraphics()
@@ -654,14 +668,18 @@ void EngineRuntime::TeardownGraphics()
   // Detached under the lock so the host can no longer reach the scene; destroyed outside it,
   // because the scene's destructor may wait for preprocessing work to stop.
   std::unique_ptr<SceneInspectionService> retiredInspectionService;
+  std::unique_ptr<SceneDashboardService> retiredDashboardService;
   std::unique_ptr<Scene> retiredScene;
   {
     SceneLock lock(sceneMutex);
     lockedInspectionService.Detach();
     retiredInspectionService = std::move(sceneInspectionService);
+    lockedSceneDashboardService.Detach();
+    retiredDashboardService = std::move(sceneDashboardService);
     retiredScene = std::move(scene);
   }
   retiredInspectionService.reset();
+  retiredDashboardService.reset();
   retiredScene.reset();
 
   {
@@ -720,6 +738,11 @@ ILogService& EngineRuntime::GetLogService()
 ISettingsService& EngineRuntime::GetSettingsService()
 {
   return lockedSettingsService;
+}
+
+ISceneDashboardService& EngineRuntime::GetSceneDashboardService()
+{
+  return lockedSceneDashboardService;
 }
 
 Engine::Ray EngineRuntime::ScreenPointToRay(float ndcX, float ndcY) const

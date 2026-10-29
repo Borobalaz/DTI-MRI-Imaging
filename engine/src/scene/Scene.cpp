@@ -43,7 +43,7 @@ namespace
  *
  */
 Scene::Scene()
-    : camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.1f, 100.0f)), selfInspectProvider(static_cast<InspectProvider *>(this), [](InspectProvider *) {}) // non-owning alias; Scene owns itself
+    : camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.1f, 100.0f))
 {
   // ------------- CAMERA MOVEMENT -------------
   // Scene owns the camera, so it owns wiring up its default interactive
@@ -365,8 +365,9 @@ SceneSnapshot Scene::CreateSnapshot() const
 }
 
 /**
- * @brief Rebuild the inspect providers for the scene, including the scene itself,
- *  the camera, and all lights and drawables that implement InspectProvider
+ * @brief Rebuild the inspect providers for the scene: the camera, and all lights and
+ *  drawables that implement InspectProvider. The scene itself is not a provider; its
+ *  scene-wide fields are exposed through GetDashboardFields() instead.
  *
  */
 void Scene::RebuildInspectProviders()
@@ -383,7 +384,6 @@ void Scene::RebuildInspectProviders()
     inspectProviderEntries.push_back({provider, idPrefix + "#" + std::to_string(index)});
   };
 
-  addProvider(selfInspectProvider, "scene", 0);
   addProvider(std::dynamic_pointer_cast<InspectProvider>(camera), "camera", 0);
 
   int lightIndex = 0;
@@ -403,11 +403,11 @@ void Scene::RebuildInspectProviders()
 }
 
 /**
- * @brief Get the inspect fields for the scene, clear color in this case
+ * @brief Get the scene-wide dashboard fields; the base scene has none
  *
  * @return engine inspection fields
  */
-std::vector<InspectFieldPtr> Scene::GetInspectFields()
+std::vector<InspectFieldPtr> Scene::GetDashboardFields()
 {
   std::vector<InspectFieldPtr> fields;
   return fields;

@@ -1088,13 +1088,13 @@ void DtiVolumeScene::RebuildInspectProvidersIfLayoutChanged()
 }
 
 /**
- * @brief Create inspect widgets for controlling scene parameters such as rotation.
+ * @brief Create the Scene Dashboard fields controlling scene-wide parameters such as preprocessing and rotation.
  *
  * @return engine inspection fields
  */
-std::vector<InspectFieldPtr> DtiVolumeScene::GetInspectFields()
+std::vector<InspectFieldPtr> DtiVolumeScene::GetDashboardFields()
 {
-  std::vector<InspectFieldPtr> fields = Scene::GetInspectFields();
+  std::vector<InspectFieldPtr> fields = Scene::GetDashboardFields();
 
   const std::vector<InspectFieldPtr> tractographyFields = tractographySettingsInspectable
                                                               ? tractographySettingsInspectable->GetInspectFields()

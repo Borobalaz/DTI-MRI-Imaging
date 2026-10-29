@@ -80,7 +80,7 @@ public:
 
   void Update(float deltaTime) override;
 
-  std::vector<InspectFieldPtr> GetInspectFields() override;
+  std::vector<InspectFieldPtr> GetDashboardFields() override;
   
 private:
   using DatasetJob = BackgroundTask<DatasetJobOutcome>;

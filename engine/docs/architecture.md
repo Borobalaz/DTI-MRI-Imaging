@@ -12,7 +12,7 @@ Primary build evidence: `CMakeLists.txt` (`add_library(engine SHARED ...)`, `add
 
 | Module | Role | Main inputs | Main outputs | Ownership |
 |---|---|---|---|---|
-| Scene | Coordinates camera, lights, drawables, updateables, shaders, input, and inspection providers | Input state, scene objects, resources | Scene snapshots, render proxies, inspection providers | Engine owns the scene graph and contained shared objects |
+| Scene | Coordinates camera, lights, drawables, updateables, shaders, input, and inspection providers | Input state, scene objects, resources | Scene snapshots, render proxies, inspection providers, scene-wide dashboard fields | Engine owns the scene graph and contained shared objects |
 | Camera and input | Maintains view/projection state and movement behavior | `InputState`, elapsed time, movement components | Camera matrices and updated transforms | Camera owns its movement component; UI only supplies input events |
 | Geometry and drawable objects | Represents mesh geometry, game objects, volumes, and renderable content | Geometry, materials, transforms, volume data | `RenderProxy` values and updates | Scene owns drawable/updateable shared pointers |
 | Resources | Loads models and volume files, and creates render-layer resources (shaders, materials, textures) for scene content | File paths, decoded data | Resource objects; their GPU-side behavior lives in the render layer | Resource objects are shared through engine-owned `std::shared_ptr` values |
@@ -40,7 +40,7 @@ The `Engine` facade (`engine/include/public/Engine.h`) runs in one of two modes.
 
 **Sync mode** is for hosts that drive the loop themselves on a thread with the context current: `InitializeOpenGL` -> `CreateScene` -> per frame `Update`/`Render` -> `ShutdownGraphics`. `Render` draws into every screen if any exist (and publishes their frames), otherwise into the currently bound framebuffer at the `SetViewportSize` size. Calling a sync-mode method while `IsRunning()` asserts in debug builds and is otherwise ignored with an error log.
 
-In both modes the scene exposes `InspectProvider` instances and neutral `InspectField` values to the UI through `GetInspectionService()`.
+In both modes the scene exposes `InspectProvider` instances and neutral `InspectField` values to the UI through `GetInspectionService()`. The scene itself is **not** an inspect provider (it no longer appears in the provider list): its scene-wide controls (`Scene::GetDashboardFields()`, overridden by `DtiVolumeScene` for preprocessing, tractography, fODF, glyph and rotation controls) are exposed as a flat field list through `GetSceneDashboardService()` (`engine/include/public/dashboard/ISceneDashboardService.h`).
 
 The engine resource files are stored under `engine/assets` and `engine/shaders`. CMake copies them beside the UI executable at build time; engine runtime paths therefore remain relative to the deployed application directory.
 
@@ -64,16 +64,16 @@ In sync mode, the host thread calling `Update`/`Render` takes the engine thread'
 | `SetViewportSize`, `SetFillColor` | Thread-safe. Applied at the next render. |
 | `OnKeyChanged`, `OnMouseButtonChanged`, `OnMousePositionChanged`, `OnScroll` | Thread-safe. Queued and replayed in order at the start of the next tick. |
 | `IsKeyDown` | Thread-safe. Reflects every `OnKeyChanged` call so far, including events not yet replayed. |
-| `GetInspectionService`, `GetLogService`, `GetSettingsService` | Thread-safe. The services are valid for the `Engine`'s lifetime, and every call on them (and on the fields they return) is serialized with the tick. |
+| `GetInspectionService`, `GetLogService`, `GetSettingsService`, `GetSceneDashboardService` | Thread-safe. The services are valid for the `Engine`'s lifetime, and every call on them (and on the fields they return) is serialized with the tick. |
 | `ScreenPointToRay` | Thread-safe. Locks the scene. |
 
-**Callback rule.** Every callback (`OnFrameReady`, `OnProvidersChanged`, `OnEntriesChanged`, `OnSettingsChanged`) fires on the engine thread in threaded mode, or on the thread calling `Update`/`Render` in sync mode. It never fires while an engine lock is held. A callback must not block on the host UI thread and must not call `Stop()`. Hosts marshal asynchronously instead; the Qt host queues, see [UI architecture](../../ui/docs/architecture.md).
+**Callback rule.** Every callback (`OnFrameReady`, `OnProvidersChanged`, `OnEntriesChanged`, `OnSettingsChanged`, `OnFieldsChanged`) fires on the engine thread in threaded mode, or on the thread calling `Update`/`Render` in sync mode. It never fires while an engine lock is held. A callback must not block on the host UI thread and must not call `Stop()`. Hosts marshal asynchronously instead; the Qt host queues, see [UI architecture](../../ui/docs/architecture.md).
 
 ### `EngineRuntime` and its locks
 
 `EngineRuntime` (`engine/include/runtime/EngineRuntime.h`) is the pimpl behind `Engine`, so the public header stays free of `<thread>`/`<mutex>`. Its locks:
 
-- **`sceneMutex`** (`std::recursive_mutex`) guards the scene, renderer, frame builder, `InputState`, and the scene inspection service. A tick holds it for input drain + `Update` + snapshot/`Draw`. `Draw` has to stay inside, because render commands reference live `UniformProvider`s. Readback, publishing, callbacks and pacing run outside it, and preprocessing never runs under it.
+- **`sceneMutex`** (`std::recursive_mutex`) guards the scene, renderer, frame builder, `InputState`, and the scene inspection and dashboard services. A tick holds it for input drain + `Update` + snapshot/`Draw`. `Draw` has to stay inside, because render commands reference live `UniformProvider`s. Readback, publishing, callbacks and pacing run outside it, and preprocessing never runs under it.
 - **`screensMutex`** guards the screen map and the requested sizes.
 - **Per-`ScreenSlot` `frameMutex`** guards only that screen's published (`ready`) frame. The slot's `RenderTarget` and back buffer belong to the GL thread.
 - **Lock order** is `sceneMutex` -> `screensMutex` -> `frameMutex`. Callbacks run with no lock held.
@@ -97,12 +97,13 @@ A screen is an engine-owned offscreen `RenderTarget` that is rendered every tick
 - **`InputEventQueue`** (`engine/include/runtime/input/InputEventQueue.h`): `Push` from any thread keeps a producer-side keys-down mirror (which backs `IsKeyDown`). `DrainInto(InputState&)` replays the events in push order at the start of a tick, so a press/release within one tick is not lost.
 - **`LockedInspectionService`** (`engine/include/runtime/inspection/LockedInspectionService.h`): an `IInspectionService` decorator that is attached to the scene's `SceneInspectionService`. Every call, and every getter/setter of the fields it returns, runs under `sceneMutex`. While no scene is attached, queries return empty results.
 - **`LockedSettingsService`** (`engine/include/runtime/settings/LockedSettingsService.h`): the same decorator for `ISettingsService`. Settings are declared once per process, so its wrapped fields never go stale.
+- **`LockedSceneDashboardService`** (`engine/include/runtime/dashboard/LockedSceneDashboardService.h`): the same decorator for `ISceneDashboardService`, attached to the scene's `SceneDashboardService` (`engine/include/runtime/dashboard/SceneDashboardService.h`, which returns `Scene::GetDashboardFields()`). Like `LockedInspectionService`, it is attached/detached with the scene and stamps its wrapped fields (see the [provider-generation invariant](#provider-generation-invariant)), because dashboard closures capture the scene's `this`. While no scene is attached, `GetFields` returns an empty list.
 - `EngineLogService` has its own mutex, because workers log while the GUI thread reads entries.
-- Change detection is split. `PollForProviderChanges` / `PollForEntryChanges` / `PollForSettingsChanges` run under the lock and only return a `bool`. The runtime calls each service's `NotifyChanged()` after releasing it.
+- Change detection is split. `PollForProviderChanges` / `PollForEntryChanges` / `PollForSettingsChanges` / `PollForFieldChanges` (dashboard: the scene's provider generation changed) run under the lock and only return a `bool`. The runtime calls each service's `NotifyChanged()` after releasing it.
 
 ### Provider-generation invariant
 
-Inspection field closures capture raw provider pointers. `Scene` therefore increments `providerGeneration` in **every** method that can release a provider: `ClearGameObjects`, `ClearLights`, `ClearDrawables`, `ClearVolumes`, `ClearGlyphFields`, `SetSkybox` (when replacing one), `ClearSkybox`, and `RebuildInspectProviders`. `LockedInspectionService::GetFields` stamps each wrapped field with that generation, plus an attach epoch so a re-created scene can't alias an old generation. Once either changes, the field's getter returns its `initialValue` and its setter does nothing. Hosts refetch fields from the providers-changed notification. Any new code that removes providers must bump the generation.
+Inspection field closures capture raw provider pointers. `Scene` therefore increments `providerGeneration` in **every** method that can release a provider: `ClearGameObjects`, `ClearLights`, `ClearDrawables`, `ClearVolumes`, `ClearGlyphFields`, `SetSkybox` (when replacing one), `ClearSkybox`, and `RebuildInspectProviders`. `LockedInspectionService::GetFields` (and `LockedSceneDashboardService::GetFields`) stamps each wrapped field with that generation, plus an attach epoch so a re-created scene can't alias an old generation. Once either changes, the field's getter returns its `initialValue` and its setter does nothing. Hosts refetch fields from the providers-changed (or dashboard fields-changed) notification; the same generation bump is what makes the dashboard pick up structural changes such as the Run -> Rerun label. Any new code that removes providers must bump the generation.
 
 ### Preprocessing jobs (`DtiVolumeScene`)
 
@@ -228,7 +229,7 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 - Public facade and host contracts: `engine/include/public/Engine.h`, `engine/include/public/graphics/{IGraphicsContextProvider,ScreenFrame}.h`
 - Runtime (engine thread, locks, screens): `engine/include/runtime/EngineRuntime.h`, `engine/src/runtime/EngineRuntime.cpp`
 - Input queue: `engine/include/runtime/input/InputEventQueue.h`
-- Locking service decorators: `engine/include/runtime/inspection/LockedInspectionService.h`, `engine/include/runtime/settings/LockedSettingsService.h`
+- Locking service decorators: `engine/include/runtime/inspection/LockedInspectionService.h`, `engine/include/runtime/settings/LockedSettingsService.h`, `engine/include/runtime/dashboard/LockedSceneDashboardService.h`
 - Threading primitives: `engine/include/foundation/threading/{BackgroundTask,Cancellation,SharedProgress}.h`
 - Preprocessing jobs and shader cache: `core/include/DtiVolumeScene.h`, `core/src/DtiVolumeScene.cpp`
 - DTI volume texture packing: `engine/include/scene/volume/DTIVolume.h` (`PackDTIVolumeTextures`)
@@ -236,6 +237,7 @@ The render pipeline depends on `Renderer`, `IRenderExtractor`, and provider abst
 - Slice plane: `engine/include/scene/slicing/SlicePlane.h`, `core/include/SliceController.h`, `engine/include/scene/geometry/{LineLoopGeometry,ConvexPolygonFillGeometry}.h`, `engine/shaders/unlit/`
 - SH glyphs: `engine/include/scene/glyphs/{SHGlyphField,SHVolume}.h`, `engine/include/scene/spherical_harmonics/RealSH.h`, `engine/include/scene/geometry/IcosphereGeometry.h`, `engine/shaders/sh_glyph/`, and the DTI producer `core/src/preprocessing/stages/dti/DtiTensorShStage.cpp`
 - Neutral inspection: `engine/include/public/inspection/InspectField.h`
+- Scene dashboard (scene-wide fields): `engine/include/public/dashboard/ISceneDashboardService.h`, `engine/include/runtime/dashboard/SceneDashboardService.h`
 - Frame construction: `engine/include/scene/extraction/RenderFrameBuilder.h`
 - Extraction registry: `engine/include/scene/extraction/ExtractionRegistry.h`
 - Render proxy: `engine/include/scene/extraction/RenderProxy.h`. The typed render commands it carries are render-layer types in `engine/include/render/core/RenderCommands.h`.

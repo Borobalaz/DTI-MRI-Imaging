@@ -19,6 +19,7 @@
 
 #include "qt-adapters/QTSceneInspector.h"
 #include "qt-adapters/QTEngineSettingsAdapter.h"
+#include "qt-adapters/QTSceneDashboardAdapter.h"
 #include "rendering/QtGraphicsContextProvider.h"
 #include "state/RenderStatistics.h"
 
@@ -28,6 +29,7 @@ OpenGLViewportWidget::OpenGLViewportWidget(QWidget *parent)
   renderStatisticsObject = std::make_unique<RenderStatistics>();
   inspectAdapterObject = std::make_unique<QTSceneInspector>();
   settingsAdapterObject = std::make_unique<QTEngineSettingsAdapter>();
+  sceneDashboardAdapterObject = std::make_unique<QTSceneDashboardAdapter>();
 
   QObject::connect(renderStatisticsObject.get(), &RenderStatistics::statisticsChanged, this, [this]()
   {
@@ -64,6 +66,13 @@ QTEngineSettingsAdapter &OpenGLViewportWidget::settingsAdapter() const
 {
   Q_ASSERT(settingsAdapterObject != nullptr);
   return *settingsAdapterObject;
+}
+
+// Exposes the active scene's dashboard fields (ISceneDashboardService) to Qt widgets.
+QTSceneDashboardAdapter &OpenGLViewportWidget::sceneDashboardAdapter() const
+{
+  Q_ASSERT(sceneDashboardAdapterObject != nullptr);
+  return *sceneDashboardAdapterObject;
 }
 
 // Exposes the engine's log service to Qt widgets. Returns nullptr while the engine isn't running.
@@ -128,6 +137,11 @@ void OpenGLViewportWidget::attachAdapters()
     settingsAdapterObject->SetSettingsService(&engine->GetSettingsService());
   }
 
+  if (sceneDashboardAdapterObject)
+  {
+    sceneDashboardAdapterObject->SetSceneDashboardService(&engine->GetSceneDashboardService());
+  }
+
   emit engineInitialized();
 }
 
@@ -146,6 +160,10 @@ void OpenGLViewportWidget::ShutdownEngine()
   {
     settingsAdapterObject->StopSyncTimer();
   }
+  if (sceneDashboardAdapterObject)
+  {
+    sceneDashboardAdapterObject->StopSyncTimer();
+  }
 
   if (inspectAdapterObject)
   {
@@ -154,6 +172,10 @@ void OpenGLViewportWidget::ShutdownEngine()
   if (settingsAdapterObject)
   {
     settingsAdapterObject->SetSettingsService(nullptr);
+  }
+  if (sceneDashboardAdapterObject)
+  {
+    sceneDashboardAdapterObject->SetSceneDashboardService(nullptr);
   }
   // The log widget lives outside this widget; its owner detaches it from this signal.
   emit engineShuttingDown();

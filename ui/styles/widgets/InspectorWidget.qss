@@ -28,3 +28,9 @@ QLabel#inspectorGroupLabel {
 QLabel#inspectorFieldLabel {
   padding-right: 6px;
 }
+
+QLabel#inspectorEmptyLabel {
+  color: @text-muted;
+  font-style: italic;
+  padding: 12px 4px;
+}

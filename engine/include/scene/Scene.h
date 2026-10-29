@@ -33,7 +33,7 @@ class Skybox;
 class TextureCube;
 class Volume;
 
-class Scene : public UniformProvider, InspectProvider
+class Scene : public UniformProvider
 {
 public:
   Scene();
@@ -110,20 +110,13 @@ public:
 
   // Increments every time RebuildInspectProviders() runs and every time a method removes objects
   // that may be inspect providers (Clear*, SetSkybox replacing a skybox). Lets consumers detect
-  // structural changes cheaply, and lets LockedInspectionService retire fields whose provider
-  // may be gone. Any new method that removes providers must bump it too.
+  // structural changes cheaply, and lets LockedInspectionService/LockedSceneDashboardService retire
+  // fields whose provider may be gone. Any new method that removes providers must bump it too.
   int GetProviderGeneration() const { return providerGeneration; }
 
-  // Inspect provider implementation
-  std::string GetInspectDisplayName() const override { return "Scene"; }
-  std::vector<InspectFieldPtr> GetInspectFields() override;
-  bool HasVisibility() const { return false; }
-  bool IsVisible() const { return true; }
-  std::optional<float> CastRay(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const
-  {
-    return std::nullopt; // Scene itself is not selectable by ray
-  }
-
+  // Scene-wide controls shown in the Scene Dashboard (via SceneDashboardService), not in the
+  // inspect provider list. The field set is refetched whenever the provider generation bumps.
+  virtual std::vector<InspectFieldPtr> GetDashboardFields();
 
 private:
   std::shared_ptr<Camera> camera;
@@ -136,7 +129,6 @@ private:
   std::vector<std::shared_ptr<Shader>> shaders;
   InputState inputState;
 
-  std::shared_ptr<InspectProvider> selfInspectProvider; // non-owning alias of `this`; Scene's lifetime always outlives its use
   std::vector<InspectProviderEntry> inspectProviderEntries;
   int providerGeneration = 0;
 };

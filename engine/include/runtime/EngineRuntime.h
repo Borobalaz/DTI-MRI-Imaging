@@ -14,6 +14,7 @@
 #include <glm/glm.hpp>
 
 #include "Engine.h"
+#include "runtime/dashboard/LockedSceneDashboardService.h"
 #include "runtime/input/InputEventQueue.h"
 #include "scene/input/InputState.h"
 #include "runtime/inspection/LockedInspectionService.h"
@@ -28,6 +29,7 @@ class ForwardRenderer;
 class ExtractionRegistry;
 class RenderFrameBuilder;
 class SceneInspectionService;
+class SceneDashboardService;
 
 /**
  * @brief Implementation behind the Engine façade (pimpl, so the public header stays free of
@@ -36,7 +38,7 @@ class SceneInspectionService;
  *
  *  Locking:
  *  - sceneMutex (recursive) guards the scene, renderer, render-frame builder, InputState and
- *    the scene inspection service. A tick holds it for input drain + Update + snapshot/Draw
+ *    the scene inspection/dashboard services. A tick holds it for input drain + Update + snapshot/Draw
  *    (Draw must stay inside: render commands reference live UniformProviders). Readback,
  *    frame publishing, callbacks and pacing run outside it.
  *  - screensMutex guards the screen map and requested sizes; each ScreenSlot's frameMutex
@@ -84,6 +86,7 @@ public:
   IInspectionService& GetInspectionService();
   ILogService& GetLogService();
   ISettingsService& GetSettingsService();
+  ISceneDashboardService& GetSceneDashboardService();
 
   Engine::Ray ScreenPointToRay(float ndcX, float ndcY) const;
 
@@ -122,6 +125,7 @@ private:
     bool logChanged = false;
     bool settingsChanged = false;
     bool providersChanged = false;
+    bool sceneDashboardChanged = false;
   };
 
   // Logs (and asserts) when a sync-mode method is called while the engine thread runs.
@@ -163,6 +167,7 @@ private:
   mutable std::recursive_mutex sceneMutex;
   std::unique_ptr<Scene> scene;
   std::unique_ptr<SceneInspectionService> sceneInspectionService; // declared after scene: destroyed first
+  std::unique_ptr<SceneDashboardService> sceneDashboardService;   // declared after scene: destroyed first
   std::unique_ptr<ForwardRenderer> renderer;
   std::unique_ptr<ExtractionRegistry> extractionRegistry;
   std::unique_ptr<RenderFrameBuilder> renderFrameBuilder;
@@ -174,6 +179,7 @@ private:
   SettingsService settingsService;
   LockedInspectionService lockedInspectionService;
   LockedSettingsService lockedSettingsService;
+  LockedSceneDashboardService lockedSceneDashboardService;
 
   InputEventQueue inputQueue;
 

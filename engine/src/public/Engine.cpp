@@ -147,6 +147,11 @@ ISettingsService& Engine::GetSettingsService()
   return runtime->GetSettingsService();
 }
 
+ISceneDashboardService& Engine::GetSceneDashboardService()
+{
+  return runtime->GetSceneDashboardService();
+}
+
 Engine::Ray Engine::ScreenPointToRay(float ndcX, float ndcY) const
 {
   return runtime->ScreenPointToRay(ndcX, ndcY);

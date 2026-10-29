@@ -4,6 +4,7 @@
 
 #include <QFrame>
 #include <QPointer>
+#include <QString>
 #include <QVariant>
 
 class QVBoxLayout;
@@ -19,6 +20,10 @@ public:
 
   void setFields(const QObjectList &fieldObjects);
   void refreshBoundEditors();
+
+  // Placeholder hint shown (as QLabel#inspectorEmptyLabel) whenever setFields() adds no editors;
+  //  takes effect on the next setFields() call. An empty text shows nothing.
+  void setEmptyText(const QString &text);
 
   // Re-reads layout metrics (margin/spacing/min-width) from tokens/common.ini and re-applies
   //  them, so editing that file updates an already-running instance (called from
@@ -39,5 +44,6 @@ private:
   QWidget *inspectorContent = nullptr;
   QVBoxLayout *inspectorLayout = nullptr;
   QList<EditorBinding> editorBindings;
+  QString emptyText;
   bool isApplyingEditorState = false;
 };
