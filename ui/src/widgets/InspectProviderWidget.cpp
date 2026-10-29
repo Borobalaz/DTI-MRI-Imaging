@@ -128,18 +128,8 @@ void InspectProviderWidget::updateVisibilityIcon()
     return;
   }
 
-  const QIcon themeVisible = QIcon::fromTheme("view-visible");
-  const QIcon themeHidden = QIcon::fromTheme("view-hidden");
-  const QIcon fallbackVisible = style()->standardIcon(QStyle::SP_DialogYesButton);
-  const QIcon fallbackHidden = style()->standardIcon(QStyle::SP_DialogNoButton);
   const bool isVisible = object.isVisible;
-
-  if (isVisible)
-  {
-    visibilityButton->setIcon(themeVisible.isNull() ? fallbackVisible : themeVisible);
-  }
-  else
-  {
-    visibilityButton->setIcon(themeHidden.isNull() ? fallbackHidden : themeHidden);
-  }
+  visibilityButton->setIcon(QIcon(isVisible ? QStringLiteral(":/icons/eye-open.svg")
+                                            : QStringLiteral(":/icons/eye-closed.svg")));
+  visibilityButton->setToolTip(isVisible ? QStringLiteral("Hide") : QStringLiteral("Show"));
 }
