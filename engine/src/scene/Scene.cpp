@@ -43,7 +43,7 @@ namespace
  *
  */
 Scene::Scene()
-    : camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.1f, 100.0f))
+    : camera(std::make_shared<PerspectiveCamera>(45.0f, 800.0f / 600.0f, 0.01f, 100.0f))
 {
   // ------------- CAMERA MOVEMENT -------------
   // Scene owns the camera, so it owns wiring up its default interactive
