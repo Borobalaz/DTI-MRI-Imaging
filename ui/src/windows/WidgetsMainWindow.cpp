@@ -194,10 +194,12 @@ void WidgetsMainWindow::setupLayout()
   inspectorDock->setWidget(inspectorWidget);
   inspectorDock->setTitleBarWidget(new DockTitleBarWidget(inspectorDock, inspectorDock));
   inspectorWidget->setEmptyText(tr("Select an object in the Objects panel or Ctrl-click it in the viewport."));
+  inspectorWidget->setSettingsKey("inspector");
 
   // Right dock (stacked above the inspector): scene-wide controls
   sceneDashboardWidget = new InspectorWidget(this);
   sceneDashboardWidget->setEmptyText(tr("No scene loaded."));
+  sceneDashboardWidget->setSettingsKey("sceneDashboard");
   sceneDashboardDock = new QDockWidget(tr("Scene Dashboard"), this);
   sceneDashboardDock->setObjectName("sceneDashboardDock");
   sceneDashboardDock->setWidget(sceneDashboardWidget);

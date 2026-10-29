@@ -50,6 +50,17 @@ Primary build evidence: `CMakeLists.txt` (`add_executable(app_qt ...)`). The app
 7. `QTSceneInspector` adapts engine-neutral inspection fields into Qt field widgets. Qt edits invoke the engine field setters, which the engine serializes with its tick. Engine state remains owned by the engine DLL. Nothing is selected by default: attaching the service leaves the selection empty, and when the selected provider disappears (provider list changed) the selection is cleared rather than moved to another object, so the Inspector shows its placeholder until the user picks an object in the Objects panel or Ctrl-clicks it in the viewport. The scene itself is not in the provider list; its fields live in the Scene Dashboard.
 8. `QTSceneDashboardAdapter` (shaped like `QTEngineSettingsAdapter`) adapts the scene's dashboard fields the same way and refetches them on `OnFieldsChanged` (scene created, or the scene's provider generation bumped, e.g. after preprocessing completes).
 
+## Inspector panels and field widgets
+
+The Inspector, Scene Dashboard and Engine Settings panels are all `InspectorWidget`s. `setFields` rebuilds the panel from a `QObjectList` of `IInspectWidget` field objects:
+
+- **Group cards.** Consecutive fields that share a group name become one `InspectGroupSection` (`QFrame#inspectorGroupCard`): a full-width checkable header (`QToolButton#inspectorGroupHeader`, chevron icon from `:/icons/chevron-{down,right}.svg`) above a body of field rows. Fields without a group go into a "General" card. Grouping is run-based, so the provider's field order is kept. Each row is a `QFrame#inspectorFieldRow`; the first row of a card gets the dynamic property `firstInGroup=true` so the QSS can drop its top divider, and the header gets `expanded=true|false` so a collapsed card renders as a rounded header only.
+- **Collapse persistence.** Each panel gets a key through `setSettingsKey` (`"inspector"`, `"sceneDashboard"`, `"engineSettings"`). Collapse state is stored in `QSettings` under `inspectorGroups/<key>/<groupName>/collapsed` and cached in the widget's `collapsedGroups` hash, which is loaded lazily per group and survives the full `setFields` rebuilds that follow a provider-generation bump. A panel with no key keeps the state in memory only.
+- **Numeric editors.** Number and Vec3 fields use `InspectSpinBox` (a `QDoubleSpinBox` subclass). The wheel only changes the value while the box has keyboard focus (click or Tab); otherwise the wheel event is ignored and reaches the panel's `QScrollArea`, so scrolling over a field scrolls the panel. Wheel notches and Up/Down keys step by the field's step, times 0.1 with Shift or 10 with Ctrl (Shift wins). The decimals cover the Shift step, and typed text commits on Enter or focus-out (`keyboardTracking` off). The QSS `:hover`/`:focus` borders show whether the wheel is live.
+- **Color editor.** `InspectColorFieldWidget` shows a swatch (`QToolButton#colorSwatchButton`) and its `#RRGGBB` hex code. Clicking the swatch opens a `ColorPickerPopup` (`Qt::Popup`, parented to the field, deleted on close) with a saturation/value square, a hue strip, hex and RGB (`InspectSpinBox`) inputs, and old/new swatches. Every edit is forwarded live to the field; Esc (or clicking the old swatch) reverts to the color the popup opened with, and Enter or clicking outside keeps the current one. The popup keeps hue and saturation as floats, so they survive grey and black colors. The field ignores incoming `SetValue` updates within half an 8-bit step of its current color, so the engine echoing an edit back doesn't snap the open picker.
+
+Card, header, row-divider and swatch styling lives in `ui/styles/widgets/InspectorWidget.qss` and `InspectFields.qss`; layout metrics (`group-card-spacing`, `group-header-height`, `color-swatch-width`/`-height`) are in `tokens/common.ini`.
+
 ## Graphics context provider
 
 `QtGraphicsContextProvider` (`ui/include/rendering/QtGraphicsContextProvider.h`) implements the engine's `IGraphicsContextProvider`. The engine calls each of its methods on the engine thread.
@@ -148,5 +159,6 @@ The UI depends on the `Engine` facade and on neutral inspection, settings, scene
 - Settings bridge: `ui/include/qt-adapters/QTEngineSettingsAdapter.h`, `ui/src/qt-adapters/QTEngineSettingsAdapter.cpp`
 - Scene dashboard bridge: `ui/include/qt-adapters/QTSceneDashboardAdapter.h`, `ui/src/qt-adapters/QTSceneDashboardAdapter.cpp`
 - Engine log panel: `ui/include/widgets/EngineLogWidget.h`, `ui/src/widgets/EngineLogWidget.cpp`
-- Field presentation: `ui/include/widgets/inspect_fields/`
+- Inspector panels and group cards: `ui/include/widgets/InspectorWidget.h`, `ui/src/widgets/InspectorWidget.cpp`, `ui/include/widgets/InspectGroupSection.h`, `ui/src/widgets/InspectGroupSection.cpp`
+- Field presentation: `ui/include/widgets/inspect_fields/` (shared numeric editor `InspectSpinBox.h`; color swatch `InspectColorFieldWidget.h` and its `ColorPickerPopup.h`)
 - Object-list and selection presentation: `ui/include/widgets/SceneObjectListWidget.h`, `ui/src/widgets/SceneObjectListWidget.cpp`

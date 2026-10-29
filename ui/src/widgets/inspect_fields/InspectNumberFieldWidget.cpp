@@ -1,7 +1,8 @@
 #include "widgets/inspect_fields/InspectNumberFieldWidget.h"
 
 #include <algorithm>
-#include <cmath>
+
+#include "widgets/inspect_fields/InspectSpinBox.h"
 
 InspectNumberFieldWidget::InspectNumberFieldWidget(QString fieldId,
                                                    QString displayName,
@@ -58,10 +59,8 @@ void InspectNumberFieldWidget::SetValue(const QVariant &input)
 
 IInspectWidget *InspectNumberFieldWidget::addToLayout(QHBoxLayout *layout)
 {
-  auto *editor = new QDoubleSpinBox;
-  editor->setDecimals(DecimalsForStep(stepSize));
-  editor->setSingleStep(stepSize);
-  editor->setButtonSymbols(QAbstractSpinBox::NoButtons);
+  auto *editor = new InspectSpinBox;
+  editor->setBaseStep(stepSize);
   editor->setMinimumWidth(0);
   editor->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
   editor->setEnabled(!isReadOnly());
@@ -85,12 +84,4 @@ IInspectWidget *InspectNumberFieldWidget::addToLayout(QHBoxLayout *layout)
   layout->addWidget(editor, 1);
   editorWidget = editor;
   return this;
-}
-
-int InspectNumberFieldWidget::DecimalsForStep(double step)
-{
-  if (!(step > 0.0)) return 2;
-  const double digits = -std::log10(step);
-  if (digits <= 0.0) return 0;
-  return std::clamp(static_cast<int>(std::ceil(digits)), 0, 10);
 }

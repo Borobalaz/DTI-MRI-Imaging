@@ -1,0 +1,32 @@
+/* Color field swatch (fill set from C++) and the popup picker's old/new swatches. */
+QToolButton#colorSwatchButton,
+QToolButton#colorPickerOldSwatch,
+QToolButton#colorPickerNewSwatch {
+  border: 1px solid @border;
+  border-radius: 4px;
+}
+
+QToolButton#colorSwatchButton:hover,
+QToolButton#colorPickerOldSwatch:hover {
+  border: 1px solid @accent;
+}
+
+QToolButton#colorSwatchButton:disabled {
+  border: 1px solid rgba(@border-rgb, 0.6);
+}
+
+QLabel#colorHexLabel {
+  font-family: Consolas, monospace;
+  color: @text-muted;
+}
+
+QFrame#colorPickerPopup {
+  background-color: @panel-bg;
+  border: 1px solid @border;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+QLineEdit#colorPickerHexEdit {
+  font-family: Consolas, monospace;
+}

@@ -2,105 +2,22 @@
 
 #include <cmath>
 
-#include <QImage>
-#include <QMouseEvent>
-#include <QPainter>
-#include <QSignalBlocker>
+#include <QLabel>
+#include <QToolButton>
 
-namespace inspect_color_internal
+#include "styles/StyleSheetComposer.h"
+#include "widgets/inspect_fields/ColorPickerPopup.h"
+
+namespace
 {
-  ColorWheelWidget::ColorWheelWidget(QWidget *parent)
-    : QWidget(parent)
+  // Half of one 8-bit step: anything closer is the same displayed color.
+  constexpr double kChannelEpsilon = 1.0 / 510.0;
+
+  bool IsSameColor(const QColor &a, const QColor &b)
   {
-    setMinimumSize(96, 96);
-    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-  }
-
-  void ColorWheelWidget::setCurrentColor(const QColor &color)
-  {
-    if (!color.isValid()) return;
-    value = color.value();
-    const int h = color.hsvHue();
-    hue = h >= 0 ? h : 0;
-    saturation = color.hsvSaturation();
-    update();
-  }
-
-  QColor ColorWheelWidget::currentColor() const
-  {
-    return QColor::fromHsv(hue, saturation, value);
-  }
-
-  void ColorWheelWidget::paintEvent(QPaintEvent *)
-  {
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    const int side = qMin(width(), height());
-    const int radius = side / 2 - 2;
-    const QPoint center(width() / 2, height() / 2);
-    QImage image(side, side, QImage::Format_ARGB32_Premultiplied);
-    image.fill(Qt::transparent);
-
-    for (int y = 0; y < side; ++y)
-    {
-      for (int x = 0; x < side; ++x)
-      {
-        const double dx = static_cast<double>(x - side / 2);
-        const double dy = static_cast<double>(y - side / 2);
-        const double r = std::sqrt(dx * dx + dy * dy);
-        if (r <= radius)
-        {
-          const double satNorm = qBound(0.0, r / static_cast<double>(radius), 1.0);
-          double angle = std::atan2(-dy, dx) * 180.0 / kPi;
-          if (angle < 0.0) angle += 360.0;
-          const double edgeAlpha = qBound(0.0, (static_cast<double>(radius) - r) / 2.0, 1.0);
-          QColor pixel = QColor::fromHsv(static_cast<int>(angle), static_cast<int>(satNorm * 255.0), 255);
-          pixel.setAlpha(static_cast<int>(edgeAlpha * 255.0));
-          image.setPixelColor(x, y, pixel);
-        }
-      }
-    }
-
-    painter.drawImage(QRect(center.x() - side / 2, center.y() - side / 2, side, side), image);
-    const double satNorm = static_cast<double>(saturation) / 255.0;
-    const double rad = hue * kPi / 180.0;
-    const QPoint marker(center.x() + static_cast<int>(std::cos(rad) * satNorm * radius),
-                        center.y() - static_cast<int>(std::sin(rad) * satNorm * radius));
-    painter.setPen(QPen(Qt::black, 2));
-    painter.setBrush(Qt::NoBrush);
-    painter.drawEllipse(marker, 5, 5);
-    painter.setPen(QPen(Qt::white, 1));
-    painter.drawEllipse(marker, 6, 6);
-  }
-
-  void ColorWheelWidget::mousePressEvent(QMouseEvent *event) { pickFromPosition(event->pos()); }
-
-  void ColorWheelWidget::mouseMoveEvent(QMouseEvent *event)
-  {
-    if (event->buttons() & Qt::LeftButton) pickFromPosition(event->pos());
-  }
-
-  void ColorWheelWidget::pickFromPosition(const QPoint &pos)
-  {
-    const int side = qMin(width(), height());
-    const int radius = side / 2 - 2;
-    const QPoint center(width() / 2, height() / 2);
-    double dx = static_cast<double>(pos.x() - center.x());
-    double dy = static_cast<double>(center.y() - pos.y());
-    double r = std::sqrt(dx * dx + dy * dy);
-    if (r > radius)
-    {
-      const double scale = static_cast<double>(radius) / r;
-      r = radius;
-      dx *= scale;
-      dy *= scale;
-    }
-    double angle = std::atan2(dy, dx) * 180.0 / kPi;
-    if (angle < 0.0) angle += 360.0;
-    hue = static_cast<int>(angle);
-    saturation = static_cast<int>((r / static_cast<double>(radius)) * 255.0);
-    update();
-    if (colorChangedCallback) colorChangedCallback(currentColor());
+    return std::abs(a.redF() - b.redF()) <= kChannelEpsilon
+        && std::abs(a.greenF() - b.greenF()) <= kChannelEpsilon
+        && std::abs(a.blueF() - b.blueF()) <= kChannelEpsilon;
   }
 }
 
@@ -110,35 +27,27 @@ InspectColorFieldWidget::InspectColorFieldWidget(QWidget *parent)
   auto *layout = new QHBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(6);
-  wheel = new inspect_color_internal::ColorWheelWidget(this);
-  valueSlider = new QSlider(Qt::Vertical, this);
-  valueSlider->setRange(0, 100);
-  valueSlider->setValue(100);
-  valueSlider->setFixedHeight(96);
-  preview = new QLabel(this);
-  preview->setFixedSize(24, 24);
-  preview->setFrameShape(QFrame::Box);
-  preview->setFrameShadow(QFrame::Sunken);
-  layout->addWidget(wheel);
-  layout->addWidget(valueSlider);
-  layout->addWidget(preview);
+
+  swatchButton = new QToolButton(this);
+  swatchButton->setObjectName("colorSwatchButton");
+  swatchButton->setCursor(Qt::PointingHandCursor);
+  swatchButton->setFixedSize(ResolveCommonToken("color-swatch-width").toInt(),
+                             ResolveCommonToken("color-swatch-height").toInt());
+
+  // Monospace font and muted color come from QLabel#colorHexLabel in InspectFields.qss.
+  hexLabel = new QLabel(this);
+  hexLabel->setObjectName("colorHexLabel");
+  hexLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+  layout->addWidget(swatchButton);
+  layout->addWidget(hexLabel);
   layout->addStretch(1);
 
-  wheel->colorChangedCallback = [this](const QColor &)
+  QObject::connect(swatchButton, &QToolButton::clicked, this, [this]()
   {
-    updatePreview();
-    if (valueChangedCallback) valueChangedCallback(GetValue());
-  };
-  QObject::connect(valueSlider, &QSlider::valueChanged, this, [this](int sliderValue)
-  {
-    QColor color = wheel->currentColor();
-    color.setHsv(color.hsvHue() >= 0 ? color.hsvHue() : 0, color.hsvSaturation(),
-                 static_cast<int>(sliderValue * 2.55));
-    wheel->setCurrentColor(color);
-    updatePreview();
-    if (valueChangedCallback) valueChangedCallback(GetValue());
+    openPicker();
   });
-  updatePreview();
+  updateSwatch();
 }
 
 InspectColorFieldWidget::InspectColorFieldWidget(QString fieldId, QString displayName,
@@ -162,22 +71,46 @@ void InspectColorFieldWidget::SetValue(const QVariant &value)
 {
   QVariantList list = value.toList();
   if (list.size() < 3) list = {0.0, 0.0, 0.0};
-  const QColor color = QColor::fromRgbF(list[0].toDouble(), list[1].toDouble(), list[2].toDouble());
-  const QSignalBlocker blocker(valueSlider);
-  valueSlider->setValue(static_cast<int>(color.valueF() * 100.0));
-  wheel->setCurrentColor(color);
-  updatePreview();
+  const QColor color = QColor::fromRgbF(static_cast<float>(qBound(0.0, list[0].toDouble(), 1.0)),
+                                        static_cast<float>(qBound(0.0, list[1].toDouble(), 1.0)),
+                                        static_cast<float>(qBound(0.0, list[2].toDouble(), 1.0)));
+
+  // Called on every sync revision with the engine's echo of what the picker just sent; ignoring
+  //  sub-step differences keeps the open picker's hue/saturation from snapping mid-drag.
+  if (IsSameColor(color, currentColor)) return;
+
+  currentColor = color;
+  updateSwatch();
+  if (picker) picker->setColor(color);
 }
 
 QVariant InspectColorFieldWidget::GetValue() const
 {
-  const QColor color = wheel->currentColor();
-  return QVariantList{color.redF(), color.greenF(), color.blueF()};
+  return QVariantList{currentColor.redF(), currentColor.greenF(), currentColor.blueF()};
 }
 
-void InspectColorFieldWidget::updatePreview()
+void InspectColorFieldWidget::openPicker()
 {
-  const QColor color = wheel->currentColor();
-  preview->setStyleSheet(QStringLiteral("background-color: rgb(%1, %2, %3);")
-                           .arg(color.red()).arg(color.green()).arg(color.blue()));
+  if (readOnlyValue || (picker && picker->isVisible())) return;
+
+  // Parented to this field so it can't outlive it (e.g. a setFields() rebuild while open).
+  picker = new ColorPickerPopup(this);
+  picker->colorChangedCallback = [this](const QColor &color)
+  {
+    applyPickedColor(color);
+  };
+  picker->open(swatchButton, currentColor);
+}
+
+void InspectColorFieldWidget::applyPickedColor(const QColor &color)
+{
+  currentColor = color;
+  updateSwatch();
+  if (valueChangedCallback) valueChangedCallback(GetValue());
+}
+
+void InspectColorFieldWidget::updateSwatch()
+{
+  ColorPickerPopup::SetSwatchFill(swatchButton, currentColor);
+  hexLabel->setText(currentColor.name(QColor::HexRgb).toUpper());
 }

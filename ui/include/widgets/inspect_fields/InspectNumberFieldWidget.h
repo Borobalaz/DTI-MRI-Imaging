@@ -66,6 +66,4 @@ private:
   double stepSize = 0.01;
   bool readOnlyValue = false;
   QPointer<QDoubleSpinBox> editorWidget;
-
-  static int DecimalsForStep(double step);
 };

@@ -3,18 +3,19 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QScrollArea>
+#include <QSettings>
 #include <QVBoxLayout>
 
 #include <QObject>
 
 #include "styles/StyleSheetComposer.h"
+#include "widgets/InspectGroupSection.h"
 #include "widgets/inspect_fields/IInspectWidget.h"
 
 InspectorWidget::InspectorWidget(QWidget *parent)
   : QFrame(parent)
 {
   inspectorPanelLayout = new QVBoxLayout(this);
-  refreshLayoutMetrics();
 
   auto *scrollArea = new QScrollArea(this);
   scrollArea->setObjectName("inspectorScrollArea");
@@ -30,6 +31,9 @@ InspectorWidget::InspectorWidget(QWidget *parent)
 
   scrollArea->setWidget(inspectorContent);
   inspectorPanelLayout->addWidget(scrollArea, 1);
+
+  // After inspectorLayout exists: it receives the group-card spacing.
+  refreshLayoutMetrics();
 }
 
 void InspectorWidget::refreshLayoutMetrics()
@@ -39,6 +43,7 @@ void InspectorWidget::refreshLayoutMetrics()
   const int margin = ResolveCommonToken("panel-margin").toInt();
   inspectorPanelLayout->setContentsMargins(margin, margin, margin, margin);
   inspectorPanelLayout->setSpacing(ResolveCommonToken("panel-spacing").toInt());
+  inspectorLayout->setSpacing(ResolveCommonToken("group-card-spacing").toInt());
 }
 
 void InspectorWidget::setEmptyText(const QString &text)
@@ -46,12 +51,22 @@ void InspectorWidget::setEmptyText(const QString &text)
   emptyText = text;
 }
 
+void InspectorWidget::setSettingsKey(const QString &key)
+{
+  settingsKey = key;
+  // Entries cached under a previous key (or none) would otherwise shadow this key's saved state.
+  collapsedGroups.clear();
+}
+
 void InspectorWidget::setFields(const QObjectList &fieldObjects)
 {
   editorBindings.clear();
   clearInspector();
 
+  // Grouping is run-based: consecutive fields sharing a group name go into one section, in the
+  //  order the provider lists them (no re-ordering).
   QString currentGroup;
+  InspectGroupSection *currentSection = nullptr;
   bool hasEditors = false;
   for (QObject *fieldObject : fieldObjects)
   {
@@ -66,17 +81,13 @@ void InspectorWidget::setFields(const QObjectList &fieldObjects)
       continue;
     }
 
-    if (field->groupName() != currentGroup)
+    if (!currentSection || field->groupName() != currentGroup)
     {
       currentGroup = field->groupName();
-      auto *groupLabel = new QLabel(currentGroup, inspectorContent);
-      groupLabel->setObjectName("inspectorGroupLabel");
-      // Color, font-weight and spacing all come from QLabel#inspectorGroupLabel in
-      //  ui/styles/widgets/InspectorWidget.qss, so they stay themed and hot-reloadable.
-      inspectorLayout->addWidget(groupLabel);
+      currentSection = addGroupSection(currentGroup);
     }
 
-    addFieldEditor(field);
+    addFieldEditor(field, currentSection->bodyLayout());
     hasEditors = true;
   }
 
@@ -131,10 +142,58 @@ void InspectorWidget::clearInspector()
   }
 }
 
-void InspectorWidget::addFieldEditor(IInspectWidget *field)
+InspectGroupSection *InspectorWidget::addGroupSection(const QString &groupName)
 {
-  auto *row = new QWidget(inspectorContent);
+  const QString title = groupName.isEmpty() ? tr("General") : groupName;
+
+  auto *section = new InspectGroupSection(title, inspectorContent);
+  section->setExpanded(!isGroupCollapsed(title));
+  section->expandedChangedCallback = [this, title](bool expanded)
+  {
+    setGroupCollapsed(title, !expanded);
+  };
+
+  inspectorLayout->addWidget(section);
+  return section;
+}
+
+bool InspectorWidget::isGroupCollapsed(const QString &groupTitle)
+{
+  const auto cached = collapsedGroups.constFind(groupTitle);
+  if (cached != collapsedGroups.constEnd())
+  {
+    return cached.value();
+  }
+
+  // Loaded lazily, on first sight of a group name, since the set of groups is only known once
+  //  a provider's fields arrive.
+  const bool collapsed = !settingsKey.isEmpty()
+    && QSettings().value(groupSettingsPath(groupTitle), false).toBool();
+  collapsedGroups.insert(groupTitle, collapsed);
+  return collapsed;
+}
+
+void InspectorWidget::setGroupCollapsed(const QString &groupTitle, bool collapsed)
+{
+  collapsedGroups.insert(groupTitle, collapsed);
+  if (!settingsKey.isEmpty())
+  {
+    QSettings().setValue(groupSettingsPath(groupTitle), collapsed);
+  }
+}
+
+QString InspectorWidget::groupSettingsPath(const QString &groupTitle) const
+{
+  return QStringLiteral("inspectorGroups/%1/%2/collapsed").arg(settingsKey, groupTitle);
+}
+
+void InspectorWidget::addFieldEditor(IInspectWidget *field, QVBoxLayout *targetLayout)
+{
+  // A QFrame (not a plain QWidget) so the QSS divider border renders reliably.
+  auto *row = new QFrame(targetLayout->parentWidget());
   row->setObjectName("inspectorFieldRow");
+  // QSS has no :first-child for widgets; this lets the first row of a card drop its top divider.
+  row->setProperty("firstInGroup", targetLayout->count() == 0);
   // Disabling the row (rather than just the editor) also dims the name label via the
   //  palette's disabled color group, matching read-only fields visually, not just functionally.
   row->setEnabled(!field->isReadOnly());
@@ -169,6 +228,6 @@ void InspectorWidget::addFieldEditor(IInspectWidget *field)
     rowLayout->addWidget(unsupported, 1);
   }
 
-  inspectorLayout->addWidget(row);
+  targetLayout->addWidget(row);
 }
 

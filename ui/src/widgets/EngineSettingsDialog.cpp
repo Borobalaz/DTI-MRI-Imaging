@@ -14,6 +14,7 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget *parent)
   layout->setContentsMargins(0, 0, 0, 0);
 
   inspector = new InspectorWidget(this);
+  inspector->setSettingsKey("engineSettings");
   layout->addWidget(inspector, 1);
 }
 

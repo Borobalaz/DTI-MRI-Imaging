@@ -12,6 +12,8 @@
 
 #include "widgets/inspect_fields/IInspectWidget.h"
 
+class InspectSpinBox;
+
 class InspectVec3FieldWidget : public QWidget, public IInspectWidget
 {
 public:
@@ -36,7 +38,7 @@ private:
   QString displayNameValue;
   QString groupNameValue;
   bool readOnlyValue = false;
-  QDoubleSpinBox *xSpin = nullptr;
-  QDoubleSpinBox *ySpin = nullptr;
-  QDoubleSpinBox *zSpin = nullptr;
+  InspectSpinBox *xSpin = nullptr;
+  InspectSpinBox *ySpin = nullptr;
+  InspectSpinBox *zSpin = nullptr;
 };

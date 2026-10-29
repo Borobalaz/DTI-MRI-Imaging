@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/icons">
         <file alias="app-icon.svg">assets/icons/app-icon.svg</file>
+        <file alias="chevron-down.svg">assets/icons/chevron-down.svg</file>
+        <file alias="chevron-right.svg">assets/icons/chevron-right.svg</file>
     </qresource>
 </RCC>

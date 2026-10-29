@@ -4,43 +4,20 @@
 #include <utility>
 
 #include <QColor>
-#include <QFrame>
 #include <QHBoxLayout>
-#include <QLabel>
-#include <QSlider>
+#include <QPointer>
 #include <QString>
 #include <QVariant>
 #include <QWidget>
 
 #include "widgets/inspect_fields/IInspectWidget.h"
 
-namespace inspect_color_internal
-{
-  constexpr double kPi = 3.14159265358979323846;
+class QLabel;
+class QToolButton;
+class ColorPickerPopup;
 
-  class ColorWheelWidget : public QWidget
-  {
-  public:
-    explicit ColorWheelWidget(QWidget *parent = nullptr);
-    void setCurrentColor(const QColor &color);
-    QColor currentColor() const;
-
-    std::function<void(const QColor &)> colorChangedCallback;
-
-  protected:
-    void paintEvent(QPaintEvent *) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-
-  private:
-    void pickFromPosition(const QPoint &pos);
-
-    int hue = 0;
-    int saturation = 0;
-    int value = 255;
-  };
-}
-
+// Inline color field: a swatch plus its #RRGGBB hex code. Clicking the swatch opens a
+//  ColorPickerPopup whose edits are forwarded live through valueChangedCallback.
 class InspectColorFieldWidget : public QWidget, public IInspectWidget
 {
 public:
@@ -58,11 +35,14 @@ public:
   std::function<void(const QVariant &)> valueChangedCallback;
 
 private:
-  void updatePreview();
+  void openPicker();
+  void applyPickedColor(const QColor &color);
+  void updateSwatch();
 
-  inspect_color_internal::ColorWheelWidget *wheel = nullptr;
-  QSlider *valueSlider = nullptr;
-  QLabel *preview = nullptr;
+  QToolButton *swatchButton = nullptr;
+  QLabel *hexLabel = nullptr;
+  QPointer<ColorPickerPopup> picker; // Child of this widget; deletes itself on close
+  QColor currentColor = Qt::black;
   QString fieldIdValue;
   QString displayNameValue;
   QString groupNameValue;

@@ -13,16 +13,48 @@ QWidget#inspectorContent {
   background-color: @panel-bg;
 }
 
-QWidget#inspectorFieldRow {
-  border-bottom: 1px dashed rgba(@border-rgb, 0.6);
+/* One collapsible group card per field group (InspectGroupSection). */
+QFrame#inspectorGroupCard {
+  background-color: @group-card-bg;
+  border: 1px solid @border;
+  border-radius: 6px;
 }
 
-QLabel#inspectorGroupLabel {
+/* The header sits inside the card's 1px border, so its radius is one less than the card's. */
+QToolButton#inspectorGroupHeader {
+  background-color: @group-header-bg;
   color: @text-muted;
   font-weight: bold;
-  font-size: 15px;
-  margin-top: 8px;  
+  padding: 0px 8px;
+  border: none;
   border-bottom: 1px solid rgba(@border-rgb, 0.6);
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+}
+
+QToolButton#inspectorGroupHeader:hover {
+  background-color: @group-header-hover-bg;
+}
+
+/* Collapsed: the header is the whole card, so round every corner and drop the divider. */
+QToolButton#inspectorGroupHeader[expanded="false"] {
+  border-bottom: none;
+  border-radius: 5px;
+}
+
+QWidget#inspectorGroupBody {
+  background: transparent;
+}
+
+QFrame#inspectorFieldRow {
+  background: transparent;
+  border: none;
+  border-top: 1px solid rgba(@field-divider-rgb, 0.35);
+}
+
+/* Set from C++ on each card's first row - QSS has no :first-child for widgets. */
+QFrame#inspectorFieldRow[firstInGroup="true"] {
+  border-top: none;
 }
 
 QLabel#inspectorFieldLabel {

@@ -1,20 +1,22 @@
 #include "widgets/inspect_fields/InspectVec3FieldWidget.h"
 
+#include "widgets/inspect_fields/InspectSpinBox.h"
+
 InspectVec3FieldWidget::InspectVec3FieldWidget(QWidget *parent)
   : QWidget(parent)
 {
   auto *layout = new QHBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(2);
-  xSpin = new QDoubleSpinBox(this);
-  ySpin = new QDoubleSpinBox(this);
-  zSpin = new QDoubleSpinBox(this);
-  for (QDoubleSpinBox *spin : {xSpin, ySpin, zSpin})
+  xSpin = new InspectSpinBox(this);
+  ySpin = new InspectSpinBox(this);
+  zSpin = new InspectSpinBox(this);
+  for (InspectSpinBox *spin : {xSpin, ySpin, zSpin})
   {
+    spin->setBaseStep(0.1);
+    // Keep the established 3-decimal display; it already covers the 0.01 Shift step.
     spin->setDecimals(3);
-    spin->setSingleStep(0.1);
     spin->setRange(-1e6, 1e6);
-    spin->setButtonSymbols(QAbstractSpinBox::NoButtons);
     spin->setMinimumWidth(0);
     spin->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     layout->addWidget(spin);
