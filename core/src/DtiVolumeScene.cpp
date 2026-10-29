@@ -488,10 +488,10 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
                                               ReconstructionModel model)
 {
   const int previousRenderMode = dtiVolume ? dtiVolume->GetSelectedRenderModeIndex() : 0;
-  const int previousChannel = dtiVolume ? dtiVolume->GetSelectedChannelIndex() : 0;
+  const int previousChannel = dtiVolume ? dtiVolume->GetSelectedChannelIndex() : DTIVolume::kDefaultChannelIndex;
   // The glyph Display mode persists across reruns and loads; the other glyph settings reset.
   const SHGlyphDisplayMode previousGlyphDisplayMode =
-      shGlyphField ? shGlyphField->GetDisplayMode() : SHGlyphDisplayMode::Volume;
+      shGlyphField ? shGlyphField->GetDisplayMode() : SHGlyphDisplayMode::Slice;
   EnsureShaderCache();
 
   // Read before volumeTextures is moved into the DTIVolume.

@@ -178,6 +178,6 @@ private:
   DtiShaderCache shaderCache;
   bool shaderCacheWarmed = false;
 
-  bool rotationEnabled = true;
+  bool rotationEnabled = false;
   float rotationSpeed = 0.2f;
 };

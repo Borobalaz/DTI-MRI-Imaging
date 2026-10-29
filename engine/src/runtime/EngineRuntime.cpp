@@ -274,7 +274,7 @@ void EngineRuntime::RunTick(float deltaSeconds, Clock::time_point tickStart)
 
 void EngineRuntime::PaceTick(Clock::time_point tickStart)
 {
-  const double maxFramerate = EngineSettings::GetNumber("engine.maxFramerate", 60.0);
+  const double maxFramerate = EngineSettings::GetNumber("engine.maxFramerate", 144.0);
   if (!(maxFramerate > 0.0))
   {
     return; // uncapped

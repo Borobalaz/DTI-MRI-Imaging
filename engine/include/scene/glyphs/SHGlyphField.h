@@ -35,7 +35,7 @@ struct SHGlyphBuildSettings
   int stride = 3;                    // voxel step along every axis, >= 1 (Volume mode only)
   float maskThreshold = 0.3f;        // voxels whose mask value is below this get no glyph
   unsigned int subdivisionLevel = 3; // IcosphereGeometry level of the glyph mesh
-  SHGlyphDisplayMode displayMode = SHGlyphDisplayMode::Volume;
+  SHGlyphDisplayMode displayMode = SHGlyphDisplayMode::Slice;
 };
 
 // CPU-only output of BuildSHGlyphField, moved into an SHGlyphField on the engine thread.

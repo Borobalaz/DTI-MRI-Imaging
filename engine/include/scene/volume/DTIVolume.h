@@ -72,8 +72,11 @@ public:
             DTIVolumeTextureData textures,
             std::vector<RenderMode> renderModes);
 
+  // Channel Slice channel shown by default: FA (index into the "Selected Channel" dropdown order).
+  static constexpr int kDefaultChannelIndex = 9;
+
   void Apply(IUniformSink &shader) const override;
-  
+
   int GetSelectedRenderModeIndex() const { return selectedRenderMode; }
   int GetSelectedChannelIndex() const { return selectedChannel; }
   bool SetSelectedRenderModeIndex(int modeIndex);
@@ -90,7 +93,7 @@ private:
 
   const RenderMode *GetActiveRenderMode() const;
 
-  int selectedChannel = 0;
+  int selectedChannel = kDefaultChannelIndex;
   int selectedRenderMode = 0;
   std::vector<RenderMode> renderModes;
   std::shared_ptr<const SlicePlane> slicePlane;
