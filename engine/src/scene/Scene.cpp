@@ -73,7 +73,7 @@ Scene::Scene()
 
   // ------------- LIGHTS -------------
   std::shared_ptr<DirectionalLight> directionalLight = std::make_shared<DirectionalLight>(
-      "dirLight",
+      "Directional Light",
       glm::vec3(-1.0f, 0.0f, 0.0f),
       glm::vec3(0.5f, 0.5f, 0.5f),
       glm::vec3(1.0f, 1.0f, 1.0f),

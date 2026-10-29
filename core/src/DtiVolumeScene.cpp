@@ -316,6 +316,14 @@ DtiVolumeScene::DtiVolumeScene()
   ClearGameObjects();
   ClearVolumes();
 
+  std::shared_ptr<DirectionalLight> directionalLight = std::make_shared<DirectionalLight>(
+    "Directional Light 2",
+    glm::vec3(1.0f, 0.0f, 0.0f),
+    glm::vec3(0.5f, 0.5f, 0.5f),
+    glm::vec3(1.0f, 1.0f, 1.0f),
+    glm::vec3(-1.0f, -1.0f, -1.0f));
+  AddLight(directionalLight);
+
   // Registered once: the type-filtered clears in ClearProcessedScene never remove it, and re-adding
   // it per apply would duplicate it. Listed by Scene::RebuildInspectProviders (EngineRuntime calls it
   // after construction).
