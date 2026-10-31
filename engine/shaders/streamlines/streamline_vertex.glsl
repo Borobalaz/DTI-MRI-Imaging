@@ -17,18 +17,32 @@ struct GameObjectUniforms {
   mat4 modelMatrix;
 };
 
+// Frame-wide clip plane (set by DtiVolumeScene when "Cut Geometry" is on).
+// Unset => enabled reads false => nothing is clipped.
+struct ClipPlaneUniforms {
+  bool enabled;
+  vec3 normal;   // world space, unit length
+  float offset;  // fragment REMOVED when dot(normal, p) - offset > 0
+};
+
 uniform CameraUniforms camera;
 uniform GameObjectUniforms gameObject;
+uniform ClipPlaneUniforms clipPlane;
 
 out vec3 fragWorldPosition;
 out vec3 fragWorldNormal;
 out vec3 fragTangent;
 out vec3 fragColor;
+// Signed distance to the clip plane (> 0 = removed side; -1 when clipping is off).
+out float fragClipDistance;
 
 void main()
 {
     vec4 worldPos = gameObject.modelMatrix * vec4(aPos, 1.0);
     fragWorldPosition = worldPos.xyz;
+    fragClipDistance = clipPlane.enabled
+        ? dot(clipPlane.normal, worldPos.xyz) - clipPlane.offset
+        : -1.0;
 
     mat3 normalMatrix = mat3(gameObject.modelMatrix);
     

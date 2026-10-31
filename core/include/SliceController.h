@@ -20,11 +20,15 @@ class Material;
 class Shader;
 struct RenderProxy;
 
-// Owns the scene's single slice plane (dataset object space, see SlicePlane.h), shows it in the
-// object list as "Slice Plane" (Preset / Normal / Offset / Fill controls), and draws it: an
+// Owns the scene's single slice plane (dataset object space, see SlicePlane.h) and draws it: an
 // always-on outline (plane intersect dataset box, line loop, opaque mesh pass) and an optional
 // semi-transparent fill (TransparentPass). Both use the unlit shader; colour and opacity travel
 // through their Materials (material.albedoFactor / material.opacity).
+//
+// The plane controls (Preset / Normal / Offset) and the Cut Geometry / Flip Side toggles are
+// Scene Dashboard fields (GetDashboardFields, merged in by DtiVolumeScene); the object list entry
+// "Slice Plane" inspects only the Fill controls. When cutting is enabled, DtiVolumeScene emits
+// GetWorldClipPlane() as the frame-wide clipPlane uniform.
 //
 // The transform carries only the dataset rotation (kProcessedObjectRotation + spin, driven by
 // DtiVolumeScene); scale stays 1 because the geometry is already in dataset space.
@@ -55,13 +59,21 @@ public:
   float GetOffsetLimit() const;
   float GetOffsetStep() const { return offsetStep; }
 
+  bool IsCutEnabled() const { return cutEnabled; }
+  // The plane in world space (dataset plane through the transform), with Flip Side folded in:
+  // geometry where dot(normal, p) - offset > 0 is cut away.
+  PlaneEquation GetWorldClipPlane() const;
+
+  // Scene Dashboard fields: Preset / Normal / Offset / Cut Geometry / Flip Side.
+  std::vector<InspectFieldPtr> GetDashboardFields();
+
   // IDrawable / IUpdateable
   void BuildRenderProxy(RenderProxy& renderProxy) const override;
   void Update(float deltaTime) override;
 
   // InspectProvider (no visibility toggle: the outline is always on, the fill has its own checkbox)
   std::string GetInspectDisplayName() const override;
-  std::vector<InspectFieldPtr> GetInspectFields() override;
+  std::vector<InspectFieldPtr> GetInspectFields() override; // Fill controls only
 
 private:
   enum class Preset { Axial, Coronal, Sagittal, Custom };
@@ -75,6 +87,8 @@ private:
   Preset preset = Preset::Axial;  // matches SlicePlane's default normal (0, 0, 1)
   float offsetStep = 0.01f;       // replaced by the dataset's voxel step on the first apply
   bool hasDatasetGeometry = false;
+  bool cutEnabled = false;
+  bool flipSide = false; // keeps the half in front of the normal instead of behind it
   Transform transform;
 
   std::shared_ptr<LineLoopGeometry> outlineGeometry;

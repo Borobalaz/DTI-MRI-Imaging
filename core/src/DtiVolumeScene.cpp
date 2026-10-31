@@ -465,11 +465,11 @@ void DtiVolumeScene::EnsureShaderCache()
   }
 
   EnsureMeshShader(*this, shaderCache.brainSurface, "dti_brain_surface_shader",
-                   "shaders/vertex.glsl", "shaders/pbr_fragment.glsl");
+                   "shaders/dti_mesh/dti_mesh_vertex.glsl", "shaders/dti_mesh/dti_mesh_fragment.glsl");
   EnsureMeshShader(*this, shaderCache.streamline, "dti_streamline_shader",
                    "shaders/streamlines/streamline_vertex.glsl", "shaders/streamlines/streamline_fragment.glsl");
   EnsureMeshShader(*this, shaderCache.seedPoint, "dti_seed_point_shader",
-                   "shaders/vertex_instanced.glsl", "shaders/pbr_fragment.glsl");
+                   "shaders/dti_mesh/dti_mesh_instanced_vertex.glsl", "shaders/dti_mesh/dti_mesh_fragment.glsl");
   EnsureMeshShader(*this, shaderCache.shGlyph, "dti_sh_glyph_shader",
                    "shaders/sh_glyph/sh_glyph_vertex.glsl", "shaders/sh_glyph/sh_glyph_fragment.glsl");
   EnsureMeshShader(*this, shaderCache.slicePlaneUnlit, "dti_unlit_shader",
@@ -1095,6 +1095,21 @@ void DtiVolumeScene::RebuildInspectProvidersIfLayoutChanged()
   RebuildInspectProviders(); // bumps the provider generation -> the UI re-fetches field metadata
 }
 
+void DtiVolumeScene::Apply(IUniformSink &shader) const
+{
+  Scene::Apply(shader);
+
+  // Without a dataset there is nothing to cut; shaders lacking the uniform ignore these setters.
+  const bool cutEnabled = sliceController && sliceController->IsCutEnabled() && dtiVolume;
+  shader.SetBool("clipPlane.enabled", cutEnabled);
+  if (cutEnabled)
+  {
+    const PlaneEquation worldPlane = sliceController->GetWorldClipPlane();
+    shader.SetVec3("clipPlane.normal", worldPlane.normal);
+    shader.SetFloat("clipPlane.offset", worldPlane.offset);
+  }
+}
+
 /**
  * @brief Create the Scene Dashboard fields controlling scene-wide parameters such as preprocessing and rotation.
  *
@@ -1212,6 +1227,11 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetDashboardFields()
     glyphSourceField->enumOptions = {"Tensor ODF", "fODF"};
     fields.push_back(glyphSourceField);
   }
+
+  const std::vector<InspectFieldPtr> slicePlaneFields = sliceController
+                                                            ? sliceController->GetDashboardFields()
+                                                            : std::vector<InspectFieldPtr>{};
+  fields.insert(fields.end(), slicePlaneFields.begin(), slicePlaneFields.end());
 
   // Rotation controls
   fields.push_back(MakeInspectField(

@@ -79,6 +79,8 @@ public:
   std::string GetLastLoadError() const { return lastLoadError; }
 
   void Update(float deltaTime) override;
+  // Adds the slice plane's clipPlane frame uniforms (Cut Geometry) to the base scene uniforms.
+  void Apply(IUniformSink &shader) const override;
 
   std::vector<InspectFieldPtr> GetDashboardFields() override;
   

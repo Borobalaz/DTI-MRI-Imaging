@@ -50,6 +50,19 @@ uniform CameraUniforms camera;
 uniform GameObjectUniforms gameObject;
 uniform SHGlyphUniforms shGlyph;
 
+// Frame-wide clip plane (set by DtiVolumeScene when "Cut Geometry" is on).
+// Unset => enabled reads false => nothing is clipped.
+struct ClipPlaneUniforms {
+  bool enabled;
+  vec3 normal;   // world space, unit length
+  float offset;  // fragment REMOVED when dot(normal, p) - offset > 0
+};
+uniform ClipPlaneUniforms clipPlane;
+
+// World-space tolerance for the glyph-centre clip test. Slice-mode glyph centres
+// lie on the plane (|distance| ~ float error), so they are always kept.
+const float kClipCentreEpsilon = 1e-4;
+
 // RGBA32F, coefficientTexelsPerInstance texels per instance. Coefficient k is
 // texelFetch(instanceCoefficients, gl_InstanceID * texels + k / 4)[k % 4];
 // entries k >= 45 are zero padding.
@@ -97,4 +110,13 @@ void main()
   fragWorldPosition = vec3(worldPosition);
   // Directionally-encoded color (DEC) from the object-space direction.
   fragDirectionColor = abs(n);
+
+  // ---- Whole-glyph clip by centre: move removed vertices outside the clip volume ----
+  vec3 centreWorld = (gameObject.modelMatrix * instanceModelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  bool removed = clipPlane.enabled
+    && dot(clipPlane.normal, centreWorld) - clipPlane.offset > kClipCentreEpsilon;
+  if (removed)
+  {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  }
 }

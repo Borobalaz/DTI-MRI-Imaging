@@ -51,6 +51,14 @@ struct ShaderUniforms {
   int aoSamples;
 };
 
+// Frame-wide clip plane (set by DtiVolumeScene when "Cut Geometry" is on).
+// Unset => enabled reads false => nothing is clipped.
+struct ClipPlaneUniforms {
+  bool enabled;
+  vec3 normal;   // world space, unit length
+  float offset;  // fragment REMOVED when dot(normal, p) - offset > 0
+};
+
 uniform CameraUniforms camera;
 uniform VolumeObjectUniforms volumeObject;
 uniform VolumeUniforms volume;
@@ -58,6 +66,7 @@ uniform LightUniforms lights[MAX_LIGHTS];
 uniform int lightCount;
 uniform ShaderUniforms shader;
 uniform sampler3D volumeTextures[MAX_VOLUME_TEXTURES];
+uniform ClipPlaneUniforms clipPlane;
 
 bool IntersectBox(vec3 rayOrigin, vec3 rayDirection, out float tMin, out float tMax)
 {
@@ -72,6 +81,37 @@ bool IntersectBox(vec3 rayOrigin, vec3 rayDirection, out float tMin, out float t
   tMin = max(max(smaller.x, smaller.y), smaller.z);
   tMax = min(min(larger.x, larger.y), larger.z);
   return tMax >= max(tMin, 0.0);
+}
+
+// Shrinks [rayStart, rayEnd] (object-space ray rayOrigin + t * rayDirection) to the
+// kept half-space of the world clip plane. Returns false when nothing is left.
+bool ClipRayToPlane(vec3 rayOrigin, vec3 rayDirection, inout float rayStart, inout float rayEnd)
+{
+  if (!clipPlane.enabled)
+  {
+    return true;
+  }
+
+  // World plane covector (n, -offset) pulled back into object space; kept where s(t) <= 0.
+  vec4 planeObject = transpose(volumeObject.modelMatrix) * vec4(clipPlane.normal, -clipPlane.offset);
+  float ds = dot(planeObject.xyz, rayDirection);
+  float s0 = dot(planeObject.xyz, rayOrigin) + planeObject.w;
+
+  if (abs(ds) < 1e-8)
+  {
+    return s0 <= 0.0;
+  }
+
+  float tPlane = -s0 / ds;
+  if (ds > 0.0)
+  {
+    rayEnd = min(rayEnd, tPlane);
+  }
+  else
+  {
+    rayStart = max(rayStart, tPlane);
+  }
+  return rayEnd > rayStart;
 }
 
 float SampleFA(vec3 textureCoord)
@@ -209,6 +249,11 @@ void main()
   float rayStart = max(tEnter, 0.0);
   float rayEnd = tExit;
   if (rayEnd <= rayStart)
+  {
+    discard;
+  }
+
+  if (!ClipRayToPlane(rayOriginObject, rayDirectionObject, rayStart, rayEnd))
   {
     discard;
   }

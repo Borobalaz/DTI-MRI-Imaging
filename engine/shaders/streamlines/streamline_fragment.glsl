@@ -3,6 +3,8 @@
 in vec3 fragWorldPosition;
 in vec3 fragWorldNormal;
 in vec3 fragColor;
+// Signed clip-plane distance from the vertex shader; > 0 = removed side.
+in float fragClipDistance;
 
 struct CameraUniforms {
   mat4 viewMatrix;
@@ -18,6 +20,11 @@ out vec4 FragColor;
 
 void main()
 {
+    if (fragClipDistance > 0.0)
+    {
+        discard;
+    }
+
     vec3 normal = normalize(fragWorldNormal);
     vec3 viewDirection = normalize(camera.viewPosition - fragWorldPosition);
 

@@ -173,7 +173,28 @@ void SliceController::ApplyPreset(Preset newPreset)
   preset = newPreset;
 }
 
-std::vector<InspectFieldPtr> SliceController::GetInspectFields()
+PlaneEquation SliceController::GetWorldClipPlane() const
+{
+  glm::vec3 normal = plane->GetNormal();
+  float offset = plane->GetOffset();
+  if (flipSide)
+  {
+    normal = -normal;
+    offset = -offset;
+  }
+
+  // A plane is a covector, so it maps by the inverse transpose of the model matrix.
+  const glm::vec4 worldPlane =
+    glm::transpose(glm::inverse(transform.GetModelMatrix())) * glm::vec4(normal, -offset);
+  const float normalLength = glm::length(glm::vec3(worldPlane));
+  if (normalLength < 1e-12f)
+  {
+    return PlaneEquation{normal, offset};
+  }
+  return PlaneEquation{glm::vec3(worldPlane) / normalLength, -worldPlane.w / normalLength};
+}
+
+std::vector<InspectFieldPtr> SliceController::GetDashboardFields()
 {
   std::vector<InspectFieldPtr> fields;
 
@@ -235,6 +256,37 @@ std::vector<InspectFieldPtr> SliceController::GetInspectFields()
   offsetField->maximum = static_cast<double>(GetOffsetLimit());
   offsetField->step = static_cast<double>(offsetStep);
   fields.push_back(offsetField);
+
+  auto cutEnabledField = MakeInspectField("slice.cutEnabled", "Cut Geometry", kPlaneGroup, InspectFieldType::Boolean,
+    cutEnabled,
+    [this]() -> InspectValue { return cutEnabled; },
+    [this](const InspectValue& value)
+  {
+    if (const auto* enabled = std::get_if<bool>(&value))
+    {
+      cutEnabled = *enabled;
+    }
+  });
+  fields.push_back(cutEnabledField);
+
+  auto flipSideField = MakeInspectField("slice.flipSide", "Flip Side", kPlaneGroup, InspectFieldType::Boolean,
+    flipSide,
+    [this]() -> InspectValue { return flipSide; },
+    [this](const InspectValue& value)
+  {
+    if (const auto* flipped = std::get_if<bool>(&value))
+    {
+      flipSide = *flipped;
+    }
+  });
+  fields.push_back(flipSideField);
+
+  return fields;
+}
+
+std::vector<InspectFieldPtr> SliceController::GetInspectFields()
+{
+  std::vector<InspectFieldPtr> fields;
 
   auto fillEnabledField = MakeInspectField("slice.fillEnabled", "Fill", kFillGroup, InspectFieldType::Boolean,
     fillEnabled,
