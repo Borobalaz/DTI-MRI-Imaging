@@ -5,6 +5,7 @@
 #include <exception>
 #include <iomanip>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -502,55 +503,151 @@ namespace FodfCsdMath
     return VoxelResult{status, solves};
   }
 
-  std::vector<glm::dvec3> FindPeaks(const double* coefficients, int lmax,
-                                    const std::vector<glm::dvec3>& sampleDirs,
-                                    size_t maxPeaks, double neighbourAngleDeg, double separationDeg)
+  std::vector<glm::dvec3> BuildPeakSampleDirections()
   {
-    const int coefficientCount = RealSH::CoefficientCount(lmax);
-    if (coefficientCount == 0 || sampleDirs.empty() || maxPeaks == 0)
+    return NormalizedDirections(IcosphereGeometry::GenerateDirections(kPeakIcosphereLevel));
+  }
+
+  PeakFinder::Workspace::Workspace(const PeakFinder& finder)
+    : amplitudes(finder.GetDirectionCount(), 0.0),
+      evaluatedStamp(finder.GetDirectionCount(), 0u)
+  {
+  }
+
+  /**
+   * @brief Precompute the per-direction basis rows and angular neighbour lists.
+   *
+   * @param sampleDirs search directions (any length > 0); antipodal duplicates are dropped
+   * @param lmax SH order of the coefficients later passed to Find/FindClosest
+   * @param neighbourAngleDeg local-maximum neighbourhood radius
+   * @param separationDeg minimum angle between two peaks reported by Find
+   */
+  PeakFinder::PeakFinder(const std::vector<glm::dvec3>& sampleDirs, int lmax, double neighbourAngleDeg,
+                         double separationDeg)
+    : lmax(lmax),
+      coefficientCount(RealSH::CoefficientCount(lmax)),
+      separationCos(std::cos(glm::radians(separationDeg)))
+  {
+    if (coefficientCount == 0)
     {
-      return {};
+      throw std::invalid_argument("PeakFinder: unsupported lmax " + std::to_string(lmax));
     }
 
-    const size_t sampleCount = sampleDirs.size();
-    std::vector<glm::dvec3> unitDirs(sampleCount);
-    std::vector<double> amplitudes(sampleCount, 0.0);
-    double basis[RealSH::kSHMaxCoefficients];
-    for (size_t i = 0; i < sampleCount; ++i)
+    // Even-order SH are antipodally symmetric, so one direction per antipodal pair suffices.
+    directions.reserve(sampleDirs.size() / 2 + 1);
+    for (const glm::dvec3& sampleDir : sampleDirs)
     {
-      unitDirs[i] = glm::normalize(sampleDirs[i]);
-      RealSH::EvaluateBasis(unitDirs[i], lmax, basis);
-      double amplitude = 0.0;
-      for (int k = 0; k < coefficientCount; ++k)
-      {
-        amplitude += coefficients[k] * basis[k];
-      }
-      amplitudes[i] = amplitude;
-    }
-
-    // Brute-force local maxima over an angular neighbourhood; |d_i . d_j| keeps it antipodally symmetric.
-    const double neighbourCos = std::cos(glm::radians(neighbourAngleDeg));
-    std::vector<size_t> candidates;
-    for (size_t i = 0; i < sampleCount; ++i)
-    {
-      if (!(amplitudes[i] > 0.0))
+      const double length = glm::length(sampleDir);
+      if (!(length > 0.0))
       {
         continue;
       }
-      bool isMaximum = true;
-      for (size_t j = 0; j < sampleCount && isMaximum; ++j)
+      const glm::dvec3 unitDir = sampleDir / length;
+      const bool duplicate = std::any_of(directions.begin(), directions.end(),
+                                         [&](const glm::dvec3& kept)
+                                         { return std::abs(glm::dot(kept, unitDir)) >= 1.0 - kHemisphereEpsilon; });
+      if (!duplicate)
       {
-        if (j != i && std::abs(glm::dot(unitDirs[i], unitDirs[j])) >= neighbourCos && amplitudes[i] < amplitudes[j])
+        directions.push_back(unitDir);
+      }
+    }
+    if (directions.empty())
+    {
+      throw std::invalid_argument("PeakFinder: no usable sample directions");
+    }
+
+    const size_t directionCount = directions.size();
+    basis.resize(directionCount * static_cast<size_t>(coefficientCount));
+    for (size_t i = 0; i < directionCount; ++i)
+    {
+      RealSH::EvaluateBasis(directions[i], lmax, &basis[i * static_cast<size_t>(coefficientCount)]);
+    }
+
+    // |d_i . d_j| keeps the neighbourhood antipodally symmetric.
+    const double neighbourCos = std::cos(glm::radians(neighbourAngleDeg));
+    neighbourOffsets.reserve(directionCount + 1);
+    neighbourOffsets.push_back(0);
+    for (size_t i = 0; i < directionCount; ++i)
+    {
+      for (size_t j = 0; j < directionCount; ++j)
+      {
+        if (j != i && std::abs(glm::dot(directions[i], directions[j])) >= neighbourCos)
         {
-          isMaximum = false;
+          neighbourIndices.push_back(static_cast<unsigned int>(j));
         }
       }
-      if (isMaximum)
+      neighbourOffsets.push_back(neighbourIndices.size());
+    }
+  }
+
+  void PeakFinder::BeginSearch(Workspace& workspace) const
+  {
+    ++workspace.stamp;
+    if (workspace.stamp == 0)
+    {
+      // Stamp wrapped around: clear so no stale entry matches.
+      std::fill(workspace.evaluatedStamp.begin(), workspace.evaluatedStamp.end(), 0u);
+      workspace.stamp = 1;
+    }
+  }
+
+  double PeakFinder::AmplitudeAt(const double* coefficients, size_t directionIndex, Workspace& workspace) const
+  {
+    if (workspace.evaluatedStamp[directionIndex] != workspace.stamp)
+    {
+      const double* basisRow = &basis[directionIndex * static_cast<size_t>(coefficientCount)];
+      double amplitude = 0.0;
+      for (int k = 0; k < coefficientCount; ++k)
+      {
+        amplitude += coefficients[k] * basisRow[k];
+      }
+      workspace.amplitudes[directionIndex] = amplitude;
+      workspace.evaluatedStamp[directionIndex] = workspace.stamp;
+    }
+    return workspace.amplitudes[directionIndex];
+  }
+
+  bool PeakFinder::IsLocalMaximum(const double* coefficients, size_t directionIndex, Workspace& workspace) const
+  {
+    const double amplitude = AmplitudeAt(coefficients, directionIndex, workspace);
+    for (size_t n = neighbourOffsets[directionIndex]; n < neighbourOffsets[directionIndex + 1]; ++n)
+    {
+      if (amplitude < AmplitudeAt(coefficients, neighbourIndices[n], workspace))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @brief Find up to maxPeaks separated local maxima, strongest first.
+   *
+   * @param coefficients GetLmax()'s coefficient count, RealSH::Index order
+   * @param maxPeaks capacity of out
+   * @param workspace per-thread scratch built for this finder
+   * @param out receives the peaks
+   * @return number of peaks written
+   */
+  size_t PeakFinder::Find(const double* coefficients, size_t maxPeaks, Workspace& workspace, SHPeak* out) const
+  {
+    if (maxPeaks == 0)
+    {
+      return 0;
+    }
+
+    BeginSearch(workspace);
+    std::vector<size_t>& candidates = workspace.candidates;
+    candidates.clear();
+    for (size_t i = 0; i < directions.size(); ++i)
+    {
+      if (AmplitudeAt(coefficients, i, workspace) > 0.0 && IsLocalMaximum(coefficients, i, workspace))
       {
         candidates.push_back(i);
       }
     }
 
+    const std::vector<double>& amplitudes = workspace.amplitudes;
     std::sort(candidates.begin(), candidates.end(),
               [&amplitudes](size_t lhs, size_t rhs)
               {
@@ -561,22 +658,94 @@ namespace FodfCsdMath
                 return lhs < rhs;
               });
 
-    const double separationCos = std::cos(glm::radians(separationDeg));
-    std::vector<glm::dvec3> peaks;
+    size_t peakCount = 0;
     for (const size_t candidate : candidates)
     {
-      const glm::dvec3& d = unitDirs[candidate];
-      const bool separated = std::all_of(peaks.begin(), peaks.end(),
-                                         [&](const glm::dvec3& p) { return std::abs(glm::dot(d, p)) < separationCos; });
+      const glm::dvec3& d = directions[candidate];
+      const bool separated = std::all_of(out, out + peakCount,
+                                         [&](const SHPeak& p) { return std::abs(glm::dot(d, p.direction)) < separationCos; });
       if (!separated)
       {
         continue;
       }
-      peaks.push_back(d);
-      if (peaks.size() >= maxPeaks)
+      out[peakCount++] = SHPeak{d, amplitudes[candidate]};
+      if (peakCount >= maxPeaks)
       {
         break;
       }
+    }
+    return peakCount;
+  }
+
+  /**
+   * @brief Find the local maximum closest to a reference axis, inside a cone around it.
+   *
+   * @param coefficients GetLmax()'s coefficient count, RealSH::Index order
+   * @param reference axis to stay close to (any length > 0, any sign)
+   * @param maxAngleDeg cone half-angle
+   * @param minAmplitude minimum peak amplitude
+   * @param workspace per-thread scratch built for this finder
+   * @return the peak, sign-aligned to reference, or nullopt
+   */
+  std::optional<SHPeak> PeakFinder::FindClosest(const double* coefficients, const glm::dvec3& reference,
+                                                double maxAngleDeg, double minAmplitude, Workspace& workspace) const
+  {
+    const double referenceLength = glm::length(reference);
+    if (!(referenceLength > 0.0))
+    {
+      return std::nullopt;
+    }
+    const glm::dvec3 unitReference = reference / referenceLength;
+    const double coneCos = std::cos(glm::radians(std::clamp(maxAngleDeg, 0.0, 90.0)));
+
+    BeginSearch(workspace);
+    std::optional<size_t> best;
+    double bestAbsDot = -1.0;
+    for (size_t i = 0; i < directions.size(); ++i)
+    {
+      // A direction no closer than the current best cannot win, so skip its evaluation.
+      const double absDot = std::abs(glm::dot(directions[i], unitReference));
+      if (absDot < coneCos || absDot <= bestAbsDot)
+      {
+        continue;
+      }
+      const double amplitude = AmplitudeAt(coefficients, i, workspace);
+      if (!(amplitude > 0.0) || amplitude < minAmplitude || !IsLocalMaximum(coefficients, i, workspace))
+      {
+        continue;
+      }
+      best = i;
+      bestAbsDot = absDot;
+    }
+
+    if (!best)
+    {
+      return std::nullopt;
+    }
+    const glm::dvec3& direction = directions[*best];
+    const bool flip = glm::dot(direction, unitReference) < 0.0;
+    return SHPeak{flip ? -direction : direction, workspace.amplitudes[*best]};
+  }
+
+  std::vector<glm::dvec3> FindPeaks(const double* coefficients, int lmax,
+                                    const std::vector<glm::dvec3>& sampleDirs,
+                                    size_t maxPeaks, double neighbourAngleDeg, double separationDeg)
+  {
+    if (RealSH::CoefficientCount(lmax) == 0 || sampleDirs.empty() || maxPeaks == 0)
+    {
+      return {};
+    }
+
+    const PeakFinder finder(sampleDirs, lmax, neighbourAngleDeg, separationDeg);
+    PeakFinder::Workspace workspace(finder);
+    std::vector<SHPeak> found(maxPeaks);
+    const size_t peakCount = finder.Find(coefficients, maxPeaks, workspace, found.data());
+
+    std::vector<glm::dvec3> peaks;
+    peaks.reserve(peakCount);
+    for (size_t i = 0; i < peakCount; ++i)
+    {
+      peaks.push_back(found[i].direction);
     }
     return peaks;
   }
@@ -604,8 +773,8 @@ namespace
   constexpr double kSelfTestTau = 0.1;
   constexpr double kSelfTestLambda = 1.0;
   constexpr int kSelfTestMaxIterations = 50;
-  constexpr double kSelfTestNeighbourAngleDeg = 6.0;
-  constexpr double kSelfTestSeparationDeg = 15.0;
+  constexpr double kSelfTestNeighbourAngleDeg = FodfCsdMath::kPeakNeighbourAngleDeg;
+  constexpr double kSelfTestSeparationDeg = FodfCsdMath::kPeakSeparationDeg;
 
   // Noise-free single-fibre signal exp(-b g^T D g), D = R diag(par, perp, perp) R^T with R e1 = fibre.
   double SingleFibreSignal(const glm::dvec3& g, const glm::dvec3& fibre, double bValue)
@@ -780,8 +949,7 @@ bool SelfTestCsd(const std::vector<glm::vec3>& shellDirs, float bValue, int lmax
     }
     else
     {
-      const std::vector<glm::dvec3> peakDirs =
-          FodfCsdMath::NormalizedDirections(IcosphereGeometry::GenerateDirections(FodfCsdMath::kPeakIcosphereLevel));
+      const std::vector<glm::dvec3> peakDirs = FodfCsdMath::BuildPeakSampleDirections();
 
       try
       {

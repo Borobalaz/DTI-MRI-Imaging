@@ -11,6 +11,13 @@
 #include "render/VolumeTextureSet.h"
 #include "scene/slicing/SlicePlane.h"
 
+namespace
+{
+  // Slice-shader plane in unit-cube object space (DTI and fODF slice fragment shaders).
+  constexpr const char *kSlicePlaneNormalUniform = "slicePlane.normal";
+  constexpr const char *kSlicePlaneOffsetUniform = "slicePlane.offset";
+}
+
 /**
  * @brief Construct a new Volume:: Volume object
  *
@@ -205,6 +212,14 @@ glm::mat4 Volume::BuildModelMatrix() const
 glm::vec3 Volume::GetObjectExtents() const
 {
   return DatasetObjectExtents(dimensions, spacing);
+}
+
+void Volume::ApplySlicePlaneUniforms(IUniformSink &shader, const SlicePlane *plane) const
+{
+  const SlicePlane defaultPlane; // axial through the centre
+  const PlaneEquation unitCubePlane = (plane ? *plane : defaultPlane).ToUnitCubeSpace(GetObjectExtents());
+  shader.SetVec3(kSlicePlaneNormalUniform, unitCubePlane.normal);
+  shader.SetFloat(kSlicePlaneOffsetUniform, unitCubePlane.offset);
 }
 
 /**

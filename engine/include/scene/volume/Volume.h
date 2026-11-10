@@ -17,6 +17,8 @@
 #include "render/VolumeTextureSet.h"
 #include "inspection/InspectField.h"
 
+class SlicePlane;
+
 class Volume : public UniformProvider, public IDrawable, public IUpdateable, public InspectProvider
 {
 public:
@@ -64,6 +66,12 @@ protected:
   // Box size of this volume's grid in dataset object space (DatasetObjectExtents(dimensions,
   // spacing), see scene/slicing/SlicePlane.h). Intrinsic: unaffected by later SetScale edits.
   glm::vec3 GetObjectExtents() const;
+
+  // Writes slicePlane.normal/slicePlane.offset in unit-cube object space for the slice render
+  // modes (a no-op on programs without them). Null plane means the default axial plane through
+  // the centre. Deliberately not stored uniforms: VolumePass applies stored uniforms after the
+  // providers, so they would override these.
+  void ApplySlicePlaneUniforms(IUniformSink &shader, const SlicePlane *plane) const;
 
   // Only derived classes can construct Volume. 
   // The reason is that only derived classes can be instantiated, 

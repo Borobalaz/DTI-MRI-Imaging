@@ -373,8 +373,10 @@ void SHGlyphField::Update(float deltaTime)
 
   // Slice mode follows the shared plane: any change since the last StartBuild requests a
   // latest-wins rebuild. Comparing against the *started* version (not the installed one) means a
-  // build already running for the current version is not re-requested every frame.
-  if (settings.displayMode == SHGlyphDisplayMode::Slice && slicePlane && !rebuildPending &&
+  // build already running for the current version is not re-requested every frame. A hidden field
+  // skips it, so only the shown one of several fields sharing the plane pays for the rebuilds; the
+  // version mismatch is still pending when it is shown again.
+  if (visible && settings.displayMode == SHGlyphDisplayMode::Slice && slicePlane && !rebuildPending &&
       slicePlane->GetVersion() != buildPlaneVersion)
   {
     RequestRebuild();

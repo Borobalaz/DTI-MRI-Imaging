@@ -2,15 +2,16 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <glm/glm.hpp>
 
 #include "scene/object/Mesh.h"
 #include "Preprocessing/MriTractographySettings.h"
-#include "scene/geometry/TubeGeometry.h"
+#include "Preprocessing/stages/StreamlineTracing.h"
+#include "foundation/log/EngineLog.h"
 #include "scene/volume/VolumeData.h"
 
 namespace
@@ -64,116 +65,6 @@ DtiFiberTractographyStage::TractographySettings DtiFiberTractographyStage::Build
 }
 
 /**
- * @brief Linearly interpolate between two scalar values.
- * 
- * @param a First value.
- * @param b Second value.
- * @param t Interpolation factor in the range [0, 1].
- * @return Interpolated value.
- */
-float DtiFiberTractographyStage::Lerp(float a, float b, float t)
-{
-  return a + (b - a) * t;
-}
-
-/**
- * @brief Sample a scalar volume using trilinear interpolation in voxel space.
- * 
- * @param voxels Flat voxel buffer.
- * @param point Sample position in voxel coordinates.
- * @param dims Volume dimensions.
- * @return Interpolated scalar value.
- */
-float DtiFiberTractographyStage::SampleTrilinear(const std::vector<float> &voxels,
-                                                 const glm::vec3 &point,
-                                                 const glm::ivec3 &dims)
-{
-  if (dims.x <= 0 || dims.y <= 0 || dims.z <= 0)
-  {
-    return 0.0f;
-  }
-
-  const float maxX = static_cast<float>(std::max(dims.x - 1, 0));
-  const float maxY = static_cast<float>(std::max(dims.y - 1, 0));
-  const float maxZ = static_cast<float>(std::max(dims.z - 1, 0));
-
-  const float x = std::clamp(point.x, 0.0f, maxX);
-  const float y = std::clamp(point.y, 0.0f, maxY);
-  const float z = std::clamp(point.z, 0.0f, maxZ);
-
-  const int x0 = static_cast<int>(std::floor(x));
-  const int y0 = static_cast<int>(std::floor(y));
-  const int z0 = static_cast<int>(std::floor(z));
-  const int x1 = std::min(x0 + 1, dims.x - 1);
-  const int y1 = std::min(y0 + 1, dims.y - 1);
-  const int z1 = std::min(z0 + 1, dims.z - 1);
-
-  const float tx = x - static_cast<float>(x0);
-  const float ty = y - static_cast<float>(y0);
-  const float tz = z - static_cast<float>(z0);
-
-  const float c000 = voxels[VolumeData::FlatIndex(x0, y0, z0, dims.x, dims.y)];
-  const float c100 = voxels[VolumeData::FlatIndex(x1, y0, z0, dims.x, dims.y)];
-  const float c010 = voxels[VolumeData::FlatIndex(x0, y1, z0, dims.x, dims.y)];
-  const float c110 = voxels[VolumeData::FlatIndex(x1, y1, z0, dims.x, dims.y)];
-  const float c001 = voxels[VolumeData::FlatIndex(x0, y0, z1, dims.x, dims.y)];
-  const float c101 = voxels[VolumeData::FlatIndex(x1, y0, z1, dims.x, dims.y)];
-  const float c011 = voxels[VolumeData::FlatIndex(x0, y1, z1, dims.x, dims.y)];
-  const float c111 = voxels[VolumeData::FlatIndex(x1, y1, z1, dims.x, dims.y)];
-
-  const float c00 = Lerp(c000, c100, tx);
-  const float c10 = Lerp(c010, c110, tx);
-  const float c01 = Lerp(c001, c101, tx);
-  const float c11 = Lerp(c011, c111, tx);
-  const float c0 = Lerp(c00, c10, ty);
-  const float c1 = Lerp(c01, c11, ty);
-  const float value = Lerp(c0, c1, tz);
-  return std::isfinite(value) ? value : 0.0f;
-}
-
-/**
- * @brief Check if a point in voxel space is within the bounds of the volume dimensions.
- * 
- * @param point Point in voxel coordinates.
- * @param dims Volume dimensions.
- * @return true if the point lies inside the volume bounds, false otherwise.
- */
-bool DtiFiberTractographyStage::IsVoxelSpacePointInBounds(const glm::vec3 &point, const glm::ivec3 &dims)
-{
-  return point.x >= 0.0f && point.y >= 0.0f && point.z >= 0.0f &&
-         point.x <= static_cast<float>(dims.x - 1) &&
-         point.y <= static_cast<float>(dims.y - 1) &&
-         point.z <= static_cast<float>(dims.z - 1);
-}
-
-/**
- * @brief Convert a position in voxel space to object space.
- * 
- * @param voxelPosition Position in voxel coordinates.
- * @param dims Volume dimensions.
- * @param spacing Voxel spacing.
- * @return Corresponding object-space position.
- */
-glm::vec3 DtiFiberTractographyStage::VoxelToObjectSpace(const glm::vec3 &voxelPosition,
-                                                        const glm::ivec3 &dims,
-                                                        const glm::vec3 &spacing)
-{
-  const glm::vec3 physicalPos = voxelPosition * spacing;
-  const glm::vec3 extent = glm::vec3(std::max(dims.x - 1, 1),
-                                     std::max(dims.y - 1, 1),
-                                     std::max(dims.z - 1, 1)) *
-                           spacing;
-  const float maxExtent = std::max(std::max(extent.x, extent.y), extent.z);
-  if (maxExtent <= 1e-6f)
-  {
-    return glm::vec3(0.0f);
-  }
-
-  const glm::vec3 centered = physicalPos - extent * 0.5f;
-  return centered / maxExtent;
-}
-
-/**
  * @brief Sample the principal eigenvector channels using trilinear interpolation.
  * 
  * @param voxelPosition Position in voxel coordinates.
@@ -190,9 +81,9 @@ glm::vec3 DtiFiberTractographyStage::SampleTrilinearDirection(const glm::vec3 &v
                                                              const std::vector<float> &evz)
 {
   return glm::vec3(
-      SampleTrilinear(evx, voxelPosition, dims),
-      SampleTrilinear(evy, voxelPosition, dims),
-      SampleTrilinear(evz, voxelPosition, dims));
+      StreamlineTracing::SampleTrilinear(evx, voxelPosition, dims),
+      StreamlineTracing::SampleTrilinear(evy, voxelPosition, dims),
+      StreamlineTracing::SampleTrilinear(evz, voxelPosition, dims));
 }
 
 /**
@@ -228,8 +119,8 @@ std::vector<glm::vec3> DtiFiberTractographyStage::SelectSeedPoints(const MriPrep
       for (int x = 0; x < dims.x; x += stride)
       {
         const glm::vec3 samplePoint(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
-        const float fa = SampleTrilinear(faVolume.GetVoxels(), samplePoint, dims);
-        const float l1 = SampleTrilinear(l1Volume.GetVoxels(), samplePoint, dims);
+        const float fa = StreamlineTracing::SampleTrilinear(faVolume.GetVoxels(), samplePoint, dims);
+        const float l1 = StreamlineTracing::SampleTrilinear(l1Volume.GetVoxels(), samplePoint, dims);
         if (!std::isfinite(fa) || !std::isfinite(l1))
         {
           continue;
@@ -294,23 +185,12 @@ glm::vec3 DtiFiberTractographyStage::SamplePrincipalDirection(const glm::vec3 &v
     direction = -direction;
   }
 
-  // Normalize again in accoint to volume spacing to get correct step sizes in object space
-  glm::vec3 indexSpaceDirection(
-      direction.x / std::max(spacing.x, 1e-6f),
-      direction.y / std::max(spacing.y, 1e-6f),
-      direction.z / std::max(spacing.z, 1e-6f));
-
-  const float indexLength = glm::length(indexSpaceDirection);
-  if (indexLength <= 1e-6f)
-  {
-    return glm::vec3(0.0f);
-  }
-
-  return indexSpaceDirection / indexLength;
+  // Normalize again in account to volume spacing to get correct step sizes in object space
+  return StreamlineTracing::ToIndexSpaceStepDirection(direction, spacing);
 }
 
 /**
- * @brief Trace a single streamline from a seed point.
+ * @brief Trace one half of a streamline from a seed point.
  * 
  * @param seedVoxel Seed position in voxel coordinates.
  * @param dims Volume dimensions.
@@ -321,7 +201,11 @@ glm::vec3 DtiFiberTractographyStage::SamplePrincipalDirection(const glm::vec3 &v
  * @param evy Y component channel.
  * @param evz Z component channel.
  * @param settings Tractography settings.
- * @return Streamline points in object space coordinates.
+ * @param initialReferenceDirection Orients the first step (the eigenvector's sign is arbitrary):
+ *        zero follows the sampled sign, the negated first forward step traces the other way.
+ * @param firstStepDirection Receives the voxel-space direction of the first step, or zero if
+ *        no step was taken.
+ * @return Streamline points in object space coordinates, starting at the seed.
  */
 std::vector<glm::vec3> DtiFiberTractographyStage::TraceStreamlineFromSeed(const glm::vec3 &seedVoxel,
                                                                           const glm::ivec3 &dims,
@@ -331,25 +215,28 @@ std::vector<glm::vec3> DtiFiberTractographyStage::TraceStreamlineFromSeed(const 
                                                                           const std::vector<float> &evx,
                                                                           const std::vector<float> &evy,
                                                                           const std::vector<float> &evz,
-                                                                          const TractographySettings &settings)
+                                                                          const TractographySettings &settings,
+                                                                          const glm::vec3 &initialReferenceDirection,
+                                                                          glm::vec3 &firstStepDirection)
 {
   std::vector<glm::vec3> points;
   points.reserve(static_cast<size_t>(settings.maxStepsPerStreamline));
 
   glm::vec3 currentPosition = seedVoxel;
-  glm::vec3 previousDirection(0.0f);
+  glm::vec3 previousDirection = initialReferenceDirection;
+  firstStepDirection = glm::vec3(0.0f);
 
   // Iterate until stopping criteria
   for (int step = 0; step < settings.maxStepsPerStreamline; ++step)
   {
-    if (!IsVoxelSpacePointInBounds(currentPosition, dims))
+    if (!StreamlineTracing::IsInBounds(currentPosition, dims))
     {
       break;
     }
 
     // Sample voxel data at current position using trilinear interpolation.
-    const float fa = SampleTrilinear(faVoxels, currentPosition, dims);
-    const float l1 = SampleTrilinear(l1Voxels, currentPosition, dims);
+    const float fa = StreamlineTracing::SampleTrilinear(faVoxels, currentPosition, dims);
+    const float l1 = StreamlineTracing::SampleTrilinear(l1Voxels, currentPosition, dims);
 
     if (!std::isfinite(fa) || !std::isfinite(l1) ||
         fa < settings.faStopThreshold || l1 < settings.l1StopThreshold)
@@ -358,7 +245,7 @@ std::vector<glm::vec3> DtiFiberTractographyStage::TraceStreamlineFromSeed(const 
     }
 
     // If no stopping criteria, add to streamline
-    points.push_back(VoxelToObjectSpace(currentPosition, dims, spacing));
+    points.push_back(StreamlineTracing::VoxelToObjectSpace(currentPosition, dims, spacing));
 
     // Sample principal direction
     const glm::vec3 direction = SamplePrincipalDirection(
@@ -382,6 +269,10 @@ std::vector<glm::vec3> DtiFiberTractographyStage::TraceStreamlineFromSeed(const 
       break;
     }
 
+    if (step == 0)
+    {
+      firstStepDirection = direction;
+    }
     previousDirection = direction;
     currentPosition = nextPosition;
   }
@@ -417,14 +308,11 @@ std::shared_ptr<Mesh> DtiFiberTractographyStage::BuildStreamlineMesh(const MriPr
   const std::vector<float> &evy = evyVolume.GetVoxels();
   const std::vector<float> &evz = evzVolume.GetVoxels();
 
-  std::vector<Vertex> vertices;
-  std::vector<unsigned int> indices;
-
   const std::vector<glm::vec3> &seeds = seedsVoxelSpace;
-  vertices.reserve(seeds.size() * settings.minPointsPerStreamline);
-  indices.reserve(seeds.size() * settings.minPointsPerStreamline);
+  std::vector<std::vector<glm::vec3>> streamlines;
+  streamlines.reserve(seeds.size());
 
-  // Trace streamlines from each seed point and build geometry.
+  // Trace streamlines from each seed point.
   constexpr size_t kSeedsPerProgressCheck = 64;
   size_t tracedSeedCount = 0;
   for (const glm::vec3 &seed : seeds)
@@ -438,7 +326,10 @@ std::shared_ptr<Mesh> DtiFiberTractographyStage::BuildStreamlineMesh(const MriPr
     }
     ++tracedSeedCount;
 
-    const std::vector<glm::vec3> streamline = TraceStreamlineFromSeed(
+    // Trace both ways from the seed: forward along the sampled eigenvector sign, then backward
+    // starting against the first forward step so the sign-continuity check walks the other way.
+    glm::vec3 firstForwardDirection(0.0f);
+    const std::vector<glm::vec3> forward = TraceStreamlineFromSeed(
         seed,
         dims,
         spacing,
@@ -447,7 +338,29 @@ std::shared_ptr<Mesh> DtiFiberTractographyStage::BuildStreamlineMesh(const MriPr
         evx,
         evy,
         evz,
-        settings);
+        settings,
+        glm::vec3(0.0f),
+        firstForwardDirection);
+
+    std::vector<glm::vec3> backward;
+    if (glm::length(firstForwardDirection) > 1e-6f)
+    {
+      glm::vec3 firstBackwardDirection(0.0f);
+      backward = TraceStreamlineFromSeed(
+          seed,
+          dims,
+          spacing,
+          faVoxels,
+          l1Voxels,
+          evx,
+          evy,
+          evz,
+          settings,
+          -firstForwardDirection,
+          firstBackwardDirection);
+    }
+
+    std::vector<glm::vec3> streamline = StreamlineTracing::JoinBidirectional(backward, forward);
 
     // Filter out short streamlines that are unlikely to be meaningful and would add noise to the visualization.
     if (streamline.size() < settings.minPointsPerStreamline)
@@ -455,72 +368,13 @@ std::shared_ptr<Mesh> DtiFiberTractographyStage::BuildStreamlineMesh(const MriPr
       continue;
     }
 
-    // Populate mesh vertices and indices, using adjacency restart indices to separate streamlines in the mesh.
-    const unsigned int startIndex = static_cast<unsigned int>(vertices.size());
-    for (size_t i = 0; i < streamline.size(); ++i)
-    {
-      const glm::vec3 &point = streamline[i];
-
-      // Estimate tangent using forward difference, or backward difference at the end of the streamline.
-      glm::vec3 tangent(0.0f, 1.0f, 0.0f);
-      if (i + 1 < streamline.size())
-      {
-        tangent = streamline[i + 1] - point;
-      }
-      else if (i > 0)
-      {
-        tangent = point - streamline[i - 1];
-      }
-
-      // Normalize tangent and handle degenerate cases.
-      const float tangentLength = glm::length(tangent);
-      if (tangentLength > 1e-6f)
-      {
-        tangent /= tangentLength;
-      }
-      else
-      {
-        tangent = glm::vec3(0.0f, 1.0f, 0.0f);
-      }
-
-      // Create vertex
-      Vertex v{};
-      v.position = point;
-      v.normal = tangent;
-      v.tangent = tangent;
-      v.texCoord = glm::vec2(0.0f, 0.0f);
-      vertices.push_back(v);
-    }
-
-    // Add adjacency restart index after each streamline to allow rendering with a single draw call while keeping streamlines visually separated.
-    for (size_t i = 0; i < streamline.size(); ++i)
-    {
-      indices.push_back(startIndex + static_cast<unsigned int>(i));
-    }
-
-    indices.push_back(std::numeric_limits<unsigned int>::max());
+    streamlines.push_back(std::move(streamline));
   }
 
-  // Validation
-  if (indices.empty() || vertices.empty())
-  {
-    return nullptr;
-  }
+  EngineLog::Message("DTI tractography: " + std::to_string(streamlines.size()) + " streamlines from " +
+                     std::to_string(seeds.size()) + " seeds", "DtiTractography");
 
-  if (indices.back() == std::numeric_limits<unsigned int>::max())
-  {
-    indices.pop_back();
-  }
-
-  // Construct mesh
-  std::shared_ptr<Geometry> geometry = std::make_shared<TubeGeometry>(
-      std::move(vertices),
-      std::move(indices),
-      settings.tubeRadius,
-      settings.tubeRadialSegments);
-
-  // Material is assigned by the scene to keep preprocessing render-policy agnostic.
-  return std::make_shared<Mesh>(geometry, nullptr);
+  return StreamlineTracing::BuildStreamlineTubeMesh(streamlines, settings.tubeRadius, settings.tubeRadialSegments);
 }
 
 /**
@@ -551,6 +405,7 @@ void DtiFiberTractographyStage::Execute(MriPreprocessingContext &context) const
   {
     context.report.warnings.push_back("Fiber tractography stage skipped: required FA/L1/EV channels are unavailable.");
     context.outputStreamlineMesh = nullptr;
+    context.tractographySeedsVoxelSpace.clear();
     return;
   }
 
@@ -559,6 +414,7 @@ void DtiFiberTractographyStage::Execute(MriPreprocessingContext &context) const
   {
     context.report.warnings.push_back("Fiber tractography stage skipped: channel size mismatch.");
     context.outputStreamlineMesh = nullptr;
+    context.tractographySeedsVoxelSpace.clear();
     return;
   }
 
@@ -572,9 +428,11 @@ void DtiFiberTractographyStage::Execute(MriPreprocessingContext &context) const
   const VolumeMetadata &metadata = context.outputDtiChannels.FA.GetMetadata();
   context.outputSeedPoints.clear();
   context.outputSeedPoints.reserve(seedsVoxelSpace.size());
+  context.tractographySeedsVoxelSpace = seedsVoxelSpace;
   for (const glm::vec3 &seedVoxel : seedsVoxelSpace)
   {
-    context.outputSeedPoints.push_back(VoxelToObjectSpace(seedVoxel, metadata.dimensions, metadata.spacing));
+    context.outputSeedPoints.push_back(
+        StreamlineTracing::VoxelToObjectSpace(seedVoxel, metadata.dimensions, metadata.spacing));
   }
 
   const std::shared_ptr<Mesh> streamlineMesh = BuildStreamlineMesh(context, settings, seedsVoxelSpace);

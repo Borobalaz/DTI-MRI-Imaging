@@ -9,20 +9,20 @@ flowchart TD
         Facade[Engine facade: Start / Stop / screens / input / services]
         subgraph EngineThread[Engine thread - EngineRuntime, GL thread]
             InputQueue[InputEventQueue drain]
-            Scene[Scene / DtiVolumeScene Update]
+            Scene[Scene / DtiVolumeScene Update: jobs, Representation visibility]
             Snapshot[SceneSnapshot: typed render commands]
             Extraction[ExtractionRegistry]
             Builder[RenderFrameBuilder]
             Readback[Readback + publish ScreenFrame, callbacks - no lock held]
         end
         Locked[LockedInspectionService / LockedSettingsService - sceneMutex]
-        Resources[Model, Volume and concrete geometry resources]
+        Resources[Model, DTIVolume / FodfVolume, SHGlyphField and concrete geometry resources]
         Inspect[InspectProvider and InspectField]
     end
 
     subgraph Worker[Preprocessing worker - BackgroundTask]
-        Pipeline[MriToDtiPreprocessor / dataset read-write]
-        Pack[PackDTIVolumeTextures: TextureData3D]
+        Pipeline[MriToDmriPreprocessor: DTI + optional fODF group / dmri dataset read-write]
+        Pack[PackDTIVolumeTextures + PackFodfVolumeTextures: TextureData3D]
     end
 
     subgraph Render[engine_render static lib - engine/src/render]

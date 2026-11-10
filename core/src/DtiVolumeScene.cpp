@@ -10,6 +10,8 @@
 #include "scene/geometry/SphereGeometry.h"
 #include "Preprocessing/io/PreprocessingDatasetFormats.h"
 #include "Preprocessing/io/PreprocessingDatasetMetadataIO.h"
+#include "Preprocessing/io/dmri/DmriDatasetLayout.h"
+#include "Preprocessing/io/dmri/DmriPreprocessingParameters.h"
 #include "Preprocessing/io/dti/DtiPreprocessingParameters.h"
 #include "Preprocessing/io/fodf/FodfPreprocessingParameters.h"
 #include "foundation/log/EngineLog.h"
@@ -30,6 +32,27 @@ namespace
   // Staging folder (inside the chosen output folder, so the final renames stay on one volume)
   // that a save writes into before its files are moved into place.
   const char *const kSaveStagingFolderName = ".dti-save-staging";
+
+  constexpr const char *kLogSource = "DtiVolumeScene";
+
+  // Legacy read-only dataset formats ("dmri" is DmriDatasetLayout::kPreprocessorType).
+  constexpr const char *kLegacyDtiPreprocessorType = "dti";
+  constexpr const char *kLegacyFodfPreprocessorType = "fodf";
+
+  // Processed object ids; they double as the object-list names.
+  constexpr const char *kDtiVolumeId = "DTI Volume";
+  constexpr const char *kFodfVolumeId = "fODF Volume";
+  constexpr const char *kBrainSurfaceId = "Brain Surface";
+  constexpr const char *kDtiStreamlinesId = "DTI Streamlines";
+  constexpr const char *kFodfStreamlinesId = "fODF Streamlines";
+  constexpr const char *kSeedPointsId = "Seed Points";
+  constexpr const char *kTensorOdfGlyphsId = "Tensor ODF Glyphs";
+  constexpr const char *kFodfGlyphsId = "fODF Glyphs";
+
+  constexpr const char *kRepresentationGroup = "Representation";
+  constexpr const char *kDtiRepresentationLabel = "DTI";
+  constexpr const char *kFodfRepresentationLabel = "fODF";
+  constexpr const char *kNoFodfDataReason = "the loaded dataset contains no fODF data";
 
   const char *DescribeJobKind(DatasetJobKind kind)
   {
@@ -102,46 +125,23 @@ namespace
                        "DtiVolumeScene");
   }
 
-  std::shared_ptr<MriTractographySettings> CopyTractographySettings(
-      const std::shared_ptr<MriTractographySettings> &settings)
+  // A copy of a live settings object (or defaults when there is none), so a job or an applied
+  // request is unaffected by later inspector edits.
+  template <typename Settings>
+  std::shared_ptr<Settings> CopySettings(const std::shared_ptr<Settings> &settings)
   {
-    return settings ? std::make_shared<MriTractographySettings>(*settings)
-                    : std::make_shared<MriTractographySettings>();
+    return settings ? std::make_shared<Settings>(*settings) : std::make_shared<Settings>();
   }
 
-  std::shared_ptr<MriFodfSettings> CopyFodfSettings(const std::shared_ptr<MriFodfSettings> &settings)
+  // Attaches copies of the three live settings objects to request.
+  void SnapshotSettingsInto(MriPreprocessingRequest &request,
+                            const std::shared_ptr<MriTractographySettings> &tractographySettings,
+                            const std::shared_ptr<MriFodfSettings> &fodfSettings,
+                            const std::shared_ptr<MriFodfTractographySettings> &fodfTractographySettings)
   {
-    return settings ? std::make_shared<MriFodfSettings>(*settings)
-                    : std::make_shared<MriFodfSettings>();
-  }
-
-  const char *PreprocessorTypeFor(ReconstructionModel model)
-  {
-    switch (model)
-    {
-    case ReconstructionModel::Dti:
-      return "dti";
-    case ReconstructionModel::Fodf:
-      return "fodf";
-    }
-    return "dti";
-  }
-
-  ReconstructionModel ModelFromPreprocessorType(const std::string &type)
-  {
-    return type == "fodf" ? ReconstructionModel::Fodf : ReconstructionModel::Dti;
-  }
-
-  const char *ModelLabel(ReconstructionModel model)
-  {
-    switch (model)
-    {
-    case ReconstructionModel::Dti:
-      return "DTI";
-    case ReconstructionModel::Fodf:
-      return "fODF";
-    }
-    return "DTI";
+    request.tractographySettings = CopySettings(tractographySettings);
+    request.fodfSettings = CopySettings(fodfSettings);
+    request.fodfTractographySettings = CopySettings(fodfTractographySettings);
   }
 
   void PrintPreprocessingReport(const MriPreprocessingReport &report)
@@ -165,9 +165,43 @@ namespace
 
   // ---- Worker-thread job bodies: pure CPU / file I/O, never GL. ----
 
-  DatasetJobOutcome RunPreprocessingJob(ReconstructionModel model,
-                                        const MriToDtiPreprocessor &dtiPreprocessor,
-                                        const MriToFodfPreprocessor &fodfPreprocessor,
+  // Packs result's fODF maps, if any. A packing failure only costs the fODF volume: it becomes a
+  // warning and result.fodfMaps is dropped, so a later save does not persist maps that cannot be
+  // shown. Cancellation still propagates.
+  std::optional<FodfVolumeTextureData> TryPackFodfVolumeTextures(MriPreprocessingResult &result,
+                                                                 const CancellationToken &cancellation)
+  {
+    if (!result.fodfMaps)
+    {
+      return std::nullopt;
+    }
+
+    try
+    {
+      return PackFodfVolumeTextures(*result.fodfMaps, cancellation);
+    }
+    catch (const OperationCancelled &)
+    {
+      throw;
+    }
+    catch (const std::exception &error)
+    {
+      const std::string warning = std::string("fODF volume unavailable: packing the fODF maps failed: ") + error.what();
+      EngineLog::Warning(warning, kLogSource);
+      result.report.warnings.push_back(warning);
+      result.fodfMaps.reset();
+      return std::nullopt;
+    }
+  }
+
+  // Packs the DTI channels and the fODF maps of outcome.result on the worker.
+  void PackOutcomeVolumeTextures(DatasetJobOutcome &outcome, const CancellationToken &cancellation)
+  {
+    outcome.volumeTextures = PackDTIVolumeTextures(outcome.result->dtiChannels, cancellation);
+    outcome.fodfVolumeTextures = TryPackFodfVolumeTextures(*outcome.result, cancellation);
+  }
+
+  DatasetJobOutcome RunPreprocessingJob(const MriToDmriPreprocessor &preprocessor,
                                         const MriPreprocessingRequest &request,
                                         SharedProgress &progress,
                                         const CancellationToken &cancellation)
@@ -179,16 +213,14 @@ namespace
 
     DatasetJobOutcome outcome;
     outcome.kind = DatasetJobKind::Run;
-    outcome.model = model;
     outcome.appliedRequest = request;
-    outcome.result = (model == ReconstructionModel::Fodf) ? fodfPreprocessor.Process(request, options)
-                                                          : dtiPreprocessor.Process(request, options);
+    outcome.result = preprocessor.Process(request, options);
 
     ProgressSnapshot packingProgress;
     packingProgress.label = "Preparing volume textures";
     packingProgress.fraction = 1.0f;
     progress.Publish(packingProgress);
-    outcome.volumeTextures = PackDTIVolumeTextures(outcome.result->dtiChannels, cancellation);
+    PackOutcomeVolumeTextures(outcome, cancellation);
     return outcome;
   }
 
@@ -222,10 +254,10 @@ namespace
 
     DatasetJobOutcome outcome;
     outcome.kind = DatasetJobKind::Load;
-    outcome.model = ModelFromPreprocessorType(metadata->preprocessorType);
     outcome.result = std::move(*result);
+    outcome.loadedPreprocessorType = metadata->preprocessorType;
     outcome.loadedParametersJson = metadata->parametersJson;
-    outcome.volumeTextures = PackDTIVolumeTextures(outcome.result->dtiChannels, cancellation);
+    PackOutcomeVolumeTextures(outcome, cancellation);
     return outcome;
   }
 
@@ -241,29 +273,19 @@ namespace
     std::filesystem::rename(stagingDirectory / relativePath, target);
   }
 
+  // Always writes the unified "dmri" format, whichever format the result was loaded from.
   DatasetJobOutcome SaveDatasetJob(const MriPreprocessingResult &result,
                                    const MriPreprocessingRequest &appliedRequest,
-                                   const std::string &outputDirectory,
-                                   ReconstructionModel model)
+                                   const std::string &outputDirectory)
   {
-    std::string parametersJson;
-    if (model == ReconstructionModel::Fodf)
-    {
-      const MriFodfSettings settings = appliedRequest.fodfSettings ? *appliedRequest.fodfSettings
-                                                                   : MriFodfSettings{};
-      parametersJson = BuildFodfPreprocessingParametersJson(appliedRequest, settings,
-                                                            result.fodfResponse.bValue,
-                                                            result.fodfIgnoredShellBValues);
-    }
-    else
-    {
-      const MriTractographySettings settings = appliedRequest.tractographySettings
-                                                   ? *appliedRequest.tractographySettings
-                                                   : MriTractographySettings{};
-      parametersJson = BuildDtiPreprocessingParametersJson(appliedRequest, settings, settings.GetMatchedPresetName());
-    }
+    const std::string parametersJson = BuildDmriPreprocessingParametersJson(
+        appliedRequest,
+        *CopySettings(appliedRequest.tractographySettings),
+        *CopySettings(appliedRequest.fodfSettings),
+        *CopySettings(appliedRequest.fodfTractographySettings),
+        result);
 
-    const std::string preprocessorType = PreprocessorTypeFor(model);
+    const std::string preprocessorType = DmriDatasetLayout::kPreprocessorType;
     const std::shared_ptr<IPreprocessingDatasetWriter> writer =
         GetDefaultPreprocessingDatasetFormatRegistry().FindWriter(preprocessorType);
     if (!writer)
@@ -309,8 +331,7 @@ namespace
  */
 DtiVolumeScene::DtiVolumeScene()
     : dtiVolume(nullptr),
-      preprocessor(std::make_shared<const MriToDtiPreprocessor>()),
-      fodfPreprocessor(std::make_shared<const MriToFodfPreprocessor>()),
+      preprocessor(std::make_shared<const MriToDmriPreprocessor>()),
       jobProgress(std::make_shared<SharedProgress>())
 {
   ClearGameObjects();
@@ -338,6 +359,8 @@ DtiVolumeScene::DtiVolumeScene()
   currentRequest.tractographySettings = tractographySettingsInspectable;
   fodfSettingsInspectable = std::make_shared<MriFodfSettings>();
   currentRequest.fodfSettings = fodfSettingsInspectable;
+  fodfTractographySettingsInspectable = std::make_shared<MriFodfTractographySettings>();
+  currentRequest.fodfTractographySettings = fodfTractographySettingsInspectable;
   currentRequest.dwiVolumePath = "assets/volumes/dwi/human/HARDI150_hdbet_masked4d.nii.gz";
   currentRequest.bvalPath = "assets/volumes/dwi/human/HARDI150.bval";
   currentRequest.bvecPath = "assets/volumes/dwi/human/HARDI150.bvec";
@@ -378,6 +401,7 @@ void DtiVolumeScene::LoadDataset(
 {
   currentRequest.tractographySettings = tractographySettingsInspectable;
   currentRequest.fodfSettings = fodfSettingsInspectable;
+  currentRequest.fodfTractographySettings = fodfTractographySettingsInspectable;
   currentRequest.dwiVolumePath = dwiVolumePath;
   currentRequest.bvalPath = bvalPath;
   currentRequest.bvecPath = bvecPath;
@@ -393,10 +417,13 @@ void DtiVolumeScene::ReloadDataset()
 void DtiVolumeScene::ClearProcessedScene()
 {
   dtiVolume.reset();
+  fodfVolume.reset();
   brainSurfaceObject.reset();
-  streamlineObject.reset();
+  dtiStreamlineObject.reset();
+  fodfStreamlineObject.reset();
   seedPointsObject.reset();
-  shGlyphField.reset();
+  tensorOdfGlyphField.reset();
+  fodfGlyphField.reset();
   // sliceController survives these type-filtered clears. If this ever calls ClearDrawables() or
   // ClearUpdateables(), re-add sliceController right after them.
   ClearGameObjects();
@@ -410,7 +437,7 @@ namespace
   const glm::vec3 kProcessedObjectRotation(-90.0f / 180.0f * glm::pi<float>(), 0.0f, 0.0f);
 
   // Nearest-neighbor seed spacing in the same normalized object space as seedPoints (mirrors
-  // DtiFiberTractographyStage::VoxelToObjectSpace's normalization), so the sphere radius
+  // StreamlineTracing::VoxelToObjectSpace's normalization), so the sphere radius
   // scales with dataset resolution and the seed stride setting instead of a fixed constant -
   // keeping neighboring markers from touching at any setting.
   float ComputeSeedPointRadius(const VolumeMetadata &seedMetadata, const MriPreprocessingRequest &appliedRequest)
@@ -464,6 +491,15 @@ void DtiVolumeScene::EnsureShaderCache()
     }
   }
 
+  if (shaderCache.fodfVolumeRenderModes.size() < 2)
+  {
+    shaderCache.fodfVolumeRenderModes = FodfVolume::CreateRenderModes();
+    for (const FodfVolume::RenderMode &mode : shaderCache.fodfVolumeRenderModes)
+    {
+      RegisterShader("FodfVolume/" + mode.label, mode.shader);
+    }
+  }
+
   EnsureMeshShader(*this, shaderCache.brainSurface, "dti_brain_surface_shader",
                    "shaders/dti_mesh/dti_mesh_vertex.glsl", "shaders/dti_mesh/dti_mesh_fragment.glsl");
   EnsureMeshShader(*this, shaderCache.streamline, "dti_streamline_shader",
@@ -477,21 +513,90 @@ void DtiVolumeScene::EnsureShaderCache()
 }
 
 /**
+ * @brief Build the fODF volume from pre-packed textures with the cached render modes. Returns null
+ *        (with a warning) when no fODF render mode shader built, so the rest of the scene still applies.
+ */
+std::shared_ptr<FodfVolume> DtiVolumeScene::CreateFodfVolume(FodfVolumeTextureData fodfVolumeTextures,
+                                                             int renderModeIndex,
+                                                             int channelIndex) const
+{
+  if (shaderCache.fodfVolumeRenderModes.empty())
+  {
+    EngineLog::Warning("fODF volume skipped: no fODF render mode shader built", kLogSource);
+    return nullptr;
+  }
+
+  std::shared_ptr<FodfVolume> volume = std::make_shared<FodfVolume>(
+      kFodfVolumeId, std::move(fodfVolumeTextures), shaderCache.fodfVolumeRenderModes);
+  volume->SetRotation(kProcessedObjectRotation);
+  volume->SetSelectedRenderModeIndex(renderModeIndex);
+  volume->SetSelectedChannelIndex(channelIndex);
+  volume->SetSlicePlane(sliceController->GetPlane());
+  return volume;
+}
+
+/**
+ * @brief Wrap a streamline tube mesh (DTI or fODF) in a GameObject using the shared streamline
+ *        shader. Null when there is no mesh.
+ */
+std::shared_ptr<GameObject> DtiVolumeScene::CreateStreamlineObject(const std::string &id,
+                                                                   const std::shared_ptr<Mesh> &mesh) const
+{
+  if (!mesh)
+  {
+    return nullptr;
+  }
+
+  mesh->SetMaterial(std::make_shared<Material>(shaderCache.streamline));
+  std::shared_ptr<GameObject> streamlineObject = std::make_shared<GameObject>(id);
+  streamlineObject->AddMesh(mesh);
+  streamlineObject->SetRotation(kProcessedObjectRotation);
+  return streamlineObject;
+}
+
+/**
+ * @brief Create an SH glyph field (tensor ODF or fODF) on the shared glyph shader and slice plane.
+ *        Null when there is no SH volume. The glyph instance data builds on its own worker, starting
+ *        in its first Update, so it sees the plane re-clamped by SetDatasetGeometry.
+ */
+std::shared_ptr<SHGlyphField> DtiVolumeScene::CreateGlyphField(const std::string &id,
+                                                               const std::shared_ptr<const SHVolume> &volume,
+                                                               SHGlyphDisplayMode displayMode) const
+{
+  if (!volume)
+  {
+    return nullptr;
+  }
+
+  std::shared_ptr<SHGlyphField> glyphField = std::make_shared<SHGlyphField>(
+      id, volume, shaderCache.shGlyph, SHGlyphBuildSettings{3, 0.3f, 3, displayMode});
+  glyphField->SetRotation(kProcessedObjectRotation);
+  glyphField->SetSlicePlane(sliceController->GetPlane());
+  return glyphField;
+}
+
+/**
  * @brief Swap the processed scene content for a new result. Everything is built into locals
- *        first, so a throw (e.g. no usable render mode) leaves the previous scene untouched. The
- *        volume textures arrive pre-packed and upload lazily at first draw, and the shaders come
- *        from the cache, so this makes no heavy GL or CPU calls itself.
+ *        first, so a throw (e.g. no usable DTI render mode) leaves the previous scene untouched.
+ *        The volume textures arrive pre-packed and upload lazily at first draw, and the shaders
+ *        come from the cache, so this makes no heavy GL or CPU calls itself. Each object keeps its
+ *        own display settings across reruns and loads (DTI/fODF render mode and channel, each
+ *        glyph field's Display mode); the Representation then decides which objects are shown.
  */
 void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
                                               DTIVolumeTextureData volumeTextures,
-                                              const MriPreprocessingRequest &appliedRequest,
-                                              ReconstructionModel model)
+                                              std::optional<FodfVolumeTextureData> fodfVolumeTextures,
+                                              const MriPreprocessingRequest &appliedRequest)
 {
   const int previousRenderMode = dtiVolume ? dtiVolume->GetSelectedRenderModeIndex() : 0;
   const int previousChannel = dtiVolume ? dtiVolume->GetSelectedChannelIndex() : DTIVolume::kDefaultChannelIndex;
-  // The glyph Display mode persists across reruns and loads; the other glyph settings reset.
-  const SHGlyphDisplayMode previousGlyphDisplayMode =
-      shGlyphField ? shGlyphField->GetDisplayMode() : SHGlyphDisplayMode::Slice;
+  const int previousFodfRenderMode = fodfVolume ? fodfVolume->GetSelectedRenderModeIndex() : 0;
+  const int previousFodfChannel = fodfVolume ? fodfVolume->GetSelectedChannelIndex() : FodfVolume::kDefaultChannelIndex;
+  // The glyph Display modes persist across reruns and loads; the other glyph settings reset.
+  const SHGlyphDisplayMode previousTensorOdfGlyphDisplayMode =
+      tensorOdfGlyphField ? tensorOdfGlyphField->GetDisplayMode() : SHGlyphDisplayMode::Slice;
+  const SHGlyphDisplayMode previousFodfGlyphDisplayMode =
+      fodfGlyphField ? fodfGlyphField->GetDisplayMode() : SHGlyphDisplayMode::Slice;
   EnsureShaderCache();
 
   // Read before volumeTextures is moved into the DTIVolume.
@@ -500,11 +605,15 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
 
   // ---- Build into locals; the scene is not touched yet ----
   std::shared_ptr<DTIVolume> newDtiVolume = std::make_shared<DTIVolume>(
-      "dti_volume_main", std::move(volumeTextures), shaderCache.volumeRenderModes);
+      kDtiVolumeId, std::move(volumeTextures), shaderCache.volumeRenderModes);
   newDtiVolume->SetRotation(kProcessedObjectRotation);
   newDtiVolume->SetSelectedRenderModeIndex(previousRenderMode);
   newDtiVolume->SetSelectedChannelIndex(previousChannel);
   newDtiVolume->SetSlicePlane(sliceController->GetPlane());
+
+  std::shared_ptr<FodfVolume> newFodfVolume =
+      fodfVolumeTextures ? CreateFodfVolume(std::move(*fodfVolumeTextures), previousFodfRenderMode, previousFodfChannel)
+                         : nullptr;
 
   // FA surface mesh
   std::shared_ptr<GameObject> newBrainSurfaceObject;
@@ -516,25 +625,19 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
     meshMaterial->SetMetallic(0.0f);
 
     result.surfaceMesh->SetMaterial(meshMaterial);
-    newBrainSurfaceObject = std::make_shared<GameObject>("dti_brain_surface");
+    newBrainSurfaceObject = std::make_shared<GameObject>(kBrainSurfaceId);
     newBrainSurfaceObject->AddMesh(result.surfaceMesh);
     newBrainSurfaceObject->SetRotation(kProcessedObjectRotation);
   }
 
-  std::shared_ptr<GameObject> newStreamlineObject;
-  if (result.streamlineMesh)
-  {
-    std::shared_ptr<Material> streamlineMaterial = std::make_shared<Material>(shaderCache.streamline);
+  std::shared_ptr<GameObject> newDtiStreamlineObject = CreateStreamlineObject(kDtiStreamlinesId, result.streamlineMesh);
+  std::shared_ptr<GameObject> newFodfStreamlineObject =
+      CreateStreamlineObject(kFodfStreamlinesId, result.fodfStreamlineMesh);
 
-    result.streamlineMesh->SetMaterial(streamlineMaterial);
-    newStreamlineObject = std::make_shared<GameObject>("dti_streamlines");
-    newStreamlineObject->AddMesh(result.streamlineMesh);
-    newStreamlineObject->SetRotation(kProcessedObjectRotation);
-  }
-
-  // Tractography seed points, rendered as small instanced red spheres - one GPU draw call for
-  // every seed regardless of count. Demonstrates GameObject GPU instancing and doubles as a
-  // way to visually verify seed placement/density as tractography settings change.
+  // Tractography seed points (shared by the DTI and fODF trackers), rendered as small instanced
+  // red spheres - one GPU draw call for every seed regardless of count. Demonstrates GameObject
+  // GPU instancing and doubles as a way to visually verify seed placement/density as
+  // tractography settings change.
   std::shared_ptr<GameObject> newSeedPointsObject;
   if (!result.seedPoints.empty())
   {
@@ -547,7 +650,7 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
     std::shared_ptr<Geometry> seedPointGeometry = std::make_shared<SphereGeometry>(seedPointRadius, 12, 8);
     std::shared_ptr<Mesh> seedPointMesh = std::make_shared<Mesh>(seedPointGeometry, seedPointMaterial);
 
-    newSeedPointsObject = std::make_shared<GameObject>("dti_seed_points");
+    newSeedPointsObject = std::make_shared<GameObject>(kSeedPointsId);
     newSeedPointsObject->AddMesh(seedPointMesh);
     // The instanced path applies this GameObject's own transform as a shared outer/group
     // transform on top of every instance, same as the volume/surface/streamlines above - so
@@ -566,26 +669,20 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
     newSeedPointsObject->SetInstanceTransforms(seedTransforms);
   }
 
-  // SH glyphs: the fODF when the result has one (live fODF runs and "fodf" datasets), otherwise
-  // the tensor ODF (live DTI runs). Both shared_ptrs stay reachable through lastPreprocessingResult
-  // for the Glyph Source switch. "dti" datasets carry neither, so they get no glyphs. The glyph
-  // instance data builds on its own worker, so this only starts that build.
-  const std::shared_ptr<const SHVolume> initialGlyphVolume =
-      result.fodfShVolume ? result.fodfShVolume : result.shVolume;
-  const GlyphSource newGlyphSource = result.fodfShVolume ? GlyphSource::Fodf : GlyphSource::TensorOdf;
-  std::shared_ptr<SHGlyphField> newShGlyphField;
-  if (initialGlyphVolume)
+  // One glyph field per SH volume the result carries. Legacy "dti" datasets carry neither.
+  std::shared_ptr<SHGlyphField> newTensorOdfGlyphField =
+      CreateGlyphField(kTensorOdfGlyphsId, result.shVolume, previousTensorOdfGlyphDisplayMode);
+  std::shared_ptr<SHGlyphField> newFodfGlyphField =
+      CreateGlyphField(kFodfGlyphsId, result.fodfShVolume, previousFodfGlyphDisplayMode);
+  if (!newTensorOdfGlyphField && !newFodfGlyphField)
   {
-    newShGlyphField = std::make_shared<SHGlyphField>(
-        "dti_sh_glyphs", initialGlyphVolume, shaderCache.shGlyph,
-        SHGlyphBuildSettings{3, 0.3f, 3, previousGlyphDisplayMode});
-    newShGlyphField->SetRotation(kProcessedObjectRotation);
-    // Its first build starts in Update, so it sees the plane re-clamped by SetDatasetGeometry below.
-    newShGlyphField->SetSlicePlane(sliceController->GetPlane());
+    EngineLog::Message("Dataset has no spherical-harmonics data; SH glyphs unavailable", kLogSource);
   }
-  else
+
+  std::string newFodfUnavailableReason = result.fodfUnavailableReason;
+  if (newFodfUnavailableReason.empty() && !newFodfVolume && !newFodfStreamlineObject && !newFodfGlyphField)
   {
-    EngineLog::Message("Dataset has no spherical-harmonics data; SH glyphs unavailable", "DtiVolumeScene");
+    newFodfUnavailableReason = kNoFodfDataReason;
   }
 
   // ---- Commit ----
@@ -594,64 +691,171 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   // built above already hold their own shared_ptr copies of its meshes.
   lastPreprocessingResult = std::make_shared<const MriPreprocessingResult>(std::move(result));
   lastAppliedRequest = appliedRequest;
-  appliedModel = model;
-  glyphSource = newGlyphSource;
+  fodfUnavailableReason = std::move(newFodfUnavailableReason);
 
   ClearProcessedScene();
 
   dtiVolume = std::move(newDtiVolume);
+  fodfVolume = std::move(newFodfVolume);
   brainSurfaceObject = std::move(newBrainSurfaceObject);
-  streamlineObject = std::move(newStreamlineObject);
+  dtiStreamlineObject = std::move(newDtiStreamlineObject);
+  fodfStreamlineObject = std::move(newFodfStreamlineObject);
   seedPointsObject = std::move(newSeedPointsObject);
-  shGlyphField = std::move(newShGlyphField);
+  tensorOdfGlyphField = std::move(newTensorOdfGlyphField);
+  fodfGlyphField = std::move(newFodfGlyphField);
 
   sliceController->SetDatasetGeometry(datasetExtents, datasetVoxelStep); // keeps normal/offset/preset, re-clamps
   sliceController->SetShader(shaderCache.slicePlaneUnlit);              // no-op unless the cache rebuilt it
   sliceController->SetRotation(kProcessedObjectRotation);               // same base rotation as the new objects
 
+  // Added in object-list order.
   AddVolume(dtiVolume);
+  if (fodfVolume)
+  {
+    AddVolume(fodfVolume);
+  }
   if (brainSurfaceObject)
   {
     AddGameObject(brainSurfaceObject);
   }
-  if (streamlineObject)
+  if (dtiStreamlineObject)
   {
-    AddGameObject(streamlineObject);
+    AddGameObject(dtiStreamlineObject);
+  }
+  if (fodfStreamlineObject)
+  {
+    AddGameObject(fodfStreamlineObject);
   }
   if (seedPointsObject)
   {
     AddGameObject(seedPointsObject);
   }
-  if (shGlyphField)
+  if (tensorOdfGlyphField)
   {
-    AddGlyphField(shGlyphField);
+    AddGlyphField(tensorOdfGlyphField);
+  }
+  if (fodfGlyphField)
+  {
+    AddGlyphField(fodfGlyphField);
   }
 
+  ApplyRepresentationVisibility();
+  representationVisibilityDirty = false;
   RebuildInspectProviders();
 }
 
-/**
- * @brief Point the SH glyph field at the tensor-ODF or fODF volume of the current result.
- *        No-op without a glyph field/result; logs a warning when the requested source is absent.
- */
-void DtiVolumeScene::SetGlyphSource(GlyphSource source)
+bool DtiVolumeScene::IsFodfAvailable() const
 {
-  if (!shGlyphField || !lastPreprocessingResult)
+  return fodfUnavailableReason.empty();
+}
+
+DtiVolumeScene::Representation DtiVolumeScene::GetEffectiveRepresentation() const
+{
+  return selectedRepresentation == Representation::Fodf && IsFodfAvailable() ? Representation::Fodf
+                                                                              : Representation::Dti;
+}
+
+void DtiVolumeScene::ApplyRepresentationVisibility()
+{
+  const bool showFodf = GetEffectiveRepresentation() == Representation::Fodf;
+  const auto showPair = [showFodf](InspectProvider *dtiSide, InspectProvider *fodfSide)
   {
-    return;
+    InspectProvider *preferred = showFodf ? fodfSide : dtiSide;
+    InspectProvider *other = showFodf ? dtiSide : fodfSide;
+    if (preferred)
+    {
+      preferred->SetVisible(true);
+      if (other)
+      {
+        other->SetVisible(false);
+      }
+    }
+    else if (other)
+    {
+      other->SetVisible(true); // partial pair (legacy dataset): keep the side that exists visible
+    }
+  };
+
+  showPair(dtiVolume.get(), fodfVolume.get());
+  showPair(dtiStreamlineObject.get(), fodfStreamlineObject.get());
+  showPair(tensorOdfGlyphField.get(), fodfGlyphField.get());
+}
+
+/**
+ * @brief The "Representation" dashboard group: the DTI/fODF switch, the reason fODF is unavailable
+ *        (when it is) and the scene slice-plane controls, which SliceController reports under its
+ *        own group and are regrouped here.
+ */
+std::vector<InspectFieldPtr> DtiVolumeScene::GetRepresentationDashboardFields()
+{
+  std::vector<InspectFieldPtr> fields;
+
+  const auto effectiveLabel = [this]() -> std::string
+  {
+    return GetEffectiveRepresentation() == Representation::Fodf ? kFodfRepresentationLabel
+                                                                : kDtiRepresentationLabel;
+  };
+  auto representationField = MakeInspectField(
+      "representation", "Representation", kRepresentationGroup, InspectFieldType::Dropdown,
+      effectiveLabel(),
+      [effectiveLabel]() -> InspectValue
+      { return effectiveLabel(); },
+      [this](const InspectValue &value)
+      {
+        const auto *label = std::get_if<std::string>(&value);
+        if (!label)
+          return;
+        if (*label == kFodfRepresentationLabel)
+          selectedRepresentation = Representation::Fodf;
+        else if (*label == kDtiRepresentationLabel)
+          selectedRepresentation = Representation::Dti;
+        else
+          return;
+        // Even re-selecting the current value re-applies it, overriding manual eye toggles.
+        representationVisibilityDirty = true;
+      });
+  representationField->enumOptions = {kDtiRepresentationLabel, kFodfRepresentationLabel};
+  representationField->readOnly = !IsFodfAvailable();
+  fields.push_back(representationField);
+
+  if (!IsFodfAvailable())
+  {
+    auto fodfStatusField = MakeInspectField(
+        "representationFodfStatus", "fODF", kRepresentationGroup, InspectFieldType::Text,
+        "fODF unavailable: " + fodfUnavailableReason);
+    fodfStatusField->readOnly = true;
+    fields.push_back(fodfStatusField);
   }
 
-  const std::shared_ptr<const SHVolume> &target = source == GlyphSource::Fodf
-                                                      ? lastPreprocessingResult->fodfShVolume
-                                                      : lastPreprocessingResult->shVolume;
-  if (!target)
+  for (const InspectFieldPtr &sliceField : sliceController->GetDashboardFields())
   {
-    EngineLog::Warning("Selected glyph source has no SH data in the current dataset", "DtiVolumeScene");
-    return;
+    sliceField->groupName = kRepresentationGroup;
+    fields.push_back(sliceField);
   }
 
-  glyphSource = source;
-  shGlyphField->SetVolume(target);
+  return fields;
+}
+
+void DtiVolumeScene::ApplyLoadedParameters(const std::string &preprocessorType, const std::string &parametersJson)
+{
+  if (preprocessorType == DmriDatasetLayout::kPreprocessorType)
+  {
+    ApplyDmriPreprocessingParametersJson(parametersJson, currentRequest, *tractographySettingsInspectable,
+                                         *fodfSettingsInspectable, *fodfTractographySettingsInspectable);
+  }
+  else if (preprocessorType == kLegacyFodfPreprocessorType)
+  {
+    ApplyFodfPreprocessingParametersJson(parametersJson, currentRequest, *fodfSettingsInspectable);
+  }
+  else if (preprocessorType == kLegacyDtiPreprocessorType)
+  {
+    ApplyDtiPreprocessingParametersJson(parametersJson, currentRequest, *tractographySettingsInspectable);
+  }
+  else
+  {
+    EngineLog::Warning("Loaded dataset type '" + preprocessorType + "' has no known parameters; none applied",
+                       kLogSource);
+  }
 }
 
 /**
@@ -807,23 +1011,21 @@ void DtiVolumeScene::StartPendingJob()
 }
 
 /**
- * @brief Start a preprocessing run on a snapshot of the current request, a copy of the
- *        tractography and fODF settings and the selected model, so later inspector edits can't
- *        race with the worker.
+ * @brief Start a unified DTI + fODF preprocessing run on a snapshot of the current request and a
+ *        copy of the tractography, fODF and fODF tractography settings, so later inspector edits
+ *        can't race with the worker.
  */
 std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateRunJob()
 {
   MriPreprocessingRequest request = currentRequest;
-  request.tractographySettings = CopyTractographySettings(tractographySettingsInspectable);
-  request.fodfSettings = CopyFodfSettings(fodfSettingsInspectable);
+  SnapshotSettingsInto(request, tractographySettingsInspectable, fodfSettingsInspectable,
+                       fodfTractographySettingsInspectable);
 
-  const ReconstructionModel runModel = selectedModel;
-  const std::shared_ptr<const MriToDtiPreprocessor> runPreprocessor = preprocessor;
-  const std::shared_ptr<const MriToFodfPreprocessor> runFodfPreprocessor = fodfPreprocessor;
+  const std::shared_ptr<const MriToDmriPreprocessor> runPreprocessor = preprocessor;
   const std::shared_ptr<SharedProgress> progress = jobProgress;
   return std::make_unique<DatasetJob>(
-      [runModel, runPreprocessor, runFodfPreprocessor, request, progress](const CancellationToken &cancellation)
-      { return RunPreprocessingJob(runModel, *runPreprocessor, *runFodfPreprocessor, request, *progress, cancellation); });
+      [runPreprocessor, request, progress](const CancellationToken &cancellation)
+      { return RunPreprocessingJob(*runPreprocessor, request, *progress, cancellation); });
 }
 
 /**
@@ -867,10 +1069,9 @@ std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateSaveJob()
   const std::shared_ptr<const MriPreprocessingResult> result = lastPreprocessingResult;
   const MriPreprocessingRequest appliedRequest = lastAppliedRequest;
   const std::string outputDirectory = pendingSaveOutputDirectory;
-  const ReconstructionModel saveModel = appliedModel;
   return std::make_unique<DatasetJob>(
-      [result, appliedRequest, outputDirectory, saveModel](const CancellationToken &)
-      { return SaveDatasetJob(*result, appliedRequest, outputDirectory, saveModel); });
+      [result, appliedRequest, outputDirectory](const CancellationToken &)
+      { return SaveDatasetJob(*result, appliedRequest, outputDirectory); });
 }
 
 /**
@@ -911,8 +1112,8 @@ void DtiVolumeScene::ApplyJobOutcome(DatasetJobOutcome outcome)
       lastLoadError.clear();
       {
         const auto applyStart = std::chrono::steady_clock::now();
-        ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures), outcome.appliedRequest,
-                                 outcome.model);
+        ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures),
+                                 std::move(outcome.fodfVolumeTextures), outcome.appliedRequest);
         LogApplyDuration(applyStart);
       }
       break;
@@ -929,24 +1130,15 @@ void DtiVolumeScene::ApplyJobOutcome(DatasetJobOutcome outcome)
         FailJob(outcome.kind, "Volume textures were not prepared.");
         return;
       }
-      if (outcome.model == ReconstructionModel::Fodf)
-      {
-        if (fodfSettingsInspectable)
-        {
-          ApplyFodfPreprocessingParametersJson(outcome.loadedParametersJson, currentRequest, *fodfSettingsInspectable);
-        }
-      }
-      else if (tractographySettingsInspectable)
-      {
-        ApplyDtiPreprocessingParametersJson(outcome.loadedParametersJson, currentRequest, *tractographySettingsInspectable);
-      }
-      selectedModel = outcome.model; // a Rerun after loading reproduces the loaded model
+      ApplyLoadedParameters(outcome.loadedPreprocessorType, outcome.loadedParametersJson);
+      // The applied request gets copies of the (just updated) settings, like a run's snapshot.
       MriPreprocessingRequest appliedRequest = currentRequest;
-      appliedRequest.tractographySettings = CopyTractographySettings(tractographySettingsInspectable);
-      appliedRequest.fodfSettings = CopyFodfSettings(fodfSettingsInspectable);
+      SnapshotSettingsInto(appliedRequest, tractographySettingsInspectable, fodfSettingsInspectable,
+                           fodfTractographySettingsInspectable);
       lastLoadError.clear();
       const auto applyStart = std::chrono::steady_clock::now();
-      ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures), appliedRequest, outcome.model);
+      ApplyPreprocessingResult(std::move(*outcome.result), std::move(*outcome.volumeTextures),
+                               std::move(outcome.fodfVolumeTextures), appliedRequest);
       LogApplyDuration(applyStart);
       break;
     }
@@ -1014,6 +1206,15 @@ void DtiVolumeScene::Update(float deltaTime)
   // swaps scene state owned by this thread and may (re)compile cached shaders.
   PollJobs();
 
+  // A Representation switch overrides the eye toggles; the object list only refreshes its eye
+  // icons when the provider generation bumps.
+  if (representationVisibilityDirty)
+  {
+    representationVisibilityDirty = false;
+    ApplyRepresentationVisibility();
+    RebuildInspectProviders();
+  }
+
   if (cancelRequested)
   {
     cancelRequested = false;
@@ -1046,32 +1247,24 @@ void DtiVolumeScene::Update(float deltaTime)
   if (rotationEnabled)
   {
     const glm::vec3 rotationDelta(0.0f, 0.0f, deltaTime * rotationSpeed);
-    if (streamlineObject)
+    const auto rotate = [&rotationDelta](const auto &object)
     {
-      streamlineObject->SetRotation(streamlineObject->GetRotation() + rotationDelta);
-    }
-    if (brainSurfaceObject)
-    {
-      brainSurfaceObject->SetRotation(brainSurfaceObject->GetRotation() + rotationDelta);
-    }
-    if (dtiVolume)
-    {
-      dtiVolume->SetRotation(dtiVolume->GetRotation() + rotationDelta);
-    }
-    if (seedPointsObject)
-    {
-      seedPointsObject->SetRotation(seedPointsObject->GetRotation() + rotationDelta);
-    }
-    if (shGlyphField)
-    {
-      shGlyphField->SetRotation(shGlyphField->GetRotation() + rotationDelta);
-    }
-    // The volume and glyphs carry the plane implicitly (it lives in their object space); only
+      if (object)
+      {
+        object->SetRotation(object->GetRotation() + rotationDelta);
+      }
+    };
+    rotate(dtiVolume);
+    rotate(fodfVolume);
+    rotate(brainSurfaceObject);
+    rotate(dtiStreamlineObject);
+    rotate(fodfStreamlineObject);
+    rotate(seedPointsObject);
+    rotate(tensorOdfGlyphField);
+    rotate(fodfGlyphField);
+    // The volumes and glyphs carry the plane implicitly (it lives in their object space); only
     // its own drawing needs the spin.
-    if (sliceController)
-    {
-      sliceController->SetRotation(sliceController->GetRotation() + rotationDelta);
-    }
+    rotate(sliceController);
   }
 
   RebuildInspectProvidersIfLayoutChanged();
@@ -1081,17 +1274,22 @@ void DtiVolumeScene::RebuildInspectProvidersIfLayoutChanged()
 {
   const float offsetLimit = sliceController->GetOffsetLimit();
   const float offsetStep = sliceController->GetOffsetStep();
-  const int glyphDisplayMode = shGlyphField ? static_cast<int>(shGlyphField->GetDisplayMode()) : -1;
+  const auto displayModeOf = [](const std::shared_ptr<SHGlyphField> &glyphField)
+  { return glyphField ? static_cast<int>(glyphField->GetDisplayMode()) : -1; };
+  const int tensorOdfGlyphDisplayMode = displayModeOf(tensorOdfGlyphField);
+  const int fodfGlyphDisplayMode = displayModeOf(fodfGlyphField);
   // Exact comparison is intended: the inputs are recomputed deterministically.
   if (offsetLimit == publishedOffsetLimit && offsetStep == publishedOffsetStep &&
-      glyphDisplayMode == publishedGlyphDisplayMode)
+      tensorOdfGlyphDisplayMode == publishedTensorOdfGlyphDisplayMode &&
+      fodfGlyphDisplayMode == publishedFodfGlyphDisplayMode)
   {
     return;
   }
 
   publishedOffsetLimit = offsetLimit;
   publishedOffsetStep = offsetStep;
-  publishedGlyphDisplayMode = glyphDisplayMode;
+  publishedTensorOdfGlyphDisplayMode = tensorOdfGlyphDisplayMode;
+  publishedFodfGlyphDisplayMode = fodfGlyphDisplayMode;
   RebuildInspectProviders(); // bumps the provider generation -> the UI re-fetches field metadata
 }
 
@@ -1118,16 +1316,13 @@ void DtiVolumeScene::Apply(IUniformSink &shader) const
 std::vector<InspectFieldPtr> DtiVolumeScene::GetDashboardFields()
 {
   std::vector<InspectFieldPtr> fields = Scene::GetDashboardFields();
+  const auto append = [&fields](const std::vector<InspectFieldPtr> &more)
+  { fields.insert(fields.end(), more.begin(), more.end()); };
 
-  const std::vector<InspectFieldPtr> tractographyFields = tractographySettingsInspectable
-                                                              ? tractographySettingsInspectable->GetInspectFields()
-                                                              : std::vector<InspectFieldPtr>{};
-  fields.insert(fields.end(), tractographyFields.begin(), tractographyFields.end());
-
-  const std::vector<InspectFieldPtr> fodfFields = fodfSettingsInspectable
-                                                      ? fodfSettingsInspectable->GetInspectFields()
-                                                      : std::vector<InspectFieldPtr>{};
-  fields.insert(fields.end(), fodfFields.begin(), fodfFields.end());
+  append(GetRepresentationDashboardFields());
+  append(tractographySettingsInspectable->GetInspectFields());
+  append(fodfTractographySettingsInspectable->GetInspectFields());
+  append(fodfSettingsInspectable->GetInspectFields());
 
   const auto addFileField = [&fields](const std::string &id, const std::string &label, std::string *path)
   {
@@ -1141,24 +1336,6 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetDashboardFields()
             *path = *selectedPath;
         }));
   };
-  auto modelField = MakeInspectField(
-      "reconstructionModel", "Reconstruction Model", "Preprocessing", InspectFieldType::Dropdown,
-      std::string(ModelLabel(selectedModel)),
-      [this]() -> InspectValue
-      { return std::string(ModelLabel(selectedModel)); },
-      [this](const InspectValue &value)
-      {
-        const auto *label = std::get_if<std::string>(&value);
-        if (!label)
-          return;
-        if (*label == "fODF")
-          selectedModel = ReconstructionModel::Fodf;
-        else if (*label == "DTI")
-          selectedModel = ReconstructionModel::Dti;
-      });
-  modelField->enumOptions = {"DTI", "fODF"};
-  fields.push_back(modelField);
-
   addFileField("dwiVolumePath", "DWI Volume", &currentRequest.dwiVolumePath);
   addFileField("bvalPath", "B-Values", &currentRequest.bvalPath);
   addFileField("bvecPath", "B-Vectors", &currentRequest.bvecPath);
@@ -1206,32 +1383,6 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetDashboardFields()
       std::monostate{}, {},
       [this](const InspectValue &)
       { datasetLoadRequested = true; }));
-
-  if (lastPreprocessingResult && lastPreprocessingResult->fodfShVolume)
-  {
-    auto glyphSourceField = MakeInspectField(
-        "glyphSource", "Glyph Source", "Glyphs", InspectFieldType::Dropdown,
-        std::string(glyphSource == GlyphSource::Fodf ? "fODF" : "Tensor ODF"),
-        [this]() -> InspectValue
-        { return std::string(glyphSource == GlyphSource::Fodf ? "fODF" : "Tensor ODF"); },
-        [this](const InspectValue &value)
-        {
-          const auto *label = std::get_if<std::string>(&value);
-          if (!label)
-            return;
-          if (*label == "fODF")
-            SetGlyphSource(GlyphSource::Fodf);
-          else if (*label == "Tensor ODF")
-            SetGlyphSource(GlyphSource::TensorOdf);
-        });
-    glyphSourceField->enumOptions = {"Tensor ODF", "fODF"};
-    fields.push_back(glyphSourceField);
-  }
-
-  const std::vector<InspectFieldPtr> slicePlaneFields = sliceController
-                                                            ? sliceController->GetDashboardFields()
-                                                            : std::vector<InspectFieldPtr>{};
-  fields.insert(fields.end(), slicePlaneFields.begin(), slicePlaneFields.end());
 
   // Rotation controls
   fields.push_back(MakeInspectField(

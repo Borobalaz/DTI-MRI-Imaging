@@ -5,9 +5,9 @@
 #include "scene/volume/DTIVolume.h"
 
 /**
- * @brief Shared mapping of each DTIVolumeChannels member to its on-disk channel name. Used
- *        identically by DtiPreprocessingDatasetWriter and DtiPreprocessingDatasetReader so the
- *        saved-dataset channel layout can never drift between the two.
+ * @brief Shared mapping of each DTIVolumeChannels member to its on-disk channel name. Walked
+ *        identically by the dmri writer and every reader (dmri, legacy dti/fodf) so the
+ *        saved-dataset channel layout can never drift between them.
  */
 struct DtiChannelEntry
 {

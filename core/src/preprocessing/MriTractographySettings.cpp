@@ -5,6 +5,9 @@
 
 namespace
 {
+// Shared by the DTI and fODF trackers; FA/L1 stop thresholds only apply to DTI tracking.
+constexpr const char *kCategory = "Tractography (shared)";
+
 struct PresetValues
 {
   const char *displayName;
@@ -131,7 +134,7 @@ InspectFieldPtr MakeNumberField(std::string id,
                                 double step)
 {
   auto field = MakeInspectField(
-      std::move(id), std::move(displayName), "Tractography", InspectFieldType::Number,
+      std::move(id), std::move(displayName), kCategory, InspectFieldType::Number,
       getter(),
       [getter]() -> InspectValue { return getter(); },
       [setter = std::move(setter)](const InspectValue& value)
@@ -160,7 +163,7 @@ std::vector<InspectFieldPtr> MriTractographySettings::GetInspectFields()
   std::vector<InspectFieldPtr> fields;
 
   auto presetField = MakeInspectField(
-      "tractographyPreset", "Preset", "Tractography", InspectFieldType::Dropdown,
+      "tractographyPreset", "Preset", kCategory, InspectFieldType::Dropdown,
       CurrentPresetName(*this),
       [this]() -> InspectValue { return CurrentPresetName(*this); },
       [this](const InspectValue& value)
@@ -178,13 +181,13 @@ std::vector<InspectFieldPtr> MriTractographySettings::GetInspectFields()
     0.0, 1.0, 0.01));
 
   fields.push_back(MakeNumberField(
-    "tractography.faStopThreshold", "FA Stop Threshold",
+    "tractography.faStopThreshold", "FA Stop Threshold (DTI only)",
     [this]() { return static_cast<double>(faStopThresholdValue); },
     [this](double value) { faStopThresholdValue = static_cast<float>(value); },
     0.0, 1.0, 0.01));
 
   fields.push_back(MakeNumberField(
-    "tractography.l1StopThreshold", "L1 Stop Threshold",
+    "tractography.l1StopThreshold", "L1 Stop Threshold (DTI only)",
     [this]() { return static_cast<double>(l1StopThresholdValue); },
     [this](double value) { l1StopThresholdValue = static_cast<float>(value); },
     0.0, 1.0, 0.000001));

@@ -2,10 +2,11 @@
 
 #include "scene/Scene.h"
 #include "Preprocessing/MriFodfSettings.h"
+#include "Preprocessing/MriFodfTractographySettings.h"
 #include "Preprocessing/MriTractographySettings.h"
 #include "scene/volume/DTIVolume.h"
-#include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
-#include "Preprocessing/preprocessors/MriToFodfPreprocessor.h"
+#include "scene/volume/FodfVolume.h"
+#include "Preprocessing/preprocessors/MriToDmriPreprocessor.h"
 #include "foundation/threading/BackgroundTask.h"
 #include "foundation/threading/SharedProgress.h"
 #include "SliceController.h"
@@ -22,13 +23,6 @@ enum class DatasetJobKind
   Save
 };
 
-// Reconstruction model of a preprocessing run / loaded dataset.
-enum class ReconstructionModel
-{
-  Dti,
-  Fodf
-};
-
 /**
  * @brief What a background dataset job hands back to the scene's Update() thread. Holds only
  *        CPU data (meshes and volume textures are GL-free until first drawn), so it may be built
@@ -37,10 +31,13 @@ enum class ReconstructionModel
 struct DatasetJobOutcome
 {
   DatasetJobKind kind = DatasetJobKind::Run;
-  ReconstructionModel model = ReconstructionModel::Dti; // Run/Load: the model that produced result
   std::optional<MriPreprocessingResult> result; // Run/Load only
   std::optional<DTIVolumeTextureData> volumeTextures; // Run/Load only: result's channels packed on the worker
+  // Run/Load only: result's fODF maps packed on the worker; empty when the result has none (or
+  // packing failed, in which case result->fodfMaps was dropped too).
+  std::optional<FodfVolumeTextureData> fodfVolumeTextures;
   MriPreprocessingRequest appliedRequest;       // Run: the request/settings snapshot the pipeline ran with
+  std::string loadedPreprocessorType;           // Load only: decides how loadedParametersJson is applied
   std::string loadedParametersJson;             // Load only: provenance applied to the scene at apply time
   std::string error;                            // non-empty when the job failed
   bool cancelled = false;
@@ -76,6 +73,7 @@ public:
   void ReloadDataset();
   MriPreprocessingRequest GetCurrentRequest() const { return currentRequest; }
   MriTractographySettings &GetTractographySettings() { return *tractographySettingsInspectable; }
+  MriFodfTractographySettings &GetFodfTractographySettings() { return *fodfTractographySettingsInspectable; }
   std::string GetLastLoadError() const { return lastLoadError; }
 
   void Update(float deltaTime) override;
@@ -86,14 +84,32 @@ public:
   
 private:
   using DatasetJob = BackgroundTask<DatasetJobOutcome>;
-  enum class GlyphSource { TensorOdf, Fodf };
+  // Which of the DTI/fODF object pairs (volume, streamlines, glyphs) the scene shows.
+  enum class Representation { Dti, Fodf };
 
   void ClearProcessedScene();
   void ApplyPreprocessingResult(MriPreprocessingResult result,
                                 DTIVolumeTextureData volumeTextures,
-                                const MriPreprocessingRequest& appliedRequest,
-                                ReconstructionModel model);
-  void SetGlyphSource(GlyphSource source);
+                                std::optional<FodfVolumeTextureData> fodfVolumeTextures,
+                                const MriPreprocessingRequest& appliedRequest);
+  std::shared_ptr<FodfVolume> CreateFodfVolume(FodfVolumeTextureData fodfVolumeTextures,
+                                               int renderModeIndex,
+                                               int channelIndex) const;
+  std::shared_ptr<GameObject> CreateStreamlineObject(const std::string& id, const std::shared_ptr<Mesh>& mesh) const;
+  std::shared_ptr<SHGlyphField> CreateGlyphField(const std::string& id,
+                                                 const std::shared_ptr<const SHVolume>& volume,
+                                                 SHGlyphDisplayMode displayMode) const;
+  void ApplyLoadedParameters(const std::string& preprocessorType, const std::string& parametersJson);
+
+  // Representation state. Before any dataset is applied fODF counts as available, so the
+  // preference can be pre-set; afterwards it is available unless fodfUnavailableReason says why not.
+  bool IsFodfAvailable() const;
+  Representation GetEffectiveRepresentation() const;
+  // Shows the effective side of each pair and hides the other, overriding manual visibility; when
+  // the effective side of a pair is missing (legacy datasets) the other side stays visible.
+  void ApplyRepresentationVisibility();
+  std::vector<InspectFieldPtr> GetRepresentationDashboardFields();
+
   // Inspector field metadata (offset range/step, glyph Stride readOnly) is frozen at fetch time;
   // re-fetch it by bumping the provider generation when any of its inputs changed.
   void RebuildInspectProvidersIfLayoutChanged();
@@ -103,10 +119,11 @@ private:
   struct DtiShaderCache
   {
     std::vector<DTIVolume::RenderMode> volumeRenderModes;
+    std::vector<FodfVolume::RenderMode> fodfVolumeRenderModes;
     std::shared_ptr<Shader> brainSurface;
-    std::shared_ptr<Shader> streamline;
+    std::shared_ptr<Shader> streamline; // DTI and fODF streamlines
     std::shared_ptr<Shader> seedPoint;
-    std::shared_ptr<Shader> shGlyph;
+    std::shared_ptr<Shader> shGlyph;    // tensor-ODF and fODF glyphs
     std::shared_ptr<Shader> slicePlaneUnlit; // outline + fill (SliceController)
   };
   void EnsureShaderCache();
@@ -129,11 +146,15 @@ private:
   MriPreprocessingRequest currentRequest;
   std::shared_ptr<MriTractographySettings> tractographySettingsInspectable;
   std::shared_ptr<MriFodfSettings> fodfSettingsInspectable;
+  std::shared_ptr<MriFodfTractographySettings> fodfTractographySettingsInspectable;
   std::shared_ptr<DTIVolume> dtiVolume;
+  std::shared_ptr<FodfVolume> fodfVolume;
   std::shared_ptr<GameObject> brainSurfaceObject;
-  std::shared_ptr<GameObject> streamlineObject;
+  std::shared_ptr<GameObject> dtiStreamlineObject;
+  std::shared_ptr<GameObject> fodfStreamlineObject;
   std::shared_ptr<GameObject> seedPointsObject;
-  std::shared_ptr<SHGlyphField> shGlyphField;
+  std::shared_ptr<SHGlyphField> tensorOdfGlyphField;
+  std::shared_ptr<SHGlyphField> fodfGlyphField;
 
   // Scene-wide slicer (one plane in dataset space) and its drawable. Created and registered once
   // in the ctor, never replaced, so the plane persists across reruns and loads.
@@ -142,11 +163,18 @@ private:
   // Last inspector-metadata inputs published via RebuildInspectProviders.
   float publishedOffsetLimit = -1.0f;
   float publishedOffsetStep = -1.0f;
-  int publishedGlyphDisplayMode = -1; // -1: no glyph field
+  int publishedTensorOdfGlyphDisplayMode = -1; // -1: no glyph field
+  int publishedFodfGlyphDisplayMode = -1;      // -1: no glyph field
+
+  // Persists across reruns and loads; the effective one falls back to DTI when fODF is unavailable.
+  Representation selectedRepresentation = Representation::Fodf;
+  // Set by the Representation dropdown; Update() applies the visibility and refreshes the eye icons.
+  bool representationVisibilityDirty = false;
+  // Why the applied dataset has no fODF objects; empty when it has some or none is applied yet.
+  std::string fodfUnavailableReason;
 
   // Shared with running jobs; its stages are const and stateless.
-  std::shared_ptr<const MriToDtiPreprocessor> preprocessor;
-  std::shared_ptr<const MriToFodfPreprocessor> fodfPreprocessor; // shared with running jobs; stateless
+  std::shared_ptr<const MriToDmriPreprocessor> preprocessor;
   std::string lastLoadError;
   bool datasetReloadRequested = false;
 
@@ -155,9 +183,6 @@ private:
   // worker without re-running the (potentially slow) preprocessing pipeline.
   std::shared_ptr<const MriPreprocessingResult> lastPreprocessingResult;
   MriPreprocessingRequest lastAppliedRequest;
-  ReconstructionModel selectedModel = ReconstructionModel::Dti; // model the next Run uses
-  ReconstructionModel appliedModel = ReconstructionModel::Dti;  // model of lastPreprocessingResult
-  GlyphSource glyphSource = GlyphSource::TensorOdf;             // current SH glyph source
   std::string pendingSaveOutputDirectory;
   std::string pendingLoadMetadataPath;
   bool datasetSaveRequested = false;

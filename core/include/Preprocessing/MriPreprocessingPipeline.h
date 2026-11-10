@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -17,7 +18,9 @@
 
 class MriTractographySettings;
 class MriFodfSettings;
+class MriFodfTractographySettings;
 class VolumeSeriesData;
+struct FodfVolumeChannels;
 
 struct MriPreprocessingRequest
 {
@@ -26,6 +29,8 @@ struct MriPreprocessingRequest
   std::string bvecPath;
   std::shared_ptr<MriTractographySettings> tractographySettings;
   std::shared_ptr<MriFodfSettings> fodfSettings; // fODF runs only; stages treat null as MriFodfSettings{} defaults
+  // fODF tractography only; stages treat null as MriFodfTractographySettings{} defaults
+  std::shared_ptr<MriFodfTractographySettings> fodfTractographySettings;
 };
 
 struct MriPreprocessingReport
@@ -37,12 +42,17 @@ struct MriPreprocessingReport
 
 struct MriPreprocessingResult
 {
-  // Filled by MriToDtiPreprocessor (dtiChannels, meshes, seeds, tensor-ODF shVolume) or by MriToFodfPreprocessor (dtiChannels, shVolume, fodfResponse, fodfShVolume, fodfIgnoredShellBValues; no meshes/seeds).
+  // Filled by MriToDtiPreprocessor (dtiChannels, meshes, seeds, tensor-ODF shVolume), by
+  // MriToFodfPreprocessor (dtiChannels, shVolume, fodfResponse, fodfShVolume, fodfIgnoredShellBValues;
+  // no meshes/seeds) or by MriToDmriPreprocessor (all of the above plus the fODF maps, fODF
+  // streamlines and cutoff; the fODF fields stay empty and fodfUnavailableReason is set when the
+  // optional fODF group failed).
   DTIVolumeChannels dtiChannels;
   std::shared_ptr<Mesh> surfaceMesh;
+  // DTI streamlines (principal-eigenvector tracking); the fODF ones are fodfStreamlineMesh.
   std::shared_ptr<Mesh> streamlineMesh;
   // Tractography seed positions in the same normalized object space as streamlineMesh's
-  // vertices (see DtiFiberTractographyStage::VoxelToObjectSpace), for visualizing seed
+  // vertices (see StreamlineTracing::VoxelToObjectSpace), for visualizing seed
   // placement independently of whether a streamline was successfully traced from it.
   std::vector<glm::vec3> seedPoints;
   // DTI-derived SH (tensor ODF). Live runs; persisted only by the "fodf" dataset format.
@@ -53,6 +63,14 @@ struct MriPreprocessingResult
   std::shared_ptr<const SHVolume> fodfShVolume;
   // b-values of the DWI shells CSD ignored (only the highest shell is used). Provenance only.
   std::vector<float> fodfIgnoredShellBValues;
+  // Raw fODF peak maps (FodfPeakExtractionStage) and peak-following streamlines
+  // (FodfFiberTractographyStage); null when not computed.
+  std::shared_ptr<const FodfVolumeChannels> fodfMaps;
+  std::shared_ptr<Mesh> fodfStreamlineMesh;
+  // Absolute peak-amplitude cutoff (relative cutoff x p95 of peak-1 amplitude); 0 when not computed.
+  float fodfAbsoluteAmplitudeCutoff = 0.0f;
+  // Why the fODF outputs are missing (empty when they were computed or never requested).
+  std::string fodfUnavailableReason;
   MriPreprocessingReport report;
 };
 
@@ -124,6 +142,9 @@ struct MriPreprocessingContext
   std::vector<glm::vec3> gradientDirections;
   bool gradientMetadataValid = false;
   DwiShellSelection shellSelection;
+  // DTI tractography seeds in voxel coordinates, shared by the fODF tracker.
+  std::vector<glm::vec3> tractographySeedsVoxelSpace;
+  float fodfAbsoluteAmplitudeCutoff = 0.0f;
 
   // output
   DTIVolumeChannels outputDtiChannels;
@@ -133,6 +154,9 @@ struct MriPreprocessingContext
   std::shared_ptr<const SHVolume> outputShVolume;
   FodfResponseFunction outputFodfResponse;
   std::shared_ptr<const SHVolume> outputFodfShVolume;
+  std::shared_ptr<const FodfVolumeChannels> outputFodfMaps;
+  std::shared_ptr<Mesh> outputFodfStreamlineMesh;
+  std::string fodfUnavailableReason;
 };
 
 /**
@@ -153,17 +177,43 @@ public:
 /**
  * @brief An ordered sequence of IMriPreprocessingStages executed to turn raw MRI input into
  *        reconstructed output. The stage list is assembled by a model-specific preprocessor
- *        (MriToDtiPreprocessor, MriToFodfPreprocessor); all models share one context/result shape.
+ *        (MriToDtiPreprocessor, MriToFodfPreprocessor, MriToDmriPreprocessor); all models share
+ *        one context/result shape.
  */
 class MriPreprocessingPipeline
 {
 public:
+  // Called on the pipeline thread when a stage of an optional group fails; reason is
+  // "<stage name> failed: <what>". Expected to reset the group's partial outputs.
+  using StageGroupFailureHandler = std::function<void(MriPreprocessingContext&, const std::string& reason)>;
+
   MriPreprocessingPipeline& AddStage(std::unique_ptr<IMriPreprocessingStage> stage);
+  // Appends stages that the run may lose without failing: if one of them throws (anything but a
+  // cancellation), the group's remaining stages are skipped, a report warning is added and
+  // onFailure runs; the stages after the group still execute.
+  MriPreprocessingPipeline& AddOptionalStageGroup(std::string name,
+                                                  std::vector<std::unique_ptr<IMriPreprocessingStage>> groupStages,
+                                                  StageGroupFailureHandler onFailure);
   // Checks for cancellation and reports progress between stages; throws
   // MriPreprocessingCancelled when options.cancellation is signalled.
   MriPreprocessingResult Execute(const MriPreprocessingRequest& request,
                                  const MriPreprocessingExecutionOptions& options = {}) const;
 
 private:
-  std::vector<std::unique_ptr<IMriPreprocessingStage>> stages;
+  struct StageEntry
+  {
+    std::unique_ptr<IMriPreprocessingStage> stage;
+    std::optional<size_t> groupIndex; // into optionalGroups; empty for a mandatory stage
+  };
+
+  struct OptionalGroup
+  {
+    std::string name;
+    StageGroupFailureHandler onFailure;
+  };
+
+  bool ExecuteOptionalStage(const StageEntry& entry, MriPreprocessingContext& context) const;
+
+  std::vector<StageEntry> stages;
+  std::vector<OptionalGroup> optionalGroups;
 };

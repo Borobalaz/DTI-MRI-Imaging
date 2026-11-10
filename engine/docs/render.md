@@ -65,7 +65,7 @@ The resource implementations also go through the gateway when they use another r
 
 ## Uniform contract: `IUniformSink`
 
-`UniformProvider::Apply(IUniformSink&)` is how scene objects (`Camera`, lights, `GameObject`, `Volume`/`DTIVolume`, `Scene`), `Material`, and the `TypedUniformProvider`/`CompositeUniformProvider` helpers publish uniforms. The sink has `SetBool`/`SetInt`/`SetFloat`/`SetVec2`/`SetVec3`/`SetMat4(name, value)` and `SetTexture(name, const Texture*, unsigned unit)`. `SetTexture` binds the texture when it is non-null and always sets the sampler uniform.
+`UniformProvider::Apply(IUniformSink&)` is how scene objects (`Camera`, lights, `GameObject`, `Volume`/`DTIVolume`/`FodfVolume`, `Scene`), `Material`, and the `TypedUniformProvider`/`CompositeUniformProvider` helpers publish uniforms. The sink has `SetBool`/`SetInt`/`SetFloat`/`SetVec2`/`SetVec3`/`SetMat4(name, value)` and `SetTexture(name, const Texture*, unsigned unit)`. `SetTexture` binds the texture when it is non-null and always sets the sampler uniform.
 
 `Shader` is the concrete sink, but only `RenderBackend::Uniforms` hands it out. `Shader::Use()` activates the program and re-applies the shader's own stored (inspector-editable) uniforms via `Apply(*this)`.
 
@@ -73,7 +73,7 @@ Fixed texture units: material slots 0-4 (`PBR::TextureSlot` order), skybox cubem
 
 ## `TextureFormat`
 
-`Texture2D`'s allocation constructor and both `Texture3D` constructors (directly, or through `TextureData3D::format`) take a GL-neutral `TextureFormat` (`R32F`, `RGB32F`, `RGBA32F`, `RGBA8`, `Depth24`). `ToGLTextureFormat` in `render/internal/opengl/TextureGL.h` maps each value to its GL (internal format, format, type) triple, so scene code such as `DTIVolume`/`FloatVolume` never names GL enums.
+`Texture2D`'s allocation constructor and both `Texture3D` constructors (directly, or through `TextureData3D::format`) take a GL-neutral `TextureFormat` (`R32F`, `RGB32F`, `RGBA32F`, `RGBA8`, `Depth24`). `ToGLTextureFormat` in `render/internal/opengl/TextureGL.h` maps each value to its GL (internal format, format, type) triple, so scene code such as `DTIVolume`/`FodfVolume`/`FloatVolume` never names GL enums.
 
 ## Boundary data
 
@@ -98,7 +98,7 @@ The layer has no thread of its own and no knowledge of one. "The GL thread" is w
 `Texture3D` has two constructors:
 
 - **Eager** `(width, height, depth, format, data, linear)`: uploads immediately, so it must run on the GL thread. `FloatVolume` uses it.
-- **Lazy** `(TextureData3D, linear)`: GL-free, so it can run on any thread. A malformed payload logs an error and marks the texture failed. Otherwise the texels are kept as pending. `DTIVolume` uses this path; its payloads are packed on the preprocessing worker by `PackDTIVolumeTextures`.
+- **Lazy** `(TextureData3D, linear)`: GL-free, so it can run on any thread. A malformed payload logs an error and marks the texture failed. Otherwise the texels are kept as pending. `DTIVolume` and `FodfVolume` use this path; their payloads are packed on the preprocessing worker by `PackDTIVolumeTextures` and `PackFodfVolumeTextures`.
 
 At the first `Bind(unit)` of a pending texture:
 

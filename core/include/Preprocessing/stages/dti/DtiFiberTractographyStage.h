@@ -2,6 +2,9 @@
 
 #include "Preprocessing/MriPreprocessingPipeline.h"
 
+// Deterministic, bidirectional principal-eigenvector tractography seeded at high-FA voxels. Writes
+// context.outputStreamlineMesh, the object-space seeds (outputSeedPoints) and the voxel-space seeds
+// (tractographySeedsVoxelSpace, reused by the fODF tracker).
 class DtiFiberTractographyStage final : public IMriPreprocessingStage
 {
 public:
@@ -11,15 +14,7 @@ public:
 private:
   struct TractographySettings;
 
-  static float Lerp(float a, float b, float t);
-  static float SampleTrilinear(const std::vector<float> &voxels,
-                               const glm::vec3 &point,
-                               const glm::ivec3 &dims);
   static TractographySettings BuildTractographySettings(const MriPreprocessingContext &context);
-  static bool IsVoxelSpacePointInBounds(const glm::vec3 &point, const glm::ivec3 &dims);
-  static glm::vec3 VoxelToObjectSpace(const glm::vec3 &voxelPosition,
-                                      const glm::ivec3 &dims,
-                                      const glm::vec3 &spacing);
   static glm::vec3 SampleTrilinearDirection(const glm::vec3 &voxelPosition,
                                             const glm::ivec3 &dims,
                                             const std::vector<float> &evx,
@@ -44,7 +39,9 @@ private:
                                                         const std::vector<float> &evx,
                                                         const std::vector<float> &evy,
                                                         const std::vector<float> &evz,
-                                                        const TractographySettings &settings);
+                                                        const TractographySettings &settings,
+                                                        const glm::vec3 &initialReferenceDirection,
+                                                        glm::vec3 &firstStepDirection);
   static std::shared_ptr<Mesh> BuildStreamlineMesh(const MriPreprocessingContext &context,
                                                    const TractographySettings &settings,
                                                    const std::vector<glm::vec3> &seedsVoxelSpace);

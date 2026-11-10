@@ -9,6 +9,8 @@
 
 std::unique_ptr<IMriPreprocessingStage> CreateFodfResponseEstimationStage();
 std::unique_ptr<IMriPreprocessingStage> CreateFodfCsdStage();
+std::unique_ptr<IMriPreprocessingStage> CreateFodfPeakExtractionStage();
+std::unique_ptr<IMriPreprocessingStage> CreateFodfFiberTractographyStage();
 
 // Synthetic CSD check on the given gradient scheme (no test framework exists, so the CSD stage
 // runs it once per run): fits a response from synthetic single fibres, deconvolves noise-free

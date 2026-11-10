@@ -6,10 +6,23 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "Preprocessing/MriFodfSettings.h"
+#include "Preprocessing/MriFodfTractographySettings.h"
 #include "Preprocessing/MriTractographySettings.h"
 #include "Preprocessing/io/PreprocessingDatasetFormats.h"
-#include "Preprocessing/io/dti/DtiPreprocessingParameters.h"
-#include "Preprocessing/preprocessors/MriToDtiPreprocessor.h"
+#include "Preprocessing/io/dmri/DmriDatasetLayout.h"
+#include "Preprocessing/io/dmri/DmriPreprocessingParameters.h"
+#include "Preprocessing/preprocessors/MriToDmriPreprocessor.h"
+
+namespace
+{
+  // A copy of the caller's settings, or defaults when it passed none.
+  template <typename Settings>
+  std::shared_ptr<Settings> SnapshotSettings(const std::shared_ptr<Settings> &settings)
+  {
+    return settings ? std::make_shared<Settings>(*settings) : std::make_shared<Settings>();
+  }
+}
 
 MriPreprocessingRunner::MriPreprocessingRunner() = default;
 
@@ -46,28 +59,33 @@ MriPreprocessingRunnerResult MriPreprocessingRunner::Run(const MriPreprocessingR
   const std::string outputBaseName =
       request.outputBasename.empty() ? std::string("mri_proxy") : request.outputBasename;
 
-  // Snapshot the tractography settings so the pipeline and the provenance below both see
-  // exactly the same values, even if the caller keeps editing its settings object meanwhile.
+  // Snapshot all three settings objects so the pipeline and the provenance below both see
+  // exactly the same values, even if the caller keeps editing its settings objects meanwhile.
   MriPreprocessingRequest preprocessingRequest = request.preprocessingRequest;
-  preprocessingRequest.tractographySettings = request.preprocessingRequest.tractographySettings
-      ? std::make_shared<MriTractographySettings>(*request.preprocessingRequest.tractographySettings)
-      : std::make_shared<MriTractographySettings>();
+  preprocessingRequest.tractographySettings = SnapshotSettings(request.preprocessingRequest.tractographySettings);
+  preprocessingRequest.fodfSettings = SnapshotSettings(request.preprocessingRequest.fodfSettings);
+  preprocessingRequest.fodfTractographySettings =
+      SnapshotSettings(request.preprocessingRequest.fodfTractographySettings);
 
   // Run preprocessing pipeline (MriPreprocessingCancelled propagates to the caller)
-  MriToDtiPreprocessor preprocessor;
+  MriToDmriPreprocessor preprocessor;
   MriPreprocessingRunnerResult runnerResult;
   runnerResult.preprocessingResult = preprocessor.Process(preprocessingRequest, options);
 
-  // Save volume channels, meshes, and provenance metadata to disk
-  const MriTractographySettings &tractographySettings = *preprocessingRequest.tractographySettings;
-  const std::string parametersJson = BuildDtiPreprocessingParametersJson(
-      preprocessingRequest, tractographySettings, tractographySettings.GetMatchedPresetName());
+  // Save volume channels, fODF outputs, meshes, and provenance metadata to disk
+  const std::string parametersJson = BuildDmriPreprocessingParametersJson(
+      preprocessingRequest,
+      *preprocessingRequest.tractographySettings,
+      *preprocessingRequest.fodfSettings,
+      *preprocessingRequest.fodfTractographySettings,
+      runnerResult.preprocessingResult);
 
+  const std::string preprocessorType = DmriDatasetLayout::kPreprocessorType;
   const std::shared_ptr<IPreprocessingDatasetWriter> writer =
-      GetDefaultPreprocessingDatasetFormatRegistry().FindWriter("dti");
+      GetDefaultPreprocessingDatasetFormatRegistry().FindWriter(preprocessorType);
   if (!writer)
   {
-    throw std::runtime_error("No dataset writer registered for preprocessor type 'dti'.");
+    throw std::runtime_error("No dataset writer registered for preprocessor type '" + preprocessorType + "'.");
   }
 
   const PreprocessingDatasetMetadata metadata = writer->Write(

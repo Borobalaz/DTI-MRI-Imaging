@@ -16,10 +16,6 @@ namespace
 {
   constexpr float kSpacingEpsilon = 1e-4f;
 
-  // Slice-shader plane in unit-cube object space (volume_dti_tensor / volume_dti_ev_slice).
-  constexpr const char* kSlicePlaneNormalUniform = "slicePlane.normal";
-  constexpr const char* kSlicePlaneOffsetUniform = "slicePlane.offset";
-
   glm::vec3 NormalizeSafe(const glm::vec3 &v)
   {
     float len = glm::length(v);
@@ -239,14 +235,8 @@ void DTIVolume::Apply(IUniformSink &shader) const
 {
   Volume::Apply(shader);
   shader.SetInt("shader.selectedChannel", selectedChannel);
-
-  // Set on every mode (no-op where the program lacks them). Deliberately not stored uniforms:
-  // VolumePass applies stored uniforms after the providers, so they would override these.
-  const SlicePlane defaultPlane; // axial through the centre
-  const SlicePlane& plane = slicePlane ? *slicePlane : defaultPlane;
-  const PlaneEquation unitCubePlane = plane.ToUnitCubeSpace(GetObjectExtents());
-  shader.SetVec3(kSlicePlaneNormalUniform, unitCubePlane.normal);
-  shader.SetFloat(kSlicePlaneOffsetUniform, unitCubePlane.offset);
+  // Set on every mode; the raymarch programs lack the uniforms, so it is a no-op there.
+  ApplySlicePlaneUniforms(shader, slicePlane.get());
 }
 
 void DTIVolume::SetSlicePlane(std::shared_ptr<const SlicePlane> newPlane)
