@@ -54,16 +54,16 @@ struct DatasetJobOutcome
  * - Threshold adjustment
  * - Opacity control
  *
- * `DtiVolumeScene` is the concrete DTI-specific scene builder on top of the generic
+ * `MriScene` is the concrete DTI-specific scene builder on top of the generic
  * `core/` preprocessing pipeline (`MriPreprocessingPipeline`). It intentionally depends on
  * engine-private `Scene`/`GameObject` types - a pre-existing exception to `core/`'s general
  * engine-independence, not addressed by this change.
  */
-class DtiVolumeScene : public Scene
+class MriScene : public Scene
 {
 public:
-  DtiVolumeScene();
-  ~DtiVolumeScene() override;
+  MriScene();
+  ~MriScene() override;
   
   // Both queue an asynchronous preprocessing run; its result is applied by a later Update().
   void LoadDataset(

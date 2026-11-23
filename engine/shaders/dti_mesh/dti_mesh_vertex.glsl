@@ -19,7 +19,7 @@ struct GameObjectUniforms {
   mat4 modelMatrix;
 };
 
-// Frame-wide clip plane (set by DtiVolumeScene when "Cut Geometry" is on).
+// Frame-wide clip plane (set by MriScene when "Cut Geometry" is on).
 // Unset => enabled reads false => nothing is clipped.
 struct ClipPlaneUniforms {
   bool enabled;

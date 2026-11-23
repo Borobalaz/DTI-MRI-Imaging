@@ -26,12 +26,12 @@ struct RenderProxy;
 // through their Materials (material.albedoFactor / material.opacity).
 //
 // The plane controls (Preset / Normal / Offset) and the Cut Geometry / Flip Side toggles are
-// Scene Dashboard fields (GetDashboardFields, merged in by DtiVolumeScene); the object list entry
-// "Slice Plane" inspects only the Fill controls. When cutting is enabled, DtiVolumeScene emits
+// Scene Dashboard fields (GetDashboardFields, merged in by MriScene); the object list entry
+// "Slice Plane" inspects only the Fill controls. When cutting is enabled, MriScene emits
 // GetWorldClipPlane() as the frame-wide clipPlane uniform.
 //
 // The transform carries only the dataset rotation (kProcessedObjectRotation + spin, driven by
-// DtiVolumeScene); scale stays 1 because the geometry is already in dataset space.
+// MriScene); scale stays 1 because the geometry is already in dataset space.
 // Geometry is rebuilt in Update() when the plane version changes (engine/GL thread; lazy re-upload).
 //
 // Thread contract: externally synchronised by the scene lock (field getters/setters arrive
@@ -48,14 +48,14 @@ public:
   // sets the Offset field step to one voxel, and enables drawing.
   void SetDatasetGeometry(const glm::vec3& objectExtents, float voxelStep);
 
-  // GL-thread compiled unlit shader (DtiVolumeScene's cache). Rebuilds both materials when the
+  // GL-thread compiled unlit shader (MriScene's cache). Rebuilds both materials when the
   // shader object changes; null (or a shader that failed to build) means nothing is drawn.
   void SetShader(std::shared_ptr<Shader> unlitShader);
 
   const glm::vec3& GetRotation() const { return transform.GetRotation(); }
   void SetRotation(const glm::vec3& newRotation) { transform.SetRotation(newRotation); }
 
-  // Inspector-metadata inputs; DtiVolumeScene re-fetches fields when they change.
+  // Inspector-metadata inputs; MriScene re-fetches fields when they change.
   float GetOffsetLimit() const;
   float GetOffsetStep() const { return offsetStep; }
 

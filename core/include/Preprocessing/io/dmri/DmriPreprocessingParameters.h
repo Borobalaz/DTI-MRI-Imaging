@@ -11,7 +11,7 @@
  * @brief Builds/parses the "dmri" dataset's opaque provenance JSON. It is the DTI parameters JSON
  *        (source paths, "tractography") merged with the fODF one ("fodf", "shell") plus a
  *        "fodfTractography" block (relative cutoff, max angle and the absolute cutoff the run
- *        derived). Shared by MriPreprocessingRunner and DtiVolumeScene's save/load actions so the
+ *        derived). Shared by MriPreprocessingRunner and MriScene's save/load actions so the
  *        JSON shape cannot drift.
  *
  * @param result supplies the chosen shell (fodfResponse.bValue), the ignored shells and the

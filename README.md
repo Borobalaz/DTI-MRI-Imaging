@@ -148,4 +148,4 @@ build/Release/engine.dll
 - Entry point: `ui/src/app/main.cpp` creates `QApplication`, configures OpenGL 3.3 core profile, and shows `WidgetsMainWindow`.
 - Host window: `ui/src/windows/WidgetsMainWindow.cpp` owns the Qt widget layout (viewport, object list, inspector, render stats).
 - OpenGL viewport: `ui/src/widgets/OpenGLViewportWidget.cpp` derives from `QOpenGLWidget`, drives repaint via `QTimer`, and runs `Scene::Update` + `Scene::Render` inside `paintGL()`.
-- DTI specialization: `ui/src/widgets/DTIViewportWidget.cpp` builds `DtiVolumeScene` and loads DWI/bval/bvec dataset inputs.
+- DTI specialization: `ui/src/widgets/DTIViewportWidget.cpp` builds `MriScene` and loads DWI/bval/bvec dataset inputs.

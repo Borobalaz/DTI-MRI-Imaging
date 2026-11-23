@@ -9,7 +9,7 @@ flowchart TD
         Facade[Engine facade: Start / Stop / screens / input / services]
         subgraph EngineThread[Engine thread - EngineRuntime, GL thread]
             InputQueue[InputEventQueue drain]
-            Scene[Scene / DtiVolumeScene Update: jobs, Representation visibility]
+            Scene[Scene / MriScene Update: jobs, Representation visibility]
             Snapshot[SceneSnapshot: typed render commands]
             Extraction[ExtractionRegistry]
             Builder[RenderFrameBuilder]

@@ -1,4 +1,4 @@
-#include "DtiVolumeScene.h"
+#include "MriScene.h"
 #include "render/Shader.h"
 #include "scene/skybox/Skybox.h"
 #include "scene/light/PointLight.h"
@@ -33,7 +33,7 @@ namespace
   // that a save writes into before its files are moved into place.
   const char *const kSaveStagingFolderName = ".dti-save-staging";
 
-  constexpr const char *kLogSource = "DtiVolumeScene";
+  constexpr const char *kLogSource = "MriScene";
 
   // Legacy read-only dataset formats ("dmri" is DmriDatasetLayout::kPreprocessorType).
   constexpr const char *kLegacyDtiPreprocessorType = "dti";
@@ -122,7 +122,7 @@ namespace
   {
     EngineLog::Message("DTI apply: " + std::to_string(std::llround(MillisecondsSince(applyStart))) +
                            " ms (engine thread)",
-                       "DtiVolumeScene");
+                       "MriScene");
   }
 
   // A copy of a live settings object (or defaults when there is none), so a job or an applied
@@ -329,7 +329,7 @@ namespace
  * @brief Construct a new Dti Volume Scene:: Dti Volume Scene object
  *
  */
-DtiVolumeScene::DtiVolumeScene()
+MriScene::MriScene()
     : dtiVolume(nullptr),
       preprocessor(std::make_shared<const MriToDmriPreprocessor>()),
       jobProgress(std::make_shared<SharedProgress>())
@@ -370,7 +370,7 @@ DtiVolumeScene::DtiVolumeScene()
  * @brief Cancel any running dataset jobs and wait for their worker threads to exit.
  *
  */
-DtiVolumeScene::~DtiVolumeScene()
+MriScene::~MriScene()
 {
   // Signal both before joining either, so they wind down concurrently.
   if (activeJob)
@@ -394,7 +394,7 @@ DtiVolumeScene::~DtiVolumeScene()
  * @param bvalPath The path to the b-values file
  * @param bvecPath The path to the b-vectors file
  */
-void DtiVolumeScene::LoadDataset(
+void MriScene::LoadDataset(
     const std::string &dwiVolumePath,
     const std::string &bvalPath,
     const std::string &bvecPath)
@@ -409,12 +409,12 @@ void DtiVolumeScene::LoadDataset(
   ReloadDataset();
 }
 
-void DtiVolumeScene::ReloadDataset()
+void MriScene::ReloadDataset()
 {
   datasetReloadRequested = true;
 }
 
-void DtiVolumeScene::ClearProcessedScene()
+void MriScene::ClearProcessedScene()
 {
   dtiVolume.reset();
   fodfVolume.reset();
@@ -480,7 +480,7 @@ namespace
  *        GL thread only. Shaders that failed to build are retried here, because hot reload skips
  *        invalid programs - so fixing a broken shader file takes effect on the next apply.
  */
-void DtiVolumeScene::EnsureShaderCache()
+void MriScene::EnsureShaderCache()
 {
   if (shaderCache.volumeRenderModes.size() < 5)
   {
@@ -516,7 +516,7 @@ void DtiVolumeScene::EnsureShaderCache()
  * @brief Build the fODF volume from pre-packed textures with the cached render modes. Returns null
  *        (with a warning) when no fODF render mode shader built, so the rest of the scene still applies.
  */
-std::shared_ptr<FodfVolume> DtiVolumeScene::CreateFodfVolume(FodfVolumeTextureData fodfVolumeTextures,
+std::shared_ptr<FodfVolume> MriScene::CreateFodfVolume(FodfVolumeTextureData fodfVolumeTextures,
                                                              int renderModeIndex,
                                                              int channelIndex) const
 {
@@ -539,7 +539,7 @@ std::shared_ptr<FodfVolume> DtiVolumeScene::CreateFodfVolume(FodfVolumeTextureDa
  * @brief Wrap a streamline tube mesh (DTI or fODF) in a GameObject using the shared streamline
  *        shader. Null when there is no mesh.
  */
-std::shared_ptr<GameObject> DtiVolumeScene::CreateStreamlineObject(const std::string &id,
+std::shared_ptr<GameObject> MriScene::CreateStreamlineObject(const std::string &id,
                                                                    const std::shared_ptr<Mesh> &mesh) const
 {
   if (!mesh)
@@ -559,7 +559,7 @@ std::shared_ptr<GameObject> DtiVolumeScene::CreateStreamlineObject(const std::st
  *        Null when there is no SH volume. The glyph instance data builds on its own worker, starting
  *        in its first Update, so it sees the plane re-clamped by SetDatasetGeometry.
  */
-std::shared_ptr<SHGlyphField> DtiVolumeScene::CreateGlyphField(const std::string &id,
+std::shared_ptr<SHGlyphField> MriScene::CreateGlyphField(const std::string &id,
                                                                const std::shared_ptr<const SHVolume> &volume,
                                                                SHGlyphDisplayMode displayMode) const
 {
@@ -583,7 +583,7 @@ std::shared_ptr<SHGlyphField> DtiVolumeScene::CreateGlyphField(const std::string
  *        own display settings across reruns and loads (DTI/fODF render mode and channel, each
  *        glyph field's Display mode); the Representation then decides which objects are shown.
  */
-void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
+void MriScene::ApplyPreprocessingResult(MriPreprocessingResult result,
                                               DTIVolumeTextureData volumeTextures,
                                               std::optional<FodfVolumeTextureData> fodfVolumeTextures,
                                               const MriPreprocessingRequest &appliedRequest)
@@ -744,18 +744,18 @@ void DtiVolumeScene::ApplyPreprocessingResult(MriPreprocessingResult result,
   RebuildInspectProviders();
 }
 
-bool DtiVolumeScene::IsFodfAvailable() const
+bool MriScene::IsFodfAvailable() const
 {
   return fodfUnavailableReason.empty();
 }
 
-DtiVolumeScene::Representation DtiVolumeScene::GetEffectiveRepresentation() const
+MriScene::Representation MriScene::GetEffectiveRepresentation() const
 {
   return selectedRepresentation == Representation::Fodf && IsFodfAvailable() ? Representation::Fodf
                                                                               : Representation::Dti;
 }
 
-void DtiVolumeScene::ApplyRepresentationVisibility()
+void MriScene::ApplyRepresentationVisibility()
 {
   const bool showFodf = GetEffectiveRepresentation() == Representation::Fodf;
   const auto showPair = [showFodf](InspectProvider *dtiSide, InspectProvider *fodfSide)
@@ -786,7 +786,7 @@ void DtiVolumeScene::ApplyRepresentationVisibility()
  *        (when it is) and the scene slice-plane controls, which SliceController reports under its
  *        own group and are regrouped here.
  */
-std::vector<InspectFieldPtr> DtiVolumeScene::GetRepresentationDashboardFields()
+std::vector<InspectFieldPtr> MriScene::GetRepresentationDashboardFields()
 {
   std::vector<InspectFieldPtr> fields;
 
@@ -836,7 +836,7 @@ std::vector<InspectFieldPtr> DtiVolumeScene::GetRepresentationDashboardFields()
   return fields;
 }
 
-void DtiVolumeScene::ApplyLoadedParameters(const std::string &preprocessorType, const std::string &parametersJson)
+void MriScene::ApplyLoadedParameters(const std::string &preprocessorType, const std::string &parametersJson)
 {
   if (preprocessorType == DmriDatasetLayout::kPreprocessorType)
   {
@@ -862,7 +862,7 @@ void DtiVolumeScene::ApplyLoadedParameters(const std::string &preprocessorType, 
  * @brief Collect a finished job (if any) and hand its outcome to ApplyJobOutcome. Reaps a
  *        finished superseded job without looking at its outcome.
  */
-void DtiVolumeScene::PollJobs()
+void MriScene::PollJobs()
 {
   if (retiringJob && retiringJob->IsFinished())
   {
@@ -917,7 +917,7 @@ void DtiVolumeScene::PollJobs()
  * @brief Queue a dataset job. Run/Load are latest-wins (cancelling a running Run/Load) and
  *        wait behind a running Save; a Save is refused while anything else is in flight.
  */
-void DtiVolumeScene::RequestJob(DatasetJobKind kind)
+void MriScene::RequestJob(DatasetJobKind kind)
 {
   if (kind == DatasetJobKind::Save)
   {
@@ -943,7 +943,7 @@ void DtiVolumeScene::RequestJob(DatasetJobKind kind)
 /**
  * @brief "Cancel preprocessing": stops a running or queued Run/Load. A Save is never cancelled.
  */
-void DtiVolumeScene::CancelPreprocessingJobs()
+void MriScene::CancelPreprocessingJobs()
 {
   if (pendingJob && *pendingJob != DatasetJobKind::Save)
   {
@@ -962,7 +962,7 @@ void DtiVolumeScene::CancelPreprocessingJobs()
  * @brief Signal the active job to stop and, if the retiring slot is free, park it there so a
  *        new job can start right away without waiting for (or joining) the old worker.
  */
-void DtiVolumeScene::RetireActiveJob()
+void MriScene::RetireActiveJob()
 {
   activeJob->Cancel();
 
@@ -978,7 +978,7 @@ void DtiVolumeScene::RetireActiveJob()
   activeJobCancelled = false;
 }
 
-void DtiVolumeScene::StartPendingJob()
+void MriScene::StartPendingJob()
 {
   if (activeJob || !pendingJob)
   {
@@ -1015,7 +1015,7 @@ void DtiVolumeScene::StartPendingJob()
  *        copy of the tractography, fODF and fODF tractography settings, so later inspector edits
  *        can't race with the worker.
  */
-std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateRunJob()
+std::unique_ptr<MriScene::DatasetJob> MriScene::CreateRunJob()
 {
   MriPreprocessingRequest request = currentRequest;
   SnapshotSettingsInto(request, tractographySettingsInspectable, fodfSettingsInspectable,
@@ -1032,7 +1032,7 @@ std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateRunJob()
  * @brief Start reading a saved dataset; its provenance parameters are applied to the scene
  *        only once the read succeeded (see ApplyJobOutcome).
  */
-std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateLoadJob()
+std::unique_ptr<MriScene::DatasetJob> MriScene::CreateLoadJob()
 {
   if (pendingLoadMetadataPath.empty())
   {
@@ -1050,7 +1050,7 @@ std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateLoadJob()
  * @brief Start persisting the most recently applied result together with the request and
  *        settings it was actually produced with, without re-running preprocessing.
  */
-std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateSaveJob()
+std::unique_ptr<MriScene::DatasetJob> MriScene::CreateSaveJob()
 {
   if (!lastPreprocessingResult)
   {
@@ -1078,7 +1078,7 @@ std::unique_ptr<DtiVolumeScene::DatasetJob> DtiVolumeScene::CreateSaveJob()
  * @brief Apply a finished job's outcome on the Update() (GL) thread: build the scene from a
  *        Run/Load result, or record a save/failure/cancellation in the status.
  */
-void DtiVolumeScene::ApplyJobOutcome(DatasetJobOutcome outcome)
+void MriScene::ApplyJobOutcome(DatasetJobOutcome outcome)
 {
   if (outcome.cancelled)
   {
@@ -1157,7 +1157,7 @@ void DtiVolumeScene::ApplyJobOutcome(DatasetJobOutcome outcome)
   }
 }
 
-void DtiVolumeScene::FailJob(DatasetJobKind kind, const std::string &error)
+void MriScene::FailJob(DatasetJobKind kind, const std::string &error)
 {
   if (kind == DatasetJobKind::Save)
   {
@@ -1172,7 +1172,7 @@ void DtiVolumeScene::FailJob(DatasetJobKind kind, const std::string &error)
   std::cerr << "DTI " << DescribeJobKind(kind) << " failed: " << error << std::endl;
 }
 
-void DtiVolumeScene::RefreshStatusText()
+void MriScene::RefreshStatusText()
 {
   if (!activeJob)
   {
@@ -1182,7 +1182,7 @@ void DtiVolumeScene::RefreshStatusText()
   statusText = activeJobCancelled ? std::string("Cancelling...") : FormatProgress(jobProgress->Read());
 }
 
-std::string DtiVolumeScene::GetPreprocessingStatus() const
+std::string MriScene::GetPreprocessingStatus() const
 {
   return statusNotice.empty() ? statusText : statusText + " - " + statusNotice;
 }
@@ -1193,7 +1193,7 @@ std::string DtiVolumeScene::GetPreprocessingStatus() const
  *
  * @param deltaTime
  */
-void DtiVolumeScene::Update(float deltaTime)
+void MriScene::Update(float deltaTime)
 {
   // Compile the reusable shaders up front (GL thread), so the first apply doesn't pay for it.
   if (!shaderCacheWarmed)
@@ -1270,7 +1270,7 @@ void DtiVolumeScene::Update(float deltaTime)
   RebuildInspectProvidersIfLayoutChanged();
 }
 
-void DtiVolumeScene::RebuildInspectProvidersIfLayoutChanged()
+void MriScene::RebuildInspectProvidersIfLayoutChanged()
 {
   const float offsetLimit = sliceController->GetOffsetLimit();
   const float offsetStep = sliceController->GetOffsetStep();
@@ -1293,7 +1293,7 @@ void DtiVolumeScene::RebuildInspectProvidersIfLayoutChanged()
   RebuildInspectProviders(); // bumps the provider generation -> the UI re-fetches field metadata
 }
 
-void DtiVolumeScene::Apply(IUniformSink &shader) const
+void MriScene::Apply(IUniformSink &shader) const
 {
   Scene::Apply(shader);
 
@@ -1313,7 +1313,7 @@ void DtiVolumeScene::Apply(IUniformSink &shader) const
  *
  * @return engine inspection fields
  */
-std::vector<InspectFieldPtr> DtiVolumeScene::GetDashboardFields()
+std::vector<InspectFieldPtr> MriScene::GetDashboardFields()
 {
   std::vector<InspectFieldPtr> fields = Scene::GetDashboardFields();
   const auto append = [&fields](const std::vector<InspectFieldPtr> &more)

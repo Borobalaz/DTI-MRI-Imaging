@@ -7,7 +7,7 @@
 
 /**
  * @brief Builds/parses the DTI dataset's opaque provenance JSON (source paths + tractography
- *        parameters). Shared by MriPreprocessingRunner and DtiVolumeScene's save/load actions
+ *        parameters). Shared by MriPreprocessingRunner and MriScene's save/load actions
  *        so the JSON shape can't drift between the two call sites.
  */
 std::string BuildDtiPreprocessingParametersJson(

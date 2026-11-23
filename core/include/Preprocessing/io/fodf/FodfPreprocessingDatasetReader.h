@@ -5,7 +5,7 @@
 /**
  * @brief Reconstructs an fODF MriPreprocessingResult (dtiChannels, fodfShVolume, optional
  *        shVolume, fodfResponse, fodfIgnoredShellBValues) from a saved "fodf" dataset, ready for
- *        DtiVolumeScene::ApplyPreprocessingResult - the same path a live run uses.
+ *        MriScene::ApplyPreprocessingResult - the same path a live run uses.
  */
 class FodfPreprocessingDatasetReader : public IPreprocessingDatasetReader
 {

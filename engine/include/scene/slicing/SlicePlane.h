@@ -12,7 +12,7 @@
 // = dimensions * spacing / max component, so the longest axis has length 1 ("normalised object
 // units"). Voxel (i,j,k)'s centre is ((ijk + 0.5) / dimensions - 0.5) * E. Volume's unit cube
 // q in [-0.5,0.5]^3 maps here by p = E * q (componentwise). Everything processed by
-// DtiVolumeScene shares this space (up to the common object rotation), so a plane stored here is
+// MriScene shares this space (up to the common object rotation), so a plane stored here is
 // fixed to the data and rotates with it.
 
 // Box size of a dims x spacing grid in dataset object space (see above). Non-positive input

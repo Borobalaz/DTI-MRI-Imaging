@@ -240,7 +240,7 @@ std::vector<InspectFieldPtr> SliceController::GetDashboardFields()
   });
   fields.push_back(normalField);
 
-  // The range is frozen at fetch time; DtiVolumeScene re-fetches when the limit changes, and the
+  // The range is frozen at fetch time; MriScene re-fetches when the limit changes, and the
   // setter clamps anyway, so a stale UI range is harmless.
   auto offsetField = MakeInspectField("slice.offset", "Offset", kPlaneGroup, InspectFieldType::Number,
     static_cast<double>(plane->GetOffset()),

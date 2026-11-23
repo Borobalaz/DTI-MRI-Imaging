@@ -7,7 +7,7 @@
 #include "Preprocessing/MriFodfSettings.h"
 
 // Builds/parses the fODF dataset's opaque provenance JSON (source paths, CSD settings, chosen
-// shell). Shared by DtiVolumeScene's save/load actions so the JSON shape cannot drift.
+// shell). Shared by MriScene's save/load actions so the JSON shape cannot drift.
 std::string BuildFodfPreprocessingParametersJson(
     const MriPreprocessingRequest& request,
     const MriFodfSettings& settings,

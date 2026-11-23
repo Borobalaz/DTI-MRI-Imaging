@@ -8,7 +8,7 @@
 
 #include <glm/gtc/matrix_inverse.hpp>
 
-#include "DtiVolumeScene.h"
+#include "MriScene.h"
 #include "runtime/dashboard/SceneDashboardService.h"
 #include "runtime/inspection/SceneInspectionService.h"
 #include "foundation/log/EngineLog.h"
@@ -482,7 +482,7 @@ void EngineRuntime::CreateSceneLocked()
   lockedSceneDashboardService.Detach();
   sceneDashboardService.reset();
 
-  scene = std::make_unique<DtiVolumeScene>();
+  scene = std::make_unique<MriScene>();
   scene->RebuildInspectProviders();
   sceneInspectionService = std::make_unique<SceneInspectionService>(*scene);
   lockedInspectionService.Attach(*sceneInspectionService, *scene);
