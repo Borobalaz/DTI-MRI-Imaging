@@ -21,7 +21,7 @@ flowchart TD
     end
 
     subgraph Worker[Preprocessing worker - BackgroundTask]
-        Pipeline[MriToDmriPreprocessor: DTI + optional fODF group / dmri dataset read-write]
+        Pipeline[MriToDmriPreprocessor: DTI + fODF stages / dmri dataset read-write]
         Pack[PackDTIVolumeTextures + PackFodfVolumeTextures: TextureData3D]
     end
 

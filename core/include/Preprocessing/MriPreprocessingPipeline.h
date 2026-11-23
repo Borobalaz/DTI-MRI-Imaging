@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -45,8 +44,7 @@ struct MriPreprocessingResult
   // Filled by MriToDtiPreprocessor (dtiChannels, meshes, seeds, tensor-ODF shVolume), by
   // MriToFodfPreprocessor (dtiChannels, shVolume, fodfResponse, fodfShVolume, fodfIgnoredShellBValues;
   // no meshes/seeds) or by MriToDmriPreprocessor (all of the above plus the fODF maps, fODF
-  // streamlines and cutoff; the fODF fields stay empty and fodfUnavailableReason is set when the
-  // optional fODF group failed).
+  // streamlines and cutoff).
   DTIVolumeChannels dtiChannels;
   std::shared_ptr<Mesh> surfaceMesh;
   // DTI streamlines (principal-eigenvector tracking); the fODF ones are fodfStreamlineMesh.
@@ -69,7 +67,8 @@ struct MriPreprocessingResult
   std::shared_ptr<Mesh> fodfStreamlineMesh;
   // Absolute peak-amplitude cutoff (relative cutoff x p95 of peak-1 amplitude); 0 when not computed.
   float fodfAbsoluteAmplitudeCutoff = 0.0f;
-  // Why the fODF outputs are missing (empty when they were computed or never requested).
+  // Why the fODF outputs are missing; set only when a loaded dataset records it (fodf/status.json),
+  // never by a pipeline run.
   std::string fodfUnavailableReason;
   MriPreprocessingReport report;
 };
@@ -156,7 +155,6 @@ struct MriPreprocessingContext
   std::shared_ptr<const SHVolume> outputFodfShVolume;
   std::shared_ptr<const FodfVolumeChannels> outputFodfMaps;
   std::shared_ptr<Mesh> outputFodfStreamlineMesh;
-  std::string fodfUnavailableReason;
 };
 
 /**
@@ -183,37 +181,12 @@ public:
 class MriPreprocessingPipeline
 {
 public:
-  // Called on the pipeline thread when a stage of an optional group fails; reason is
-  // "<stage name> failed: <what>". Expected to reset the group's partial outputs.
-  using StageGroupFailureHandler = std::function<void(MriPreprocessingContext&, const std::string& reason)>;
-
   MriPreprocessingPipeline& AddStage(std::unique_ptr<IMriPreprocessingStage> stage);
-  // Appends stages that the run may lose without failing: if one of them throws (anything but a
-  // cancellation), the group's remaining stages are skipped, a report warning is added and
-  // onFailure runs; the stages after the group still execute.
-  MriPreprocessingPipeline& AddOptionalStageGroup(std::string name,
-                                                  std::vector<std::unique_ptr<IMriPreprocessingStage>> groupStages,
-                                                  StageGroupFailureHandler onFailure);
   // Checks for cancellation and reports progress between stages; throws
   // MriPreprocessingCancelled when options.cancellation is signalled.
   MriPreprocessingResult Execute(const MriPreprocessingRequest& request,
                                  const MriPreprocessingExecutionOptions& options = {}) const;
 
 private:
-  struct StageEntry
-  {
-    std::unique_ptr<IMriPreprocessingStage> stage;
-    std::optional<size_t> groupIndex; // into optionalGroups; empty for a mandatory stage
-  };
-
-  struct OptionalGroup
-  {
-    std::string name;
-    StageGroupFailureHandler onFailure;
-  };
-
-  bool ExecuteOptionalStage(const StageEntry& entry, MriPreprocessingContext& context) const;
-
-  std::vector<StageEntry> stages;
-  std::vector<OptionalGroup> optionalGroups;
+  std::vector<std::unique_ptr<IMriPreprocessingStage>> stages;
 };
